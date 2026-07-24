@@ -44,7 +44,7 @@ The task table shows Label directly after Task and supports search, sorting, gro
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-list-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/task-list-light.png">
-  <img alt="Tasks overview" src="docs/images/task-list-light.png">
+  <img alt="Tasks overview" src="docs/images/task-list-light.png" width="520">
 </picture>
 
 Schedules can repeat by calendar or from the last completion. The optional start date limits when a recurrence begins. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
@@ -52,7 +52,7 @@ Schedules can repeat by calendar or from the last completion. The optional start
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/schedule-preview-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/schedule-preview-light.png">
-  <img alt="Schedule editor with upcoming due-date preview" src="docs/images/schedule-preview-light.png">
+  <img alt="Schedule editor with upcoming due-date preview" src="docs/images/schedule-preview-light.png" width="520">
 </picture>
 
 Task details show the due date, assignee, labels, attachments, completion history, and notes in one dialog.
@@ -60,7 +60,7 @@ Task details show the due date, assignee, labels, attachments, completion histor
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-details-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/task-details-light.png">
-  <img alt="Task details and completion dialog" src="docs/images/task-details-light.png">
+  <img alt="Task details and completion dialog" src="docs/images/task-details-light.png" width="520">
 </picture>
 
 To complete a task with NFC, create a tag under **Settings → Tags** and assign it in the task editor. One tag can be assigned to only one task.
