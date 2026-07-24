@@ -13,7 +13,7 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
@@ -74,7 +74,7 @@ test("native pane filters combine dimensions and allow multiple values within on
 test("panel uses the native Home Assistant data-table wrapper",()=>{
   assert.match(source,/createElement\("hass-tabs-subpage-data-table"\)/);
   assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
-  assert.match(source,/wrapper\.initialSorting=INITIAL_TASK_SORTING/);
+  assert.match(source,/wrapper\.initialSorting=view\.sorting/);
   assert.deepEqual(INITIAL_TASK_SORTING,{column:"due_ts",direction:"asc"});
   assert.doesNotMatch(source,/groupRow\(|wireGroup\(|placeholder-add|class="group"/);
 });
@@ -135,8 +135,8 @@ test("panel title uses Home Assistant's compact native title margin",()=>{
 test("table starts with the requested visible columns in order",()=>{
   assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["name","due_ts","assignee","nfc_tag","files","labels","actions","recurrence","rhythm"]);
   assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["recurrence","rhythm"]);
-  assert.match(source,/wrapper\.columnOrder=\[\.\.\.DEFAULT_TASK_COLUMN_ORDER\]/);
-  assert.match(source,/wrapper\.hiddenColumns=\[\.\.\.DEFAULT_HIDDEN_TASK_COLUMNS\]/);
+  assert.match(source,/wrapper\.columnOrder=Array\.isArray\(view\.columnOrder\)/);
+  assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
   assert.match(source,/recurrence:\{title:t\("table\.recurrence"\),defaultHidden:true,\.\.\.groupable\}/);
   assert.match(source,/rhythm:\{title:t\("table\.rhythm"\),defaultHidden:true,\.\.\.groupable\}/);
   assert.match(source,/labels:\{title:t\("table\.label"\),\.\.\.groupable\}/);
@@ -144,11 +144,40 @@ test("table starts with the requested visible columns in order",()=>{
   assert.ok(source.indexOf('rhythm:{title:t("table.rhythm")')<source.indexOf('actions:{title:""'));
 });
 
+test("custom table view survives reloads using the same storage split as Home Assistant",()=>{
+  const memory=initial=>{
+    const values=new Map(Object.entries(initial));
+    return {getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  };
+  const local=memory({}),session=memory({});
+  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.sorting,{column:"name",direction:"desc"});
+  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.grouping,"assignee");
+  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.columnOrder,["name","assignee","actions"]);
+  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.hiddenColumns,["files","labels"]);
+  storeTaskTableValue(session,TASK_TABLE_STORAGE_KEYS.search,"filter");
+  storeTaskTableValue(session,TASK_TABLE_STORAGE_KEYS.filters,{assignee:["Alex"]});
+
+  assert.deepEqual(loadTaskTableView(local,session),{
+    search:"filter",
+    filters:{assignee:["Alex"]},
+    sorting:{column:"name",direction:"desc"},
+    grouping:"assignee",
+    collapsed:undefined,
+    columnOrder:["name","assignee","actions"],
+    hiddenColumns:["files","labels"],
+  });
+  assert.match(source,/wrapper\.addEventListener\("columns-changed"/);
+  assert.match(source,/wrapper\.addEventListener\("sorting-changed"/);
+  assert.match(source,/wrapper\.addEventListener\("grouping-changed"/);
+  assert.match(source,/wrapper\.addEventListener\("collapsed-changed"/);
+  assert.match(source,/wrapper\.addEventListener\("search-changed"/);
+});
+
 test("only the requested dimensions can group the native table",()=>{
   assert.deepEqual(TASK_GROUP_COLUMNS,["labels","recurrence","rhythm","assignee"]);
   for(const column of TASK_GROUP_COLUMNS)assert.match(source,new RegExp(`${column}:\\{title:[^}]+\\.\\.\\.groupable`));
   assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true\}/);
-  assert.doesNotMatch(source,/initialGroupColumn/);
+  assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);
   assert.doesNotMatch(source,/tableGrouping|table\.groupColumn=/);
 });
 
@@ -188,11 +217,12 @@ test("all filters follow Home Assistant category rows",()=>{
   assert.match(actionMenu,/dropdown\.addEventListener\("click",\s*stop\)/);
 });
 
-test("search is delegated completely to the native Home Assistant table",()=>{
+test("search remains delegated to the native table while its value is persisted",()=>{
   assert.match(source,/name:\{title:[^}]+filterable:true/);
   assert.match(source,/const groupable=\{sortable:true,filterable:true,groupable:true\}/);
   for(const column of TASK_GROUP_COLUMNS)assert.match(source,new RegExp(`${column}:\\{title:[^}]+\\.\\.\\.groupable`));
-  assert.doesNotMatch(source,/tableSearch|filterTaskRows|search-changed|syncNativeTableFilter/);
+  assert.doesNotMatch(source,/tableSearch|filterTaskRows|syncNativeTableFilter/);
+  assert.match(source,/wrapper\.addEventListener\("search-changed"/);
   assert.doesNotMatch(source,/wrapper\.addEventListener\("value-changed"/);
 });
 

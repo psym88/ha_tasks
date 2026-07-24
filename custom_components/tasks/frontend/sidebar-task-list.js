@@ -11,6 +11,46 @@ export const DEFAULT_HIDDEN_TASK_COLUMNS = ["recurrence","rhythm"];
 export const TASK_GROUP_COLUMNS = ["labels","recurrence","rhythm","assignee"];
 export const TASK_FILTER_COLUMNS = ["labels","assignee","recurrence","rhythm"];
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
+export const TASK_TABLE_STORAGE_KEYS = {
+  search:"tasks-sidebar-table-search",
+  filters:"tasks-sidebar-table-filters",
+  sorting:"tasks-sidebar-table-sort",
+  grouping:"tasks-sidebar-table-grouping",
+  collapsed:"tasks-sidebar-table-collapsed",
+  columnOrder:"tasks-sidebar-table-column-order",
+  hiddenColumns:"tasks-sidebar-table-hidden-columns",
+};
+
+function storedValue(storage,key,fallback) {
+  try {
+    const value=storage?.getItem(key);
+    return value===null||value===undefined?fallback:JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+export function storeTaskTableValue(storage,key,value) {
+  try {
+    if(value===undefined)storage?.removeItem(key);
+    else storage?.setItem(key,JSON.stringify(value));
+  } catch {
+    // Safari private browsing and locked-down WebViews can reject storage.
+  }
+}
+
+export function loadTaskTableView(localStorage,sessionStorage) {
+  const filters=storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.filters,{});
+  return {
+    search:String(storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.search,"")||""),
+    filters:filters&&typeof filters==="object"&&!Array.isArray(filters)?filters:{},
+    sorting:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.sorting,INITIAL_TASK_SORTING),
+    grouping:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.grouping,undefined),
+    collapsed:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.collapsed,undefined),
+    columnOrder:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.columnOrder,DEFAULT_TASK_COLUMN_ORDER),
+    hiddenColumns:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.hiddenColumns,DEFAULT_HIDDEN_TASK_COLUMNS),
+  };
+}
 
 export class TasksSidebarFilterCategory extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this._items=[];this._value=[];this.expanded=false;this.label="";this.icon="mdi:filter-variant";}
@@ -118,6 +158,17 @@ function overflowDropdown(label,items,action,narrow=false) {
 }
 
 export const withTaskList = Base => class extends Base {
+  restoreTaskTableView(){
+    if(this.taskTableView)return this.taskTableView;
+    this.taskTableView=loadTaskTableView(globalThis.localStorage,globalThis.sessionStorage);
+    this.tableFilters=this.taskTableView.filters;
+    return this.taskTableView;
+  }
+  persistTaskTableValue(kind,value){
+    const session=kind==="search"||kind==="filters";
+    storeTaskTableValue(session?globalThis.sessionStorage:globalThis.localStorage,TASK_TABLE_STORAGE_KEYS[kind],value);
+    this.taskTableView={...this.restoreTaskTableView(),[kind]:value};
+  }
   tagName(task){const id=knownReferenceId(task?.nfc_tag_id,this.tags);return id?this.tags.find(tag=>tag.id===id)?.name||"":"";}
   tableRows(){return taskTableRows(this.tasks,{users:this.users,tags:this.tags,labels:this.labels,attachments:this.attachments,translate:t});}
   filterLabel(schema){return {labels:t("task.labels"),assignee:t("table.assignee"),recurrence:t("table.recurrence"),rhythm:t("table.rhythm")}[schema.name]||schema.name;}
@@ -171,6 +222,7 @@ export const withTaskList = Base => class extends Base {
   }
   render(){
     if(!this.shadowRoot.querySelector(".app")){
+      const view=this.restoreTaskTableView();
       this.shadowRoot.innerHTML=`<style>:host{display:block;height:100%;background:var(--primary-background-color);color:var(--primary-text-color)}.app,hass-tabs-subpage-data-table{display:block;height:100%}.filters{box-sizing:border-box;width:100%}ha-assist-chip{--ha-assist-chip-container-shape:10px}</style><div class="app"></div>`;
       const wrapper=document.createElement("hass-tabs-subpage-data-table"),settings=document.createElement("ha-icon-button"),settingsIcon=document.createElement("ha-icon"),filterPane=document.createElement("div"),fab=document.createElement("ha-button"),fabIcon=document.createElement("ha-icon");
       wrapper.className="task-table";
@@ -181,15 +233,19 @@ export const withTaskList = Base => class extends Base {
       wrapper.setAttribute("selectable","");
       wrapper.setAttribute("has-fab","");
       wrapper.setAttribute("has-filters","");
-      wrapper.columnOrder=[...DEFAULT_TASK_COLUMN_ORDER];
-      wrapper.hiddenColumns=[...DEFAULT_HIDDEN_TASK_COLUMNS];
+      wrapper.filter=view.search;
+      wrapper.initialSorting=view.sorting;
+      wrapper.initialGroupColumn=view.grouping;
+      wrapper.initialCollapsedGroups=view.collapsed;
+      wrapper.columnOrder=Array.isArray(view.columnOrder)?[...view.columnOrder]:[...DEFAULT_TASK_COLUMN_ORDER];
+      wrapper.hiddenColumns=Array.isArray(view.hiddenColumns)?[...view.hiddenColumns]:[...DEFAULT_HIDDEN_TASK_COLUMNS];
       settings.slot="toolbar-icon";
       settings.label=t("settings.title");
       settings.setAttribute("aria-label",t("settings.title"));
       settingsIcon.setAttribute("icon","mdi:cog-outline");
       settings.append(settingsIcon);
       settings.addEventListener("click",event=>{event.stopPropagation();this.settings();});
-      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.updateTaskTable();});filterPane.append(filter);}
+      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});filterPane.append(filter);}
       fab.slot="fab";
       fab.setAttribute("size","l");
       fab.textContent=t("common.add_task");
@@ -203,7 +259,12 @@ export const withTaskList = Base => class extends Base {
       this.observeTaskTableWidth(wrapper);
       wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];wrapper.selected=this.selectedTaskIds.length;this.appendBulkActions(wrapper);});
       wrapper.addEventListener("row-click",event=>{const task=this.tasks.find(item=>item.task_id===event.detail?.id);if(task)this.taskViewer(task);});
-      wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.updateTaskTable();});
+      wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});
+      wrapper.addEventListener("search-changed",event=>this.persistTaskTableValue("search",event.detail?.value||""));
+      wrapper.addEventListener("sorting-changed",event=>this.persistTaskTableValue("sorting",event.detail));
+      wrapper.addEventListener("grouping-changed",event=>this.persistTaskTableValue("grouping",event.detail?.value||undefined));
+      wrapper.addEventListener("collapsed-changed",event=>this.persistTaskTableValue("collapsed",event.detail?.value));
+      wrapper.addEventListener("columns-changed",event=>{const {columnOrder,hiddenColumns}=event.detail||{};this.persistTaskTableValue("columnOrder",columnOrder);this.persistTaskTableValue("hiddenColumns",hiddenColumns);});
     }
     this.updateTaskTable();
   }
@@ -226,6 +287,5 @@ export const withTaskList = Base => class extends Base {
     wrapper.filters=this.activeFilterCount();
     wrapper.noDataText=t("table.empty");
     wrapper.searchLabel=t("table.search");
-    wrapper.initialSorting=INITIAL_TASK_SORTING;
   }
 };
