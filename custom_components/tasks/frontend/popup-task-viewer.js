@@ -1,8 +1,8 @@
 import { L, esc } from "./shared.js";
 import { t } from "./localize.js";
 
-export const TASK_DIALOG_TAG="tasks-task-dialog";
-const COMPLETION_DIALOG_TAG="tasks-completion-dialog";
+export const TASK_VIEWER_TAG="tasks-popup-task-viewer";
+const COMPLETION_CONFIRM_TAG="tasks-popup-completion-confirm";
 const VIEWER_FILE_GRID="display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:8px;align-items:center;min-height:40px";
 
 function detailBox(title,content,className){
@@ -20,10 +20,10 @@ function taskHistoryBoxHtml(controller,entries){
 }
 
 function confirmCompletion(dispatcher,task){
-  return new Promise(resolve=>dispatcher.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:COMPLETION_DIALOG_TAG,dialogImport:()=>customElements.whenDefined(COMPLETION_DIALOG_TAG),dialogParams:{task,resolve}}})));
+  return new Promise(resolve=>dispatcher.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:COMPLETION_CONFIRM_TAG,dialogImport:()=>customElements.whenDefined(COMPLETION_CONFIRM_TAG),dialogParams:{task,resolve}}})));
 }
 
-class TasksCompletionDialog extends HTMLElement {
+class TasksPopupCompletionConfirm extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this.resolved=false;}
   showDialog({task,resolve}){this.task=task;this.resolve=resolve;this.resolved=false;this.render();}
   finish(value){if(this.resolved)return;this.resolved=true;this.resolve(value);this.closeDialog();}
@@ -32,9 +32,9 @@ class TasksCompletionDialog extends HTMLElement {
   render(){this.shadowRoot.innerHTML=`<style>ha-adaptive-dialog{--dialog-content-padding:0}.message{padding:16px 24px 24px;color:var(--primary-text-color)}ha-dialog-footer{padding:0 24px max(16px,var(--safe-area-inset-bottom))}</style><ha-adaptive-dialog width="small"><span slot="headerTitle">${t("task.complete_title")}</span><div class="message">${esc(t("task.complete_confirm",{name:this.task.task_name}))}</div><ha-dialog-footer slot="footer"><ha-button class="cancel" slot="secondaryAction" appearance="plain">${t("common.cancel")}</ha-button><ha-button class="confirm" slot="primaryAction" variant="brand">${t("task.completed")}</ha-button></ha-dialog-footer></ha-adaptive-dialog>`;const dialog=this.shadowRoot.querySelector("ha-adaptive-dialog");dialog.open=true;dialog.addEventListener("closed",()=>this.dialogClosed(),{once:true});this.shadowRoot.querySelector(".cancel").onclick=()=>this.finish(false);this.shadowRoot.querySelector(".confirm").onclick=()=>this.finish(true);}
 }
 
-export function showTaskDialog(controller,task){controller.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:TASK_DIALOG_TAG,dialogImport:()=>customElements.whenDefined(TASK_DIALOG_TAG),dialogParams:{controller,task},addHistory:true}}));}
+export function showTaskViewer(controller,task){controller.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:TASK_VIEWER_TAG,dialogImport:()=>customElements.whenDefined(TASK_VIEWER_TAG),dialogParams:{controller,task},addHistory:true}}));}
 
-export class TasksTaskDialog extends HTMLElement {
+export class TasksPopupTaskViewer extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this.open=false;}
   showDialog({controller,task}){this.controller=controller;this.task=task;this.open=true;this.render();this.addAssignmentChips();this.loadHistory();}
   closeDialog(){if(!this.open)return true;this.open=false;const dialog=this.shadowRoot.querySelector("ha-adaptive-dialog");if(dialog)dialog.open=false;return true;}
@@ -46,5 +46,5 @@ export class TasksTaskDialog extends HTMLElement {
   render(){const controller=this.controller,task=this.task,assignee=controller.users.find(user=>user.id===task.assignee_id),due=task.task_due?`<ha-assist-chip label="${esc(controller.date(task.task_due))}"><ha-icon slot="icon" icon="mdi:calendar"></ha-icon></ha-assist-chip>`:"",description=task.task_description?`<ha-markdown breaks></ha-markdown>`:`<p class="ht-content">${t("task.no_description")}</p>`,notes=`<textarea class="completion-notes ht-content" style="resize:vertical" aria-label="${esc(t("task.completion_notes"))}" placeholder="${esc(t("task.completion_notes_placeholder"))}"></textarea>`;this.shadowRoot.innerHTML=`${controller.typographyStyles()}${controller.formStyles()}<style>:host{color:var(--primary-text-color)}ha-adaptive-dialog{--dialog-content-padding:0}ha-expansion-panel{--input-fill-color:transparent}.content{display:flex;flex-direction:column;gap:12px;padding:16px 24px 24px;overflow:auto}ha-chip-set{display:flex;gap:8px;flex-wrap:wrap}.recurrence{overflow-wrap:anywhere;margin:0}.details-content{display:flex;flex-direction:column;gap:8px;padding:0 16px 16px}.detail-row{display:flex;align-items:center;gap:8px;padding:7px 0}.detail-row span,.filename{flex:1}.file-size{flex:0;white-space:nowrap}ha-dialog-footer{padding:0 24px max(16px,var(--safe-area-inset-bottom))}</style><ha-adaptive-dialog width="medium" flexcontent><ha-icon-button slot="headerNavigationIcon" class="close" label="${t("common.close")}"><ha-icon icon="mdi:close"></ha-icon></ha-icon-button><span slot="headerTitle">${esc(task.task_name)}</span><div class="content"><ha-chip-set>${due}<ha-assist-chip label="${esc(assignee?.name||t("task.unassigned"))}"><ha-icon slot="icon" icon="mdi:account"></ha-icon></ha-assist-chip></ha-chip-set><p class="recurrence ht-content">${esc(controller.scheduleText(task))}</p>${description}${notes}${taskFilesBoxHtml(controller,task)}${taskHistoryBoxHtml(controller,null)}</div><ha-dialog-footer slot="footer"><ha-button class="complete" slot="primaryAction" variant="brand">${t("task.completed")}</ha-button></ha-dialog-footer></ha-adaptive-dialog>`;const markdown=this.shadowRoot.querySelector("ha-markdown");if(markdown)markdown.content=task.task_description;const dialog=this.shadowRoot.querySelector("ha-adaptive-dialog");dialog.open=true;dialog.addEventListener("closed",()=>this.dialogClosed(),{once:true});this.shadowRoot.querySelector(".close").onclick=()=>this.closeDialog();this.shadowRoot.querySelector(".complete").onclick=()=>this.complete();controller.wireFileOpeners(this.shadowRoot,this);}
 }
 
-if(!customElements.get(TASK_DIALOG_TAG))customElements.define(TASK_DIALOG_TAG,TasksTaskDialog);
-if(!customElements.get(COMPLETION_DIALOG_TAG))customElements.define(COMPLETION_DIALOG_TAG,TasksCompletionDialog);
+if(!customElements.get(TASK_VIEWER_TAG))customElements.define(TASK_VIEWER_TAG,TasksPopupTaskViewer);
+if(!customElements.get(COMPLETION_CONFIRM_TAG))customElements.define(COMPLETION_CONFIRM_TAG,TasksPopupCompletionConfirm);

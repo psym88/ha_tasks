@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 test("settings uses a native dialog with a collapsible import/export section", () => {
-  const source = readFileSync(new URL("../../custom_components/tasks/frontend/native-settings-dialog.js", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../../custom_components/tasks/frontend/popup-settings.js", import.meta.url), "utf8");
   assert.match(source, /show-dialog/);
   assert.match(source, /<ha-adaptive-dialog/);
   assert.match(source, /Tasks - \$\{esc\(version\)\}.*<ha-expansion-panel outlined>/);
@@ -19,7 +19,7 @@ test("settings uses a native dialog with a collapsible import/export section", (
 
 test("panel archive import uses Home Assistant file upload and its Tasks event", () => {
   const source = readFileSync(new URL("../../custom_components/tasks/frontend/main.js", import.meta.url), "utf8");
-  const dialog = readFileSync(new URL("../../custom_components/tasks/frontend/native-settings-dialog.js", import.meta.url), "utf8");
+  const dialog = readFileSync(new URL("../../custom_components/tasks/frontend/popup-settings.js", import.meta.url), "utf8");
   assert.match(source, /fetchWithAuth\("\/api\/tasks\/archive"\)/);
   assert.match(source, /type:"tasks\/archive\/import",file_id:fileId/);
   assert.match(dialog, /selector\.selector=\{file:\{accept:"\.zip,application\/zip"\}\}/);

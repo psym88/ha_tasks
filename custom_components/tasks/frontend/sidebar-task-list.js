@@ -8,9 +8,9 @@ export const DEFAULT_TASK_COLUMN_ORDER = ["name","due_ts","assignee","nfc_tag","
 export const DEFAULT_HIDDEN_TASK_COLUMNS = ["recurrence","rhythm"];
 export const TASK_GROUP_COLUMNS = ["labels","recurrence","rhythm","assignee"];
 export const TASK_FILTER_COLUMNS = ["labels","assignee","recurrence","rhythm"];
-export const FILTER_CATEGORY_TAG="tasks-filter-category";
+export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 
-export class TasksFilterCategory extends HTMLElement {
+export class TasksSidebarFilterCategory extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this._items=[];this._value=[];this.expanded=false;this.label="";this.icon="mdi:filter-variant";}
   set items(value){this._items=Array.isArray(value)?value:[];this.render();}
   get items(){return this._items;}
@@ -27,7 +27,7 @@ export class TasksFilterCategory extends HTMLElement {
   }
 }
 
-if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGORY_TAG,TasksFilterCategory);
+if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGORY_TAG,TasksSidebarFilterCategory);
 
 export function dueTimestamp(value) {
   const text=String(value||""),match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
@@ -175,7 +175,7 @@ export const withTaskList = Base => class extends Base {
       settingsIcon.setAttribute("icon","mdi:cog-outline");
       settings.append(settingsIcon);
       settings.addEventListener("click",event=>{event.stopPropagation();this.settings();});
-      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement("tasks-filter-category");filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.updateTaskTable();});filterPane.append(filter);}
+      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.updateTaskTable();});filterPane.append(filter);}
       fab.slot="fab";
       fab.setAttribute("size","l");
       fab.textContent=t("common.add_task");
@@ -199,7 +199,7 @@ export const withTaskList = Base => class extends Base {
     const settings=wrapper.querySelector('[slot="toolbar-icon"]'),fab=wrapper.querySelector('[slot="fab"]'),rows=this.tableRows();
     if(settings){settings.label=t("settings.title");settings.title=t("settings.title");settings.setAttribute("aria-label",t("settings.title"));}
     if(fab){for(const node of [...fab.childNodes])if(node.nodeType===3)node.remove();fab.append(document.createTextNode(t("common.add_task")));}
-    wrapper.querySelectorAll("tasks-filter-category").forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon={labels:"mdi:label-outline",assignee:"mdi:account",recurrence:"mdi:calendar-sync",rhythm:"mdi:repeat"}[column];filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
+    wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon={labels:"mdi:label-outline",assignee:"mdi:account",recurrence:"mdi:calendar-sync",rhythm:"mdi:repeat"}[column];filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
     wrapper.hass=this._hass;
     wrapper.route=this.route;
     wrapper.tabs=[{name:"Tasks",path:""}];

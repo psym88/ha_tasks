@@ -13,10 +13,10 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/task-list.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/shared.js");
 
-const source=readFileSync(new URL("../../custom_components/tasks/frontend/task-list.js",import.meta.url),"utf8");
+const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
 test("task rows flatten every grouping dimension and resolve ids to names",()=>{
   const tasks=[{task_id:"laundry",task_name:"Laundry",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer"}];
@@ -150,8 +150,8 @@ test("native filter pane exposes label assignee recurrence and rhythm filters",(
   assert.match(source,/filterPane\.className="filters"/);
   assert.match(source,/filterPane\.slot="filter-pane"/);
   assert.match(source,/for\(const column of TASK_FILTER_COLUMNS\)/);
-  assert.match(source,/createElement\("tasks-filter-category"\)/);
-  assert.match(source,/querySelectorAll\("tasks-filter-category"\)/);
+  assert.match(source,/createElement\(FILTER_CATEGORY_TAG\)/);
+  assert.match(source,/querySelectorAll\(FILTER_CATEGORY_TAG\)/);
   assert.match(source,/\.filters\{box-sizing:border-box;width:100%\}/);
   assert.doesNotMatch(source,/\.filters\{[^}]*margin/);
   assert.doesNotMatch(source,/createElement\("ha-form"\)|ha-filter-states|expandedTableFilter|filterDefinitionPending/);
@@ -172,8 +172,8 @@ test("closing the native filter pane restores full table row width",()=>{
 });
 
 test("all filters follow Home Assistant category rows",()=>{
-  const taskList=readFileSync(new URL("../../custom_components/tasks/frontend/task-list.js",import.meta.url),"utf8");
-  const filterCategory=taskList.slice(taskList.indexOf("export class TasksFilterCategory"),taskList.indexOf("export function dueTimestamp"));
+  const taskList=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
+  const filterCategory=taskList.slice(taskList.indexOf("export class TasksSidebarFilterCategory"),taskList.indexOf("export function dueTimestamp"));
   const actionMenu=readFileSync(new URL("../../custom_components/tasks/frontend/action-menu.js",import.meta.url),"utf8");
   assert.match(filterCategory,/createElement\("ha-list-item"\)/);
   assert.doesNotMatch(filterCategory,/createActionMenu|groupEditor|deleteGroup/);

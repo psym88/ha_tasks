@@ -1,11 +1,11 @@
 import { esc, knownLabelIds } from "./shared.js";
 import { withStyles } from "./styles.js";
-import { withTaskList } from "./task-list.js";
-import { showTaskDialog } from "./native-task-dialog.js";
-import { withTaskEditor } from "./task-editor.js";
-import { withConfirmation } from "./native-confirm-dialog.js";
-import { showAttachmentDialog } from "./native-attachment-dialog.js";
-import { showSettingsDialog } from "./native-settings-dialog.js";
+import { withTaskList } from "./sidebar-task-list.js";
+import { showTaskViewer } from "./popup-task-viewer.js";
+import { withTaskEditor } from "./popup-task-editor.js";
+import { withConfirmation } from "./popup-confirm.js";
+import { showAttachmentViewer } from "./popup-attachment-viewer.js";
+import { showSettingsPopup } from "./popup-settings.js";
 import { historyNote, locale as activeLocale, setLanguage, t } from "./localize.js";
 
 export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(withStyles(HTMLElement)))) {
@@ -23,15 +23,15 @@ export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(with
   editorScheduleHtml(task,dueDates=[],status=""){const rule=esc(this.scheduleText(task).split("\n")[0]),rows=dueDates.map(due=>{const parts=this.dueDateParts(due);return `<div role="row" style="display:contents"><span role="cell">${esc(parts.weekday)}</span><span role="cell">${esc(parts.date)}</span></div>`;}).join("");return `<div>${rule}</div>${rows?`<div role="table" aria-label="${esc(t("task.task_dues"))}" style="display:grid;grid-template-columns:max-content max-content;column-gap:12px;justify-content:start;margin-top:8px">${rows}</div>`:status?`<div style="margin-top:8px">${esc(status)}</div>`:""}`;}
   historyTime(entry){const value=entry.recorded_at?new Date(entry.recorded_at):null;return value&&!Number.isNaN(value.getTime())?value.toLocaleTimeString(this.locale(),{hour:"2-digit",minute:"2-digit"}):"–";}
   historyRow(entry,deletable=false){return `<div class="detail-row history-entry ht-content" data-history="${entry.history_entry_id}" style="display:grid;grid-template-columns:max-content max-content max-content minmax(0,1fr)${deletable?" 32px":""};gap:8px;align-items:center;min-height:40px;padding:0"><span title="${esc(t("history.date"))}">${this.date(entry.completion_date)}</span><span title="${esc(t("history.time"))}">${this.historyTime(entry)}</span><span title="${esc(t("history.user"))}">${esc(entry.user_name||t("common.system"))}</span><span title="${esc(t("history.notes"))}" style="min-width:0;white-space:pre-wrap;overflow-wrap:anywhere">${entry.notes?esc(historyNote(entry.notes)):"–"}</span>${deletable?`<ha-icon-button class="editor-action remove danger" label="${esc(t("history.remove"))}" title="${esc(t("common.remove"))}" style="justify-self:end;--ha-icon-button-size:32px"><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>`:""}</div>`;}
-  async taskViewer(task){try{await this.ensureTaskFileUrls(task.task_id);}catch{}showTaskDialog(this,task);}
+  async taskViewer(task){try{await this.ensureTaskFileUrls(task.task_id);}catch{}showTaskViewer(this,task);}
   async deleteTask(task){if(!await this.confirmAction(t("task.delete_title"),t("task.delete_confirm",{name:task.task_name}),t("common.delete"),"danger"))return;await this.ws({type:"tasks/task/delete",task_id:task.task_id});}
   fileLink(file){const name=esc(String(file.filename||"")),url=this.signedFiles.get(file.attachment_id),style="min-width:0;max-width:100%;overflow-wrap:anywhere;text-decoration:none";return url?`<a class="filename file-open" data-file-open="${esc(file.attachment_id)}" href="${esc(url)}" title="${name}" style="${style};min-height:0;padding:0;border:0;background:transparent;text-align:left">${name}</a>`:`<span class="filename" title="${name}" style="${style}">${name}</span>`;}
-  openAttachment(file,dispatcher=this){const url=this.signedFiles.get(file.attachment_id);if(url)showAttachmentDialog(dispatcher,file,url);}
+  openAttachment(file,dispatcher=this){const url=this.signedFiles.get(file.attachment_id);if(url)showAttachmentViewer(dispatcher,file,url);}
   wireFileOpeners(root,dispatcher=this){root.querySelectorAll("[data-file-open]").forEach(link=>{link.onclick=event=>{event.preventDefault();event.stopPropagation();const file=this.attachments.find(item=>item.attachment_id===link.dataset.fileOpen);if(file)this.openAttachment(file,dispatcher);};});}
   async ensureTaskFileUrls(taskId){const result=await this.ws({type:"tasks/attachment/urls",task_id:taskId});for(const [id,url] of Object.entries(result.signed_files||{}))this.signedFiles.set(id,url);}
   async uploadNativeFile(file){const data=new FormData();data.append("file",file);const response=await this._hass.fetchWithAuth("/api/file_upload",{method:"POST",body:data});if(response.status===413)throw new Error(this._hass.localize("ui.common.upload_file_too_large",{name:file.name}));if(!response.ok)throw new Error(this._hass.localize("ui.common.unknown_error"));return (await response.json()).file_id;}
   async attachUploadedFile(taskId,fileId){const record=await this.ws({type:"tasks/attachment/create",task_id:taskId,file_id:fileId});if(!this.attachments.some(item=>item.attachment_id===record.attachment_id))this.attachments.push(record);return record;}
-  settings(){showSettingsDialog(this);}
+  settings(){showSettingsPopup(this);}
   async exportArchive(){const response=await this._hass.fetchWithAuth("/api/tasks/archive");if(!response.ok)throw new Error(await response.text()||String(response.status));const blob=await response.blob(),link=document.createElement("a"),date=new Date().toISOString().slice(0,10);link.href=URL.createObjectURL(blob);link.download=`tasks-${date}.zip`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),0);}
   async importArchive(fileId){await this.ws({type:"tasks/archive/import",file_id:fileId});}
   async discardUploadedFile(fileId){await this._hass.callApi("DELETE","file_upload",{file_id:fileId});}

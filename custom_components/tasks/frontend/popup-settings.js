@@ -1,11 +1,11 @@
 import { esc } from "./shared.js";
 import { errorMessage, t } from "./localize.js";
 
-export const SETTINGS_DIALOG_TAG="tasks-settings-dialog";
+export const SETTINGS_POPUP_TAG="tasks-popup-settings";
 
-export function showSettingsDialog(controller){controller.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:SETTINGS_DIALOG_TAG,dialogImport:()=>customElements.whenDefined(SETTINGS_DIALOG_TAG),dialogParams:{controller},addHistory:true}}));}
+export function showSettingsPopup(controller){controller.dispatchEvent(new CustomEvent("show-dialog",{bubbles:true,composed:true,detail:{dialogTag:SETTINGS_POPUP_TAG,dialogImport:()=>customElements.whenDefined(SETTINGS_POPUP_TAG),dialogParams:{controller},addHistory:true}}));}
 
-export class TasksSettingsDialog extends HTMLElement {
+export class TasksPopupSettings extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this.open=false;}
   showDialog({controller}){this.controller=controller;this.open=true;this.render();}
   closeDialog(){if(!this.open)return true;this.open=false;const dialog=this.shadowRoot.querySelector("ha-adaptive-dialog");if(dialog)dialog.open=false;return true;}
@@ -16,4 +16,4 @@ export class TasksSettingsDialog extends HTMLElement {
   render(){const version=this.controller.constructor.version||"";this.shadowRoot.innerHTML=`${this.controller.typographyStyles()}<style>:host{color:var(--primary-text-color)}ha-adaptive-dialog{--dialog-content-padding:0}ha-expansion-panel{--input-fill-color:transparent}.content{padding:16px 24px 24px;overflow:auto}.details-content{display:flex;flex-direction:column;gap:12px;padding:0 16px 16px}.hint{margin:0;color:var(--secondary-text-color)}.status{min-height:20px}.status.error{color:var(--error-color)}.archive-upload{display:block}</style><ha-adaptive-dialog width="medium" flexcontent><ha-icon-button slot="headerNavigationIcon" class="close" label="${esc(t("common.close"))}"><ha-icon icon="mdi:close"></ha-icon></ha-icon-button><span slot="headerTitle">${esc(t("settings.title"))}</span><div class="content"><p class="ht-content">Tasks - ${esc(version)}</p><ha-expansion-panel outlined><span slot="header" class="ht-label-medium">${esc(t("settings.import_export"))}</span><div class="details-content"><p class="hint ht-content">${esc(t("settings.archive_hint"))}</p><div class="status ht-content" role="status"></div><ha-selector class="archive-upload"></ha-selector><ha-dialog-footer><ha-button class="export" slot="primaryAction" variant="brand"><ha-icon icon="mdi:archive-arrow-down-outline"></ha-icon> ${esc(t("settings.export"))}</ha-button></ha-dialog-footer></div></ha-expansion-panel></div></ha-adaptive-dialog>`;const dialog=this.shadowRoot.querySelector("ha-adaptive-dialog"),selector=this.shadowRoot.querySelector(".archive-upload");dialog.open=true;dialog.addEventListener("closed",()=>this.dialogClosed(),{once:true});this.shadowRoot.querySelector(".close").onclick=()=>this.closeDialog();this.shadowRoot.querySelector(".export").onclick=()=>this.exportArchive();selector.hass=this.controller._hass;selector.selector={file:{accept:".zip,application/zip"}};selector.required=false;selector.addEventListener("value-changed",event=>this.importArchive(event.detail?.value,selector));}
 }
 
-if(!customElements.get(SETTINGS_DIALOG_TAG))customElements.define(SETTINGS_DIALOG_TAG,TasksSettingsDialog);
+if(!customElements.get(SETTINGS_POPUP_TAG))customElements.define(SETTINGS_POPUP_TAG,TasksPopupSettings);

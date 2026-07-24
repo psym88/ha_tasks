@@ -37,15 +37,15 @@ The frontend is split into native ES modules under `custom_components/tasks/fron
 
 - `main.js`: shared data and workflow controller used by the panel and card
 - `dashboard-card.js`: Lovelace card and visual editor
-- `task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
-- `task-editor.js`: task editor workflow and reusable file and history sections
-- `native-*-dialog.js`: Home Assistant adaptive-dialog hosts, including the task viewer
+- `sidebar-task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
+- `popup-task-editor.js`: task editor workflow and reusable file and history sections
+- `popup-*.js`: Home Assistant adaptive-dialog hosts for task viewing, attachment previews, confirmations, and settings
 - `styles.js`, `shared.js`, and `action-menu.js`: shared UI contracts and primitives
 - `localize.js`: frontend localization
 
 The sidebar panel maps backend tasks to flat rows and delegates its toolbar, search, sorting, grouping, and table rendering to Home Assistant's internal `hass-tabs-subpage-data-table` and `ha-data-table` components. Filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
 
-The sidebar panel and dashboard card share the same controller and task viewer/editor workflows. Dialogs use Home Assistant's composed `show-dialog` contract and `ha-adaptive-dialog`; shared file and history sections are produced by `task-editor.js`. Attachments are signed anchors whose click handler opens the integration's preview dialog through the same native dialog contract.
+The sidebar panel and dashboard card share the same controller and task viewer/editor workflows. Popups use Home Assistant's composed `show-dialog` contract and `ha-adaptive-dialog`; shared file and history sections are produced by `popup-task-editor.js`. Attachments are signed anchors whose click handler opens the integration's preview popup through the same native dialog contract.
 
 Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
 
