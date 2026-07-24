@@ -155,8 +155,10 @@ export const withTaskList = Base => class extends Base {
   labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,"",null,slot),checkbox=document.createElement("ha-checkbox"),display=document.createElement("ha-label");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;display.color=label.color;display.description=label.description||undefined;display.textContent=label.name;if(label.icon){const icon=document.createElement("ha-icon");icon.slot="icon";icon.setAttribute("icon",label.icon);display.prepend(icon);}item.append(checkbox,display);return item;});}
   handleBulkMenu(value,item){if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(value==="person_menu"||value==="label_menu")return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);}
   selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
-  refreshTableWidth(wrapper){requestAnimationFrame(()=>requestAnimationFrame(()=>{const table=wrapper.shadowRoot?.querySelector("ha-data-table");table?.style.removeProperty("--table-row-width");table?.requestUpdate?.();}));}
-  filterToggleClicked(event,wrapper){const label=this._hass?.localize?.("ui.components.subpage-data-table.filters");if(event.composedPath().some(element=>element?.localName==="ha-assist-chip"&&element.label===label))this.refreshTableWidth(wrapper);}
+  observeTaskTableWidth(wrapper){
+    requestAnimationFrame(()=>{const table=wrapper.shadowRoot?.querySelector("ha-data-table");if(!table){if(wrapper.isConnected)this.observeTaskTableWidth(wrapper);return;}this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=new ResizeObserver(()=>{table.style.removeProperty("--table-row-width");table.requestUpdate?.();});this.taskTableResizeObserver.observe(table);});
+  }
+  disconnectTaskTableResize(){this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=null;}
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
     const complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");remove.setAttribute("variant","danger");
@@ -198,7 +200,7 @@ export const withTaskList = Base => class extends Base {
       wrapper.append(settings,filterPane,fab);
       this.appendBulkActions(wrapper);
       this.shadowRoot.querySelector(".app").append(wrapper);
-      wrapper.addEventListener("click",event=>this.filterToggleClicked(event,wrapper));
+      this.observeTaskTableWidth(wrapper);
       wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];wrapper.selected=this.selectedTaskIds.length;this.appendBulkActions(wrapper);});
       wrapper.addEventListener("row-click",event=>{const task=this.tasks.find(item=>item.task_id===event.detail?.id);if(task)this.taskViewer(task);});
       wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.updateTaskTable();});

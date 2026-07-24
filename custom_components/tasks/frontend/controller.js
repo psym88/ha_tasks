@@ -9,7 +9,7 @@ import { showSettingsPopup } from "./popup-settings.js";
 export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(HTMLElement))) {
   constructor(){ super(); this.attachShadow({mode:"open"}); this.tasks=[]; this.attachments=[]; this.users=[]; this.tags=[]; this.labels=[]; this.today=""; this.signedFiles=new Map(); this.loading=false; this.reloadPending=false; this.eventUnsubscribe=null; this.eventSubscriptionToken=0; }
   connectedCallback(){this.subscribeEvents();}
-  disconnectedCallback(){this.unsubscribeEvents();}
+  disconnectedCallback(){this.unsubscribeEvents();this.disconnectTaskTableResize();}
   set hass(value){if(this._hass?.connection!==value?.connection)this.unsubscribeEvents();this._hass=value;this.subscribeEvents();setLanguage(value?.locale?.language).then(changed=>{if(!this.loaded){this.loaded=true;this.load();}else if(changed)this.render();});}
   async subscribeEvents(){if(this.eventUnsubscribe||!this._hass?.connection)return;const token=++this.eventSubscriptionToken,unsubscribe=await this._hass.connection.subscribeEvents(()=>this.load(),"tasks_event");if(token===this.eventSubscriptionToken)this.eventUnsubscribe=unsubscribe;else unsubscribe();}
   unsubscribeEvents(){this.eventSubscriptionToken++;this.eventUnsubscribe?.();this.eventUnsubscribe=null;}

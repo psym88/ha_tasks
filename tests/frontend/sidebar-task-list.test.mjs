@@ -168,14 +168,14 @@ test("native filter pane exposes label assignee recurrence and rhythm filters",(
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
 });
 
-test("closing the native filter pane restores full table row width",()=>{
+test("native table width follows every container resize",()=>{
   assert.match(source,/wrapper\.style\.width="100%"/);
-  assert.match(source,/wrapper\.addEventListener\("click",event=>this\.filterToggleClicked\(event,wrapper\)\)/);
-  assert.match(source,/event\.composedPath\(\)\.some\(element=>element\?\.localName==="ha-assist-chip"&&element\.label===label\)/);
-  assert.match(source,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(\(\)=>/);
+  assert.match(source,/new ResizeObserver\(\(\)=>/);
+  assert.match(source,/taskTableResizeObserver\.observe\(table\)/);
   assert.match(source,/querySelector\("ha-data-table"\)/);
   assert.match(source,/removeProperty\("--table-row-width"\)/);
-  assert.match(source,/table\?\.requestUpdate\?\.\(\)/);
+  assert.match(source,/table\.requestUpdate\?\.\(\)/);
+  assert.match(source,/disconnectTaskTableResize\(\)/);
 });
 
 test("all filters follow Home Assistant category rows",()=>{
