@@ -8,6 +8,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 
 - Daily, weekly, monthly, and yearly recurring tasks
 - Calendar-based schedules or intervals after completion
+- Preview of the actual upcoming due dates calculated from each schedule
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
 - Sidebar panel and configurable dashboard card
@@ -40,7 +41,27 @@ Administrators can open **Tasks** in the sidebar. Use **+ Add task** to create a
 
 The task table shows Label directly after Task and supports search, sorting, grouping by labels, recurrence, or assignee, and independent filters for those same dimensions.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-list-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/task-list-light.png">
+  <img alt="Tasks overview" src="docs/images/task-list-light.png">
+</picture>
+
 Schedules can repeat by calendar or from the last completion. The optional start date limits when a recurrence begins. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/schedule-preview-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/schedule-preview-light.png">
+  <img alt="Schedule editor with upcoming due-date preview" src="docs/images/schedule-preview-light.png">
+</picture>
+
+Task details show the due date, assignee, labels, attachments, completion history, and notes in one dialog.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-details-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/task-details-light.png">
+  <img alt="Task details and completion dialog" src="docs/images/task-details-light.png">
+</picture>
 
 To complete a task with NFC, create a tag under **Settings → Tags** and assign it in the task editor. One tag can be assigned to only one task.
 
