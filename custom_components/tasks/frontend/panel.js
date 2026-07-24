@@ -1,4 +1,4 @@
-export const VERSION = "20260724.6";
+export const VERSION = "20260724.7";
 import { TasksPanel } from "./controller.js";
 
 TasksPanel.version = VERSION;
