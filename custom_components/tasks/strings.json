@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Tasks",
+        "description": "Creates the local Tasks configuration."
+      }
+    },
+    "abort": {
+      "already_configured": "Tasks is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "tasks_due": {
+        "name": "Due"
+      }
+    }
+  }
+}
+
