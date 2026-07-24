@@ -12,8 +12,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 - Tasks are items of one push-only `todo.tasks` entity. Standard item fields map to the task ID, name, description, due value, and open/completed status.
 - `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts every incomplete item, not only due items.
-- One read-only `calendar` entity exposes current and projected task due dates.
-- Calendar, todo, and due sensor entities share one Tasks service device.
+- Todo and due sensor entities share one Tasks service device.
 - A single timer tracks the nearest future `task_due`, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
 
 ## Backend
@@ -26,7 +25,6 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - `http.py`: authenticated attachments and ZIP import/export
 - `todo.py`: native task-list entity and standard item mutations
 - `sensor.py`: due-task summary entity
-- `calendar.py`: read-only due-date calendar
 - `nfc.py`: tag-scan handling and completion attribution
 - `events.py`: public Tasks event helper
 - `config_flow.py` and `__init__.py`: setup and integration lifecycle
@@ -51,7 +49,7 @@ The sidebar panel and dashboard card share the same controller and task viewer/e
 
 Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
 
-The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the to-do list, summary sensor, and calendar immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
+The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the to-do list and summary sensor immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
 
 ## Security and permissions
 

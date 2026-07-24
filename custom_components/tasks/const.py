@@ -3,7 +3,7 @@
 from homeassistant.helpers.device_registry import DeviceInfo
 
 DOMAIN = "tasks"
-PLATFORMS = ["calendar", "sensor", "todo"]
+PLATFORMS = ["sensor", "todo"]
 STORAGE_KEY = DOMAIN
 STORAGE_VERSION = 1
 EVENT_TASKS = f"{DOMAIN}_event"
@@ -14,7 +14,7 @@ TASKS_DEVICE_INFO = DeviceInfo(
 )
 PANEL_URL = "/tasks"
 PANEL_TITLE = "Tasks"
-PANEL_VERSION = "20260724.4"
+PANEL_VERSION = "20260724.5"
 FRONTEND_URL = f"/{DOMAIN}_frontend"
 TRANSLATIONS_URL = f"/{DOMAIN}_translations"
 PANEL_JS_URL = f"{FRONTEND_URL}/panel.js?v={PANEL_VERSION}"

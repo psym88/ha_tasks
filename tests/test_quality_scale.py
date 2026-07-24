@@ -40,3 +40,10 @@ def test_integration_uses_tasks_as_its_domain() -> None:
     assert 'DOMAIN = "tasks"' in constants
     assert "STORAGE_KEY = DOMAIN" in constants
     assert 'PANEL_URL = "/tasks"' in constants
+
+
+def test_only_supported_entity_platforms_are_forwarded() -> None:
+    """The integration exposes only its to-do list and due sensor."""
+    from custom_components.tasks.const import PLATFORMS
+
+    assert PLATFORMS == ["sensor", "todo"]

@@ -1,6 +1,6 @@
 import { t } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
-import { knownLabelIds } from "./shared.js";
+import { knownLabelIds, knownReferenceId } from "./shared.js";
 
 export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
@@ -44,7 +44,7 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
   const fileCounts=new Map();
   for(const file of attachments)fileCounts.set(file.task_id,(fileCounts.get(file.task_id)||0)+1);
   return tasks.map(task=>{
-    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id));
+    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",assigneeId=knownReferenceId(task.assignee_id,users),tagId=knownReferenceId(task.nfc_tag_id,tags),resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id));
     return {
       id:task.task_id,
       task,
@@ -52,10 +52,10 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
       due_ts:dueTimestamp(task.task_due),
       recurrence:translate(`task.${task.schedule_type==="fixed"?"fixed":"sliding"}`),
       rhythm:translate(`task.${schedule_unit}`),
-      assignee:userNames.get(task.assignee_id)||task.assignee_id||translate("task.unassigned"),
+      assignee:userNames.get(assigneeId)||translate("task.unassigned"),
       labels:[...resolvedLabels].sort((a,b)=>a.localeCompare(b)).join(", ")||translate("task.no_labels"),
       label_names:resolvedLabels,
-      nfc_tag:tagNames.get(task.nfc_tag_id)||task.nfc_tag_id||translate("task.no_nfc_tag"),
+      nfc_tag:tagNames.get(tagId)||translate("task.no_nfc_tag"),
       files:fileCounts.get(task.task_id)||0,
     };
   });
@@ -106,7 +106,7 @@ function overflowDropdown(label,items,action,narrow=false) {
 }
 
 export const withTaskList = Base => class extends Base {
-  tagName(task){const id=task?.nfc_tag_id;return id?(this.tags?.find(tag=>tag.id===id)?.name||id):"";}
+  tagName(task){const id=knownReferenceId(task?.nfc_tag_id,this.tags);return id?this.tags.find(tag=>tag.id===id)?.name||"":"";}
   tableRows(){return taskTableRows(this.tasks,{users:this.users,tags:this.tags,labels:this.labels,attachments:this.attachments,translate:t});}
   filterLabel(schema){return {labels:t("task.labels"),assignee:t("table.assignee"),recurrence:t("table.recurrence"),rhythm:t("table.rhythm")}[schema.name]||schema.name;}
   filterItems(rows,column){return [...new Set(rows.flatMap(row=>column==="labels"?row.label_names:row[column]))].map(value=>({value,label:value}));}

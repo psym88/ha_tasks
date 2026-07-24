@@ -14,7 +14,7 @@ const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/l
 await ready;
 await setLanguage("en");
 const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/task-list.js");
-const {knownLabelIds}=await import("../../custom_components/tasks/frontend/shared.js");
+const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/shared.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/task-list.js",import.meta.url),"utf8");
 
@@ -33,6 +33,14 @@ test("deleted Home Assistant labels are excluded from task projections",()=>{
   const [row]=taskTableRows([{task_id:"task",task_name:"Task",label_ids:["deleted"]}],{labels:[],translate:key=>`translated:${key}`});
   assert.equal(row.labels,"translated:task.no_labels");
   assert.deepEqual(row.label_names,[]);
+});
+
+test("deleted Home Assistant users and NFC tags become unassigned",()=>{
+  assert.equal(knownReferenceId("known",[{id:"known"}]),"known");
+  assert.equal(knownReferenceId("deleted",[{id:"known"}]),null);
+  const [row]=taskTableRows([{task_id:"task",task_name:"Task",assignee_id:"deleted-user",nfc_tag_id:"deleted-tag"}],{users:[],tags:[],translate:key=>`translated:${key}`});
+  assert.equal(row.assignee,"translated:task.unassigned");
+  assert.equal(row.nfc_tag,"translated:task.no_nfc_tag");
 });
 
 test("missing assignments receive localized searchable values",()=>{

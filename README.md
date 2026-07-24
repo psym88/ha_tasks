@@ -12,7 +12,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
 - Sidebar panel and configurable dashboard card
-- A native Tasks to-do list, due-task summary sensor, and read-only task calendar
+- A native Tasks to-do list and due-task summary sensor
 - Home Assistant events for task, history, and attachment changes
 - ZIP backup and restore
 - English and German interface
@@ -77,7 +77,7 @@ Open **Settings** above the task list and expand **Backup**. Export creates a ZI
 
 All tasks are exposed as items of the native `todo.tasks` entity. Home Assistant can create, edit, complete, and delete these items using its standard to-do dashboard, actions, and triggers. Item `uid`, `summary`, `description`, and `due` map to the integration's `task_id`, `task_name`, `task_description`, and `task_due`. `task_due` accepts a native ISO date for an all-day task or an ISO datetime for an exact due time. Recurrence, user and label assignments, NFC tags, attachments, and completion history remain in the Tasks store.
 
-The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` itself is Home Assistant's standard count of all incomplete items. Calendar, todo, and due sensor entities belong to the shared **Tasks** device.
+The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` itself is Home Assistant's standard count of all incomplete items. The to-do and due sensor entities belong to the shared **Tasks** device.
 
 Example badge for [Navbar Card](https://github.com/joseluis9595/lovelace-navbar-card):
 
@@ -92,8 +92,6 @@ badge:
       return Number(states['sensor.tasks_due']?.state || 0) > 0;
     ]]]
 ```
-
-The read-only **Tasks** calendar exposes current and projected task due dates.
 
 ## Home Assistant events
 
