@@ -1,5 +1,6 @@
 import { t } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
+import { knownLabelIds } from "./shared.js";
 
 export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
@@ -43,7 +44,7 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
   const fileCounts=new Map();
   for(const file of attachments)fileCounts.set(file.task_id,(fileCounts.get(file.task_id)||0)+1);
   return tasks.map(task=>{
-    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly";
+    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id));
     return {
       id:task.task_id,
       task,
@@ -52,8 +53,8 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
       recurrence:translate(`task.${task.schedule_type==="fixed"?"fixed":"sliding"}`),
       rhythm:translate(`task.${schedule_unit}`),
       assignee:userNames.get(task.assignee_id)||task.assignee_id||translate("task.unassigned"),
-      labels:(task.label_ids||[]).map(id=>labelNames.get(id)||id).sort((a,b)=>a.localeCompare(b)).join(", ")||translate("task.no_labels"),
-      label_names:(task.label_ids||[]).map(id=>labelNames.get(id)||id),
+      labels:[...resolvedLabels].sort((a,b)=>a.localeCompare(b)).join(", ")||translate("task.no_labels"),
+      label_names:resolvedLabels,
       nfc_tag:tagNames.get(task.nfc_tag_id)||task.nfc_tag_id||translate("task.no_nfc_tag"),
       files:fileCounts.get(task.task_id)||0,
     };

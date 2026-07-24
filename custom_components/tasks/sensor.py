@@ -6,9 +6,8 @@ from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .const import EVENT_TASKS
-from .entity import TASKS_DEVICE_INFO
-from .models import TasksData
+from . import TasksData
+from .const import EVENT_TASKS, TASKS_DEVICE_INFO
 
 
 async def async_setup_entry(

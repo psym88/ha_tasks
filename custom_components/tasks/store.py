@@ -7,8 +7,6 @@ import contextlib
 from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
-import shutil
-import tempfile
 from typing import Any
 from uuid import uuid4
 
@@ -16,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import STORAGE_KEY, STORAGE_VERSION
+from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .due import (
     normalize_task_due,
     parse_task_due,
@@ -24,26 +22,7 @@ from .due import (
     task_due_datetime,
     task_due_with_date,
 )
-from .scheduler import initial_due, next_due, validate_schedule
-
-
-_IMPORTED_TASK_FIELDS = {
-    "task_id",
-    "task_name",
-    "task_description",
-    "assignee_id",
-    "label_ids",
-    "nfc_tag_id",
-    "task_due",
-    "schedule_start_date",
-    "schedule_anchor_date",
-    "schedule_type",
-    "schedule_unit",
-    "schedule_interval",
-    "schedule_weekdays",
-    "schedule_day",
-    "schedule_month",
-}
+from .scheduler import occurrences, validate_schedule
 
 _SCHEDULE_FIELDS = (
     "schedule_start_date",
@@ -54,6 +33,15 @@ _SCHEDULE_FIELDS = (
     "schedule_day",
     "schedule_month",
 )
+
+
+def get_store(hass: HomeAssistant):
+    """Return the loaded singleton store."""
+    entries = hass.config_entries.async_entries(DOMAIN)
+    if not entries or not hasattr(entries[0], "runtime_data"):
+        return None
+    data = entries[0].runtime_data
+    return getattr(data, "store", None)
 
 
 def _now() -> str:
@@ -98,62 +86,6 @@ def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _validate_imported_task(task: Any) -> None:
-    """Reject task records that cannot be consumed by runtime components."""
-    if not isinstance(task, dict) or not _IMPORTED_TASK_FIELDS <= task.keys():
-        raise ValueError("invalid_archive_task")
-    if not isinstance(task["task_name"], str) or not task["task_name"].strip():
-        raise ValueError("invalid_archive_task")
-    if task["schedule_type"] not in {"fixed", "sliding"}:
-        raise ValueError("invalid_archive_task")
-    if task["schedule_unit"] not in {"daily", "weekly", "monthly", "yearly"}:
-        raise ValueError("invalid_archive_task")
-    if (
-        isinstance(task["schedule_interval"], bool)
-        or not isinstance(task["schedule_interval"], int)
-        or task["schedule_interval"] < 1
-    ):
-        raise ValueError("invalid_archive_task")
-    if not isinstance(task["schedule_weekdays"], list) or any(
-        isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6
-        for day in task["schedule_weekdays"]
-    ):
-        raise ValueError("invalid_archive_task")
-    if not isinstance(task["label_ids"], list) or any(
-        not isinstance(label_id, str) for label_id in task["label_ids"]
-    ):
-        raise ValueError("invalid_archive_task")
-    if any(
-        value is not None and not isinstance(value, str)
-        for value in (
-            task["task_description"],
-            task["assignee_id"],
-            task["nfc_tag_id"],
-        )
-    ):
-        raise ValueError("invalid_archive_task")
-    if task["schedule_day"] != "last" and task["schedule_day"] is not None and (
-        isinstance(task["schedule_day"], bool)
-        or not isinstance(task["schedule_day"], int)
-        or not 1 <= task["schedule_day"] <= 31
-    ):
-        raise ValueError("invalid_archive_task")
-    if task["schedule_month"] is not None and (
-        isinstance(task["schedule_month"], bool)
-        or not isinstance(task["schedule_month"], int)
-        or not 1 <= task["schedule_month"] <= 12
-    ):
-        raise ValueError("invalid_archive_task")
-    try:
-        normalize_task_due(task["task_due"])
-        date.fromisoformat(task["schedule_anchor_date"])
-        if task["schedule_start_date"] is not None:
-            date.fromisoformat(task["schedule_start_date"])
-        validate_schedule(task)
-    except (KeyError, TypeError, ValueError, OverflowError) as err:
-        raise ValueError("invalid_archive_task") from err
-
-
 class TasksStore:
     """Serialize mutations and persist one compact snapshot."""
 
@@ -190,54 +122,11 @@ class TasksStore:
             for item in attachments
         }
 
-    @staticmethod
-    def validate_import(data: Any, files: dict[str, bytes]) -> dict[str, Any]:
-        """Validate the current archive schema without legacy compatibility."""
-        if not isinstance(data, dict) or set(data) != {
-            "tasks", "history", "attachments"
-        }:
-            raise ValueError("invalid_archive_data")
-        if not all(isinstance(data[key], expected) for key, expected in (
-            ("tasks", list), ("history", dict),
-            ("attachments", list),
-        )):
-            raise ValueError("invalid_archive_data")
-        for task in data["tasks"]:
-            _validate_imported_task(task)
-        tasks = {item.get("task_id") for item in data["tasks"] if isinstance(item, dict)}
-        attachments = {
-            item.get("attachment_id"): item for item in data["attachments"]
-            if isinstance(item, dict)
-        }
-        if (len(tasks) != len(data["tasks"]) or None in tasks
-                or len(attachments) != len(data["attachments"]) or None in attachments):
-            raise ValueError("invalid_archive_ids")
-        all_ids = tasks | set(attachments)
-        if any(not isinstance(item_id, str) or not item_id or "/" in item_id
-               or "\\" in item_id or item_id in {".", ".."} for item_id in all_ids):
-            raise ValueError("invalid_archive_ids")
-        nfc_tag_ids = [
-            task["nfc_tag_id"] for task in data["tasks"] if task["nfc_tag_id"]
-        ]
-        if len(nfc_tag_ids) != len(set(nfc_tag_ids)):
-            raise ValueError("invalid_archive_task")
-        if any(item.get("task_id") not in tasks for item in data["attachments"]):
-            raise ValueError("invalid_archive_attachment")
-        if set(data["history"]) - tasks or set(files) != set(attachments):
-            raise ValueError("invalid_archive_files")
-        if any(not isinstance(entries, list)
-               or any(not isinstance(entry, dict) for entry in entries)
-               for entries in data["history"].values()):
-            raise ValueError("invalid_archive_history")
-        if any(len(files[file_id]) != int(item.get("size", -1)) for file_id, item in attachments.items()):
-            raise ValueError("invalid_archive_file_size")
-        return deepcopy(data)
-
     async def async_import_archive(
         self, data: Any, files: dict[str, bytes]
     ) -> None:
         """Add new archive records without overwriting existing data."""
-        imported = self.validate_import(data, files)
+        imported = deepcopy(data)
         async with self._lock:
             old_data = self._data
             existing_task_ids = {task["task_id"] for task in old_data["tasks"]}
@@ -266,8 +155,8 @@ class TasksStore:
                 for task_id, entries in imported["history"].items()
                 if task_id in new_task_ids
             })
-            backup = await self._hass.async_add_executor_job(
-                self._merge_attachment_files,
+            created_files = await self._hass.async_add_executor_job(
+                self._write_attachment_files,
                 {
                     file_id: content for file_id, content in files.items()
                     if file_id in new_attachment_ids
@@ -279,42 +168,28 @@ class TasksStore:
             except Exception:
                 self._data = old_data
                 await self._hass.async_add_executor_job(
-                    self._restore_attachment_files, backup
+                    self._remove_attachment_files, created_files
                 )
                 raise
-            await self._hass.async_add_executor_job(self._discard_backup, backup)
 
-    def _merge_attachment_files(self, files: dict[str, bytes]) -> Path | None:
-        parent = self._upload_dir.parent
-        parent.mkdir(parents=True, exist_ok=True)
-        staging = Path(tempfile.mkdtemp(prefix="tasks_import_", dir=parent))
-        backup = None
+    def _write_attachment_files(self, files: dict[str, bytes]) -> list[Path]:
+        self._upload_dir.mkdir(parents=True, exist_ok=True)
+        created: list[Path] = []
         try:
-            if self._upload_dir.exists():
-                shutil.copytree(self._upload_dir, staging, dirs_exist_ok=True)
             for file_id, content in files.items():
-                (staging / file_id).write_bytes(content)
-            if self._upload_dir.exists():
-                backup = Path(tempfile.mkdtemp(prefix="tasks_backup_", dir=parent))
-                backup.rmdir()
-                self._upload_dir.replace(backup)
-            staging.replace(self._upload_dir)
-            return backup
+                path = self._upload_dir / file_id
+                with path.open("xb") as output:
+                    created.append(path)
+                    output.write(content)
+            return created
         except Exception:
-            shutil.rmtree(staging, ignore_errors=True)
-            if backup and backup.exists() and not self._upload_dir.exists():
-                backup.replace(self._upload_dir)
+            self._remove_attachment_files(created)
             raise
 
-    def _restore_attachment_files(self, backup: Path | None) -> None:
-        shutil.rmtree(self._upload_dir, ignore_errors=True)
-        if backup and backup.exists():
-            backup.replace(self._upload_dir)
-
     @staticmethod
-    def _discard_backup(backup: Path | None) -> None:
-        if backup:
-            shutil.rmtree(backup, ignore_errors=True)
+    def _remove_attachment_files(files: list[Path]) -> None:
+        for path in files:
+            path.unlink(missing_ok=True)
 
     @property
     def tasks(self) -> list[dict[str, Any]]:
@@ -353,8 +228,12 @@ class TasksStore:
         await self._store.async_save(self._data)
 
     async def async_add_task(self, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
-        due = initial_due(payload, today or dt_util.now().date())
-        task_due = normalize_task_due(str(payload.get("task_due") or due.isoformat()))
+        task_due = normalize_task_due(
+            str(
+                payload.get("task_due")
+                or next(occurrences(payload, today or dt_util.now().date())).isoformat()
+            )
+        )
         parsed_due = parse_task_due(task_due)
         due_date = (
             dt_util.as_local(parsed_due).date()
@@ -409,7 +288,12 @@ class TasksStore:
                     task[key] = normalized_schedule[key]
             schedule_changed = _schedule_signature(task) != old_schedule
             if schedule_changed:
-                due = initial_due(task, today or dt_util.now().date())
+                schedule = {
+                    key: value
+                    for key, value in task.items()
+                    if key not in {"task_due", "schedule_anchor_date"}
+                }
+                due = next(occurrences(schedule, today or dt_util.now().date()))
                 task["task_due"] = task_due_with_date(task, due)
                 task["schedule_anchor_date"] = due.isoformat()
             elif "task_due" in payload:
@@ -442,7 +326,7 @@ class TasksStore:
         async with self._lock:
             task = self._find("tasks", task_id)
             task_due_before = task["task_due"]
-            next_date = next_due(task, date.fromisoformat(completion_date))
+            next_date = next(occurrences(task, date.fromisoformat(completion_date)))
             task_due_after = task_due_with_date(task, next_date)
             record = {
                 "history_entry_id": uuid4().hex,
@@ -478,7 +362,12 @@ class TasksStore:
                 entry["task_due_before"] = replay_task["task_due"]
                 entry["task_due_after"] = task_due_with_date(
                     replay_task,
-                    next_due(replay_task, date.fromisoformat(entry["completion_date"])),
+                    next(
+                        occurrences(
+                            replay_task,
+                            date.fromisoformat(entry["completion_date"]),
+                        )
+                    ),
                 )
                 replay_task["task_due"] = entry["task_due_after"]
             self._data["history"][task_id] = remaining
@@ -518,6 +407,14 @@ class TasksStore:
             (self._upload_dir / file_id).unlink()
 
     def file_path(self, file_id: str) -> Path:
+        if (
+            not isinstance(file_id, str)
+            or not file_id
+            or file_id in {".", ".."}
+            or "/" in file_id
+            or "\\" in file_id
+        ):
+            raise ValueError("invalid_attachment_id")
         return self._upload_dir / file_id
 
     @staticmethod

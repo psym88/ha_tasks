@@ -1,7 +1,5 @@
 """Home Assistant-native task list."""
 
-from datetime import date, datetime
-
 from homeassistant.components.todo import (
     TodoItem,
     TodoItemStatus,
@@ -13,11 +11,10 @@ from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .const import EVENT_TASKS
+from . import TasksData
+from .const import EVENT_TASKS, TASKS_DEVICE_INFO
 from .due import parse_task_due
-from .entity import TASKS_DEVICE_INFO
 from .events import async_fire_tasks_event
-from .models import TasksData
 
 
 async def async_setup_entry(
@@ -44,8 +41,7 @@ class TasksTodoList(TodoListEntity):
     _attr_should_poll = False
     _attr_device_info = TASKS_DEVICE_INFO
     _attr_supported_features = (
-        TodoListEntityFeature.CREATE_TODO_ITEM
-        | TodoListEntityFeature.DELETE_TODO_ITEM
+        TodoListEntityFeature.DELETE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
         | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
@@ -54,10 +50,6 @@ class TasksTodoList(TodoListEntity):
     def __init__(self, hass: HomeAssistant, store) -> None:
         self._home_assistant = hass
         self._store = store
-
-    @staticmethod
-    def _task_due(value: date | datetime | None) -> date | datetime:
-        return value or dt_util.now().date()
 
     @property
     def todo_items(self) -> list[TodoItem]:
@@ -99,29 +91,6 @@ class TasksTodoList(TodoListEntity):
             resource_name=resource_name or task.get("task_name"),
         )
 
-    async def async_create_todo_item(self, item: TodoItem) -> None:
-        """Create a task through Home Assistant's standard to-do API."""
-        due = self._task_due(item.due)
-        due_date = due.date() if isinstance(due, datetime) else due
-        task = await self._store.async_add_task(
-            {
-                "task_name": item.summary,
-                "task_description": item.description,
-                "assignee_id": None,
-                "nfc_tag_id": None,
-                "task_due": due.isoformat(),
-                "schedule_start_date": due_date.isoformat(),
-                "schedule_type": "sliding",
-                "schedule_unit": "monthly",
-                "schedule_interval": 1,
-                "schedule_weekdays": [],
-                "schedule_day": None,
-                "schedule_month": None,
-            },
-            dt_util.now().date(),
-        )
-        self._notify("created", task)
-
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update or complete a task through Home Assistant's to-do API."""
         task_id = item.uid
@@ -145,7 +114,7 @@ class TasksTodoList(TodoListEntity):
             return
 
         previous = self._store.task(task_id)
-        due = self._task_due(item.due) if item.due is not None else None
+        due = item.due
         task = await self._store.async_update_task(
             task_id,
             {

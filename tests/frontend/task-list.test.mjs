@@ -14,17 +14,25 @@ const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/l
 await ready;
 await setLanguage("en");
 const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/task-list.js");
+const {knownLabelIds}=await import("../../custom_components/tasks/frontend/shared.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/task-list.js",import.meta.url),"utf8");
 
 test("task rows flatten every grouping dimension and resolve ids to names",()=>{
-  const tasks=[{task_id:"laundry",task_name:"Laundry",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","chores"],nfc_tag_id:"washer"}];
+  const tasks=[{task_id:"laundry",task_name:"Laundry",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer"}];
   const original=structuredClone(tasks);
   const attachments=[{attachment_id:"a",task_id:"laundry"},{attachment_id:"b",task_id:"laundry"},{attachment_id:"c",task_id:"other"}];
   const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],attachments,translate:key=>key});
   assert.deepEqual({id:row.id,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],nfc_tag:"Washer",files:2});
   assert.equal(row.task,tasks[0]);
   assert.deepEqual(tasks,original);
+});
+
+test("deleted Home Assistant labels are excluded from task projections",()=>{
+  assert.deepEqual(knownLabelIds(["known","deleted"],[{label_id:"known",name:"Known"}]),["known"]);
+  const [row]=taskTableRows([{task_id:"task",task_name:"Task",label_ids:["deleted"]}],{labels:[],translate:key=>`translated:${key}`});
+  assert.equal(row.labels,"translated:task.no_labels");
+  assert.deepEqual(row.label_names,[]);
 });
 
 test("missing assignments receive localized searchable values",()=>{

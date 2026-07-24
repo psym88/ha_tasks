@@ -7,12 +7,25 @@ import zipfile
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+import voluptuous as vol
 
-from .const import ARCHIVE_URL, DOWNLOAD_URL
-from .helpers import get_store
+from .archive_converter import ARCHIVE_FORMAT, upgrade_archive_manifest
+from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
+from .store import get_store
 
 MAX_ARCHIVE_SIZE = 100 * 1024 * 1024
-ARCHIVE_FORMAT = 1
+ARCHIVE_MANIFEST_SCHEMA = vol.Schema(
+    {
+        vol.Required("integration"): str,
+        vol.Required("format"): int,
+        vol.Required("data"): {
+            vol.Required("tasks"): list,
+            vol.Required("history"): dict,
+            vol.Required("attachments"): list,
+        },
+    },
+    extra=vol.PREVENT_EXTRA,
+)
 
 
 def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
@@ -21,7 +34,10 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(
             "tasks.json",
-            json.dumps({"format": ARCHIVE_FORMAT, "data": data}, ensure_ascii=False),
+            json.dumps(
+                {"integration": DOMAIN, "format": ARCHIVE_FORMAT, "data": data},
+                ensure_ascii=False,
+            ),
         )
         for file_id, content in files.items():
             archive.writestr(f"attachments/{file_id}", content)
@@ -39,13 +55,15 @@ def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
             raise ValueError("invalid_archive")
         if sum(item.file_size for item in archive.infolist()) > MAX_ARCHIVE_SIZE:
             raise ValueError("archive_too_large")
-        manifest = json.loads(archive.read("tasks.json"))
-        if (
-            not isinstance(manifest, dict)
-            or set(manifest) != {"format", "data"}
-            or manifest["format"] != ARCHIVE_FORMAT
-        ):
-            raise ValueError("unsupported_archive_format")
+        try:
+            manifest = upgrade_archive_manifest(
+                json.loads(archive.read("tasks.json"))
+            )
+            manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
+        except vol.Invalid as err:
+            raise ValueError("invalid_archive") from err
+        if manifest["integration"] != DOMAIN:
+            raise ValueError("invalid_archive_integration")
         files = {
             name.removeprefix("attachments/"): archive.read(name)
             for name in names

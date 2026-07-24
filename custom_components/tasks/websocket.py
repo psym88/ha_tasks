@@ -2,6 +2,7 @@
 
 from datetime import date, timedelta
 from functools import wraps
+from itertools import islice
 import json
 import mimetypes
 from typing import Any
@@ -18,9 +19,9 @@ from homeassistant.util import dt as dt_util
 from .const import DOWNLOAD_URL
 from .due import task_due_date, task_due_with_date
 from .events import async_fire_tasks_event
-from .helpers import get_store
 from .http import _parse_archive
-from .scheduler import due_sequence, next_due_sequence, validate_schedule
+from .scheduler import occurrences, validate_schedule
+from .store import get_store
 
 TEXT = vol.Any(str, None)
 SCHEDULE_FIELDS = {
@@ -46,8 +47,8 @@ PREVIEW_FIELDS = {
     vol.Optional("schedule_anchor_date"): str,
     vol.Optional("schedule_start_date"): TEXT,
     **SCHEDULE_FIELDS,
-    vol.Optional("count", default=2): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
 }
+PREVIEW_COUNT = 24
 ATTACHMENT_FILE_SELECTOR = FileSelector(FileSelectorConfig(accept="*/*"))
 ARCHIVE_FILE_SELECTOR = FileSelector(
     FileSelectorConfig(accept=".zip,application/zip")
@@ -188,10 +189,15 @@ async def ws_task_preview_next_due(hass, connection, msg, store):
     validate_schedule(msg)
     if msg.get("task_due"):
         current = task_due_date(msg)
-        task_dues = [current, *next_due_sequence(msg, current, msg["count"] - 1)]
+        task_dues = [
+            current,
+            *islice(occurrences(msg, current), PREVIEW_COUNT - 1),
+        ]
         serialized = [task_due_with_date(msg, due) for due in task_dues]
     else:
-        task_dues = due_sequence(msg, dt_util.now().date(), msg["count"])
+        task_dues = list(
+            islice(occurrences(msg, dt_util.now().date()), PREVIEW_COUNT)
+        )
         serialized = [due.isoformat() for due in task_dues]
     connection.send_result(
         msg["id"],

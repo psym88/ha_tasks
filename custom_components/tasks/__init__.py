@@ -1,5 +1,6 @@
 """Tasks integration."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from homeassistant.components import frontend, panel_custom
@@ -10,8 +11,14 @@ from homeassistant.core import HomeAssistant
 from . import http, nfc, websocket
 from .const import CARD_JS_URL, DOMAIN, FRONTEND_URL, PANEL_JS_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
 from .due import TaskDueEventScheduler
-from .models import TasksData
 from .store import TasksStore
+
+
+@dataclass(slots=True)
+class TasksData:
+    """Runtime data stored on the config entry."""
+
+    store: TasksStore
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

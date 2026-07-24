@@ -5,7 +5,11 @@ from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock
 
-from homeassistant.components.todo import TodoItem, TodoItemStatus
+from homeassistant.components.todo import (
+    TodoItem,
+    TodoItemStatus,
+    TodoListEntityFeature,
+)
 
 from custom_components.tasks.todo import TasksTodoList
 
@@ -66,6 +70,10 @@ def test_todo_list_uses_shared_device_and_counts_open_tasks():
     assert todo.unique_id == "tasks"
     assert todo.name is None
     assert todo.has_entity_name
+    assert not todo.supported_features & TodoListEntityFeature.CREATE_TODO_ITEM
+    assert todo.supported_features & TodoListEntityFeature.UPDATE_TODO_ITEM
+    assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    assert todo.supported_features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
 
 
 def test_completing_item_uses_tasks_completion_flow():
