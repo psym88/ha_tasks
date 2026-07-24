@@ -30,8 +30,8 @@ Keep the subject imperative, concise, and without a trailing period.
 - `YYYYMMDD` is the UTC publication date without separators. `REVISION` is the release sequence for that date.
 - Start each UTC day at revision `1` and increment it for every additional published release on the same date. Never use revision `0`, leading zeroes, or a previously published revision.
 - The Git tag must exactly equal the version, without a `v` prefix or any other suffix.
-- Format every GitHub release title as `YYYYMMDD.REVISION - YYYY-MM-DD`, for example `20260724.12 - 2026-07-24`.
-- When promoting a pre-release to latest, reuse its existing version and tag. Update only the ISO date in the release title if the promotion occurs on a later UTC date.
+- The GitHub release title must exactly equal the version and tag, for example `20260724.12`. GitHub already displays the publication date separately.
+- When promoting a pre-release to latest, reuse its existing version, tag, and title.
 - Do not add tag suffixes such as `-pre`, `-beta`, or `-rc`. Pre-release state is represented only by GitHub's **pre-release** flag.
 - CalVer does not encode compatibility. Mark breaking changes explicitly in the release notes.
 - Keep the version identical in `manifest.json`, `const.py`, and `frontend/panel.js`.
@@ -69,7 +69,7 @@ Map changes consistently:
 3. Run the complete backend and frontend test suites.
 4. Commit and push the tested `dev` state.
 5. Create the immutable `YYYYMMDD.REVISION` tag on that exact commit.
-6. Create a GitHub release titled `YYYYMMDD.REVISION - YYYY-MM-DD`, mark it as **pre-release**, and ensure it is not **latest**.
+6. Create a GitHub release titled exactly `YYYYMMDD.REVISION`, mark it as **pre-release**, and ensure it is not **latest**.
 7. Describe only the changes since the immediately preceding published tag. Use the standard release-note headings.
 
 ## Latest-release workflow
@@ -78,7 +78,7 @@ Create a latest release only when explicitly requested.
 
 1. Select the tested pre-release to promote. Do not create a replacement tag.
 2. Integrate that exact tagged commit into `main`; `main`, the selected tag, and the release target must resolve to the same commit.
-3. Reuse the selected tag and its existing GitHub release. Update the title with the promotion date, clear the **pre-release** flag, and explicitly mark it as **latest**.
+3. Reuse the selected tag, title, and existing GitHub release. Clear the **pre-release** flag and explicitly mark it as **latest**.
 4. Replace its incremental notes with one consolidated set of release notes covering every pre-release after the previous latest release, including the promoted pre-release.
 5. If no previous latest release exists, consolidate all pre-release notes in the repository.
 6. Preserve the standard heading order, combine related bullets, and remove duplicates. The latest notes must describe the complete user-visible delta since the previous latest release, not merely the final pre-release.
