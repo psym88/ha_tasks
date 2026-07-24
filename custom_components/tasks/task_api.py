@@ -34,6 +34,7 @@ SCHEDULE_FIELDS = {
 }
 TASK_FIELDS = {
     vol.Required("task_name"): str,
+    vol.Optional("task_icon"): TEXT,
     vol.Optional("task_description"): TEXT,
     vol.Optional("assignee_id"): TEXT,
     vol.Optional("label_ids"): [str],

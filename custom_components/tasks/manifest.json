@@ -7,5 +7,5 @@
   "dependencies": ["file_upload", "tag"],
   "issue_tracker": "https://github.com/psym88/ha_tasks/issues",
   "iot_class": "local_push",
-  "version": "20260724.7"
+  "version": "20260724.8"
 }

@@ -40,12 +40,7 @@ class TasksTodoList(TodoListEntity):
     _attr_unique_id = "tasks"
     _attr_should_poll = False
     _attr_device_info = TASKS_DEVICE_INFO
-    _attr_supported_features = (
-        TodoListEntityFeature.DELETE_TODO_ITEM
-        | TodoListEntityFeature.UPDATE_TODO_ITEM
-        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
-        | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
-    )
+    _attr_supported_features = TodoListEntityFeature.UPDATE_TODO_ITEM
 
     def __init__(self, hass: HomeAssistant, store) -> None:
         self._home_assistant = hass
@@ -57,7 +52,6 @@ class TasksTodoList(TodoListEntity):
             TodoItem(
                 uid=task["task_id"],
                 summary=task["task_name"],
-                description=task.get("task_description"),
                 due=parse_task_due(task["task_due"]),
                 status=TodoItemStatus.NEEDS_ACTION,
             )
@@ -79,8 +73,6 @@ class TasksTodoList(TodoListEntity):
         self,
         action: str,
         task: dict,
-        *,
-        resource_name: str | None = None,
     ) -> None:
         async_fire_tasks_event(
             self._home_assistant,
@@ -88,7 +80,7 @@ class TasksTodoList(TodoListEntity):
             "task",
             task["task_id"],
             context=self._context,
-            resource_name=resource_name or task.get("task_name"),
+            resource_name=task.get("task_name"),
         )
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
@@ -109,30 +101,14 @@ class TasksTodoList(TodoListEntity):
                 dt_util.now().date().isoformat(),
                 user_id,
                 user.name if user and user.name else "system",
+                "tasks.history.completed_via_todo",
             )
             self._notify("completed", task)
             return
 
-        previous = self._store.task(task_id)
-        due = item.due
         task = await self._store.async_update_task(
             task_id,
-            {
-                "task_name": item.summary,
-                "task_description": item.description,
-                **(
-                    {"task_due": due.isoformat()}
-                    if due is not None and due.isoformat() != previous["task_due"]
-                    else {}
-                ),
-            },
+            {"task_name": item.summary},
             dt_util.now().date(),
         )
         self._notify("updated", task)
-
-    async def async_delete_todo_items(self, uids: list[str]) -> None:
-        """Delete tasks through Home Assistant's to-do API."""
-        for task_id in uids:
-            task = self._store.task(task_id)
-            await self._store.async_delete_task(task_id)
-            self._notify("deleted", task)

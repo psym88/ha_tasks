@@ -50,6 +50,7 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
     return {
       id:task.task_id,
       task,
+      icon:task.task_icon||"mdi:clipboard-check-outline",
       name:task.task_name||"",
       due_ts:dueTimestamp(task.task_due),
       recurrence:translate(`task.${task.schedule_type==="fixed"?"fixed":"sliding"}`),
@@ -71,6 +72,15 @@ function textCell(value,title) {
   const cell=document.createElement("span");
   cell.textContent=value;
   if(title)cell.title=title;
+  return cell;
+}
+
+function taskNameCell(row) {
+  const cell=document.createElement("span"),icon=document.createElement("ha-icon"),name=document.createElement("span");
+  cell.style.cssText="display:inline-flex;align-items:center;gap:12px";
+  icon.setAttribute("icon",row.icon);
+  name.textContent=row.name;
+  cell.append(icon,name);
   return cell;
 }
 
@@ -116,7 +126,7 @@ export const withTaskList = Base => class extends Base {
   tableColumns(){
     const groupable={sortable:true,filterable:true,groupable:true};
     return {
-      name:{title:t("table.task"),main:true,sortable:true,filterable:true,flex:3},
+      name:{title:t("table.task"),main:true,sortable:true,filterable:true,flex:3,template:row=>taskNameCell(row)},
       due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.relativeDate(row.task.task_due):"–",row.task.task_due?this.date(row.task.task_due):"")},
       assignee:{title:t("table.assignee"),...groupable},
       labels:{title:t("table.label"),...groupable},

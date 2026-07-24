@@ -19,11 +19,11 @@ const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tas
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
 test("task rows flatten every grouping dimension and resolve ids to names",()=>{
-  const tasks=[{task_id:"laundry",task_name:"Laundry",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer"}];
+  const tasks=[{task_id:"laundry",task_name:"Laundry",task_icon:"mdi:washing-machine",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer"}];
   const original=structuredClone(tasks);
   const attachments=[{attachment_id:"a",task_id:"laundry"},{attachment_id:"b",task_id:"laundry"},{attachment_id:"c",task_id:"other"}];
   const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],attachments,translate:key=>key});
-  assert.deepEqual({id:row.id,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],nfc_tag:"Washer",files:2});
+  assert.deepEqual({id:row.id,icon:row.icon,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",icon:"mdi:washing-machine",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],nfc_tag:"Washer",files:2});
   assert.equal(row.task,tasks[0]);
   assert.deepEqual(tasks,original);
 });
@@ -77,6 +77,13 @@ test("panel uses the native Home Assistant data-table wrapper",()=>{
   assert.match(source,/wrapper\.initialSorting=INITIAL_TASK_SORTING/);
   assert.deepEqual(INITIAL_TASK_SORTING,{column:"due_ts",direction:"asc"});
   assert.doesNotMatch(source,/groupRow\(|wireGroup\(|placeholder-add|class="group"/);
+});
+
+test("native task column renders the stored icon with a fallback",()=>{
+  assert.match(source,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
+  assert.match(source,/createElement\("ha-icon"\)/);
+  assert.match(source,/icon\.setAttribute\("icon",row\.icon\)/);
+  assert.match(source,/name:\{title:t\("table\.task"\)[^}]+template:row=>taskNameCell\(row\)/);
 });
 
 test("native table multi-select tracks selected task ids and count",()=>{

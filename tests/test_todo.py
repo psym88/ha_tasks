@@ -18,7 +18,6 @@ def task(**values):
     return {
         "task_id": "task-1",
         "task_name": "Clean kitchen",
-        "task_description": "Use a damp cloth",
         "task_due": "2026-07-24",
         **values,
     }
@@ -46,7 +45,6 @@ def test_tasks_are_native_todo_items_sorted_by_task_due():
     assert items[0] == TodoItem(
         uid="first",
         summary="First",
-        description="Use a damp cloth",
         due=date(2026, 7, 24),
         status=TodoItemStatus.NEEDS_ACTION,
     )
@@ -72,8 +70,9 @@ def test_todo_list_uses_shared_device_and_counts_open_tasks():
     assert todo.has_entity_name
     assert not todo.supported_features & TodoListEntityFeature.CREATE_TODO_ITEM
     assert todo.supported_features & TodoListEntityFeature.UPDATE_TODO_ITEM
-    assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
-    assert todo.supported_features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
+    assert not todo.supported_features & TodoListEntityFeature.DELETE_TODO_ITEM
+    assert not todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    assert not todo.supported_features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
 
 
 def test_completing_item_uses_tasks_completion_flow():
@@ -95,18 +94,19 @@ def test_completing_item_uses_tasks_completion_flow():
         )
     )
 
-    store.async_complete_task.assert_awaited_once()
-
-
-def test_rescheduling_item_updates_standard_fields_and_task_due():
-    updated = task(
-        task_name="Kitchen",
-        task_description=None,
-        task_due="2026-07-30",
+    store.async_complete_task.assert_awaited_once_with(
+        "task-1",
+        ANY,
+        None,
+        "system",
+        "tasks.history.completed_via_todo",
     )
+
+
+def test_editing_item_only_updates_title():
+    updated = task(task_name="Kitchen")
     store = SimpleNamespace(
         tasks=[task()],
-        task=lambda task_id: task(),
         async_update_task=AsyncMock(return_value=updated),
     )
     todo = entity(store)
@@ -125,10 +125,6 @@ def test_rescheduling_item_updates_standard_fields_and_task_due():
 
     store.async_update_task.assert_awaited_once_with(
         "task-1",
-        {
-            "task_name": "Kitchen",
-            "task_description": None,
-            "task_due": "2026-07-30",
-        },
+        {"task_name": "Kitchen"},
         ANY,
     )

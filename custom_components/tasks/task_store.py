@@ -245,7 +245,7 @@ class TasksStore:
             nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
             task = _normalize_schedule({
                 "task_id": uuid4().hex,
-                **{k: payload.get(k) for k in ("task_name", "task_description", "assignee_id", *_SCHEDULE_FIELDS)},
+                **{k: payload.get(k) for k in ("task_name", "task_icon", "task_description", "assignee_id", *_SCHEDULE_FIELDS)},
                 "task_name": name,
                 "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
                 "nfc_tag_id": nfc_tag_id,
@@ -280,7 +280,7 @@ class TasksStore:
                 normalized_schedule = _normalize_schedule(merged_schedule)
             if "label_ids" in payload:
                 task["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
-            for key in ("task_name", "task_description", "assignee_id", "nfc_tag_id", "task_due"):
+            for key in ("task_name", "task_icon", "task_description", "assignee_id", "nfc_tag_id", "task_due"):
                 if key in payload:
                     task[key] = payload[key]
             if normalized_schedule is not None:

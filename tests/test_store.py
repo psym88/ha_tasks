@@ -78,3 +78,16 @@ def test_partial_schedule_update_merges_before_normalizing():
         assert updated["schedule_month"] is None
 
     asyncio.run(run())
+
+
+def test_task_icon_is_updated_without_affecting_schedule():
+    async def run():
+        store = _store(_weekly_task())
+        updated = await store.async_update_task(
+            "task", {"task_icon": "mdi:washing-machine"}, date(2026, 7, 24)
+        )
+
+        assert updated["task_icon"] == "mdi:washing-machine"
+        assert updated["task_due"] == "2026-07-29"
+
+    asyncio.run(run())
