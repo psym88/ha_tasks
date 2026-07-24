@@ -10,7 +10,7 @@ from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
 from .const import EVENT_TASKS
-from .events import async_fire_tasks_event
+from .task_events import async_fire_tasks_event
 
 
 def parse_task_due(value: str) -> date | datetime:

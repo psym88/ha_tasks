@@ -1,5 +1,5 @@
-import { TasksBase } from "./main.js";
-import { esc } from "./shared.js";
+import { TasksBase } from "./controller.js";
+import { esc } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
 import { ready, setLanguage, t } from "./localize.js";
 

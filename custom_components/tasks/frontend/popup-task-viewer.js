@@ -1,4 +1,4 @@
-import { L, esc } from "./shared.js";
+import { L, esc } from "./localize.js";
 import { t } from "./localize.js";
 
 export const TASK_VIEWER_TAG="tasks-popup-task-viewer";

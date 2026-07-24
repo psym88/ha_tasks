@@ -3,7 +3,7 @@
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from custom_components.tasks.due import (
+from custom_components.tasks.due_events import (
     TaskDueEventScheduler,
     parse_task_due,
     task_due_with_date,
@@ -85,10 +85,10 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
         return lambda: None
 
     monkeypatch.setattr(
-        "custom_components.tasks.due.dt_util.utcnow", lambda: now
+        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
     )
     monkeypatch.setattr(
-        "custom_components.tasks.due.async_track_point_in_time",
+        "custom_components.tasks.due_events.async_track_point_in_time",
         track_point_in_time,
     )
 

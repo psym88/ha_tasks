@@ -3,7 +3,7 @@
 import asyncio
 from datetime import date
 
-from custom_components.tasks.store import TasksStore
+from custom_components.tasks.task_store import TasksStore
 
 
 def _store(task):

@@ -1,4 +1,4 @@
-import { esc } from "./shared.js";
+import { esc } from "./localize.js";
 import { t } from "./localize.js";
 
 export const CONFIRM_POPUP_TAG="tasks-popup-confirm";

@@ -1,4 +1,5 @@
-import { L, esc, knownLabelIds, knownReferenceId } from "./shared.js";
+import { L, esc } from "./localize.js";
+import { knownLabelIds, knownReferenceId } from "./sidebar-task-list.js";
 import { errorMessage, t as tr } from "./localize.js";
 
 export const TASK_EDITOR_TAG="tasks-popup-task-editor";

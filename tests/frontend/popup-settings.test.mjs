@@ -18,7 +18,7 @@ test("settings uses a native dialog with a collapsible import/export section", (
 });
 
 test("panel archive import uses Home Assistant file upload and its Tasks event", () => {
-  const source = readFileSync(new URL("../../custom_components/tasks/frontend/main.js", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../../custom_components/tasks/frontend/controller.js", import.meta.url), "utf8");
   const dialog = readFileSync(new URL("../../custom_components/tasks/frontend/popup-settings.js", import.meta.url), "utf8");
   assert.match(source, /fetchWithAuth\("\/api\/tasks\/archive"\)/);
   assert.match(source, /type:"tasks\/archive\/import",file_id:fileId/);

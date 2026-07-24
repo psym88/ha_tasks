@@ -3,7 +3,7 @@
 from datetime import date
 from itertools import islice
 
-from custom_components.tasks.scheduler import (
+from custom_components.tasks.recurrence import (
     add_interval,
     occurrences,
     validate_schedule,

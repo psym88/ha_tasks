@@ -15,14 +15,14 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
-from .due import (
+from .due_events import (
     normalize_task_due,
     parse_task_due,
     task_due_date,
     task_due_datetime,
     task_due_with_date,
 )
-from .scheduler import occurrences, validate_schedule
+from .recurrence import occurrences, validate_schedule
 
 _SCHEDULE_FIELDS = (
     "schedule_start_date",

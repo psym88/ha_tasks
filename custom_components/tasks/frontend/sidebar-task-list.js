@@ -1,6 +1,8 @@
 import { t } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
-import { knownLabelIds, knownReferenceId } from "./shared.js";
+
+export const knownReferenceId=(id,items=[],key="id")=>id&&items.some(item=>item[key]===id)?id:null;
+export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(id,labels,"label_id"));
 
 export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};

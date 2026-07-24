@@ -13,8 +13,8 @@ from custom_components.tasks.archive_converter import (
     ARCHIVE_FORMAT,
     upgrade_archive_manifest,
 )
-from custom_components.tasks.http import _build_archive, _parse_archive
-from custom_components.tasks.store import TasksStore
+from custom_components.tasks.attachment_api import _build_archive, _parse_archive
+from custom_components.tasks.task_store import TasksStore
 
 
 class FakeHass:
@@ -181,7 +181,7 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
         "data": data,
     }
 
-    source = Path("custom_components/tasks/http.py").read_text(encoding="utf-8")
+    source = Path("custom_components/tasks/attachment_api.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     archive_view = next(
         node

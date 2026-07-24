@@ -1,4 +1,4 @@
-import { esc } from "./shared.js";
+import { esc } from "./localize.js";
 import { t } from "./localize.js";
 
 export const ATTACHMENT_VIEWER_TAG="tasks-popup-attachment-viewer";

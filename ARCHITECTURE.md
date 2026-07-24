@@ -17,16 +17,16 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Backend
 
-- `store.py`: persistence and serialized mutations
+- `task_store.py`: persistence and serialized mutations
 - `archive_converter.py`: sequential upgrades from older archive manifests to the current format
-- `scheduler.py`: recurrence calculations
-- `due.py`: shared date/datetime parsing and the single due-event timer
-- `websocket.py`: authenticated task and metadata API
-- `http.py`: authenticated attachments and ZIP import/export
+- `recurrence.py`: recurrence calculations
+- `due_events.py`: shared date/datetime parsing and the single due-event timer
+- `task_api.py`: authenticated task and metadata API
+- `attachment_api.py`: authenticated attachments and ZIP import/export
 - `todo.py`: native task-list entity and standard item mutations
 - `sensor.py`: due-task summary entity
-- `nfc.py`: tag-scan handling and completion attribution
-- `events.py`: public Tasks event helper
+- `nfc_completion.py`: tag-scan handling and completion attribution
+- `task_events.py`: public Tasks event helper
 - `config_flow.py` and `__init__.py`: setup and integration lifecycle
 
 Import upgrades supported older archive manifests before validating them against the current outer schema. Task records remain opaque to the archive layer.
@@ -35,13 +35,14 @@ Import upgrades supported older archive manifests before validating them against
 
 The frontend is split into native ES modules under `custom_components/tasks/frontend`:
 
-- `main.js`: shared data and workflow controller used by the panel and card
+- `controller.js`: shared data and workflow controller used by the panel and card
+- `panel.js`: Home Assistant panel entry point and custom-element registration
 - `dashboard-card.js`: Lovelace card and visual editor
 - `sidebar-task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
 - `popup-task-editor.js`: task editor workflow and reusable file and history sections
 - `popup-*.js`: Home Assistant adaptive-dialog hosts for task viewing, attachment previews, confirmations, and settings
-- `styles.js`, `shared.js`, and `action-menu.js`: shared UI contracts and primitives
-- `localize.js`: frontend localization
+- `styles.js` and `action-menu.js`: shared UI contracts and primitives
+- `localize.js`: frontend localization and safe text rendering
 
 The sidebar panel maps backend tasks to flat rows and delegates its toolbar, search, sorting, grouping, and table rendering to Home Assistant's internal `hass-tabs-subpage-data-table` and `ha-data-table` components. Filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
 

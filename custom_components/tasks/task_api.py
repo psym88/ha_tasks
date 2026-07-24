@@ -17,11 +17,11 @@ from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
-from .due import task_due_date, task_due_with_date
-from .events import async_fire_tasks_event
-from .http import _parse_archive
-from .scheduler import occurrences, validate_schedule
-from .store import get_store
+from .attachment_api import _parse_archive
+from .due_events import task_due_date, task_due_with_date
+from .recurrence import occurrences, validate_schedule
+from .task_events import async_fire_tasks_event
+from .task_store import get_store
 
 TEXT = vol.Any(str, None)
 SCHEDULE_FIELDS = {

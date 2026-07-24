@@ -13,8 +13,8 @@ from homeassistant.util import dt as dt_util
 
 from . import TasksData
 from .const import EVENT_TASKS, TASKS_DEVICE_INFO
-from .due import parse_task_due
-from .events import async_fire_tasks_event
+from .due_events import parse_task_due
+from .task_events import async_fire_tasks_event
 
 
 async def async_setup_entry(

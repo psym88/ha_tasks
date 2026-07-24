@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.tasks import nfc
-from custom_components.tasks.store import TasksStore
+from custom_components.tasks import nfc_completion as nfc
+from custom_components.tasks.task_store import TasksStore
 
 
 class MemoryStore:

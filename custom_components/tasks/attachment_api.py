@@ -11,7 +11,7 @@ import voluptuous as vol
 
 from .archive_converter import ARCHIVE_FORMAT, upgrade_archive_manifest
 from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
-from .store import get_store
+from .task_store import get_store
 
 MAX_ARCHIVE_SIZE = 100 * 1024 * 1024
 ARCHIVE_MANIFEST_SCHEMA = vol.Schema(

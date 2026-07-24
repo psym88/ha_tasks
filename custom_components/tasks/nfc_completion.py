@@ -5,8 +5,8 @@ from __future__ import annotations
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
-from .events import async_fire_tasks_event
-from .store import TasksStore
+from .task_events import async_fire_tasks_event
+from .task_store import TasksStore
 
 EVENT_TAG_SCANNED = "tag_scanned"
 NFC_COMPLETION_NOTE = "tasks.history.completed_via_nfc"

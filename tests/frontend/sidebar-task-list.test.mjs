@@ -14,7 +14,7 @@ const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/l
 await ready;
 await setLanguage("en");
 const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,dueTimestamp,filterTaskTableRows,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
-const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/shared.js");
+const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 

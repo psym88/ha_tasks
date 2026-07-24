@@ -1,12 +1,11 @@
-import { esc, knownLabelIds } from "./shared.js";
+import { esc, historyNote, locale as activeLocale, setLanguage, t } from "./localize.js";
 import { withStyles } from "./styles.js";
-import { withTaskList } from "./sidebar-task-list.js";
+import { knownLabelIds, withTaskList } from "./sidebar-task-list.js";
 import { showTaskViewer } from "./popup-task-viewer.js";
 import { withTaskEditor } from "./popup-task-editor.js";
 import { withConfirmation } from "./popup-confirm.js";
 import { showAttachmentViewer } from "./popup-attachment-viewer.js";
 import { showSettingsPopup } from "./popup-settings.js";
-import { historyNote, locale as activeLocale, setLanguage, t } from "./localize.js";
 
 export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(withStyles(HTMLElement)))) {
   constructor(){ super(); this.attachShadow({mode:"open"}); this.tasks=[]; this.attachments=[]; this.users=[]; this.tags=[]; this.labels=[]; this.today=""; this.signedFiles=new Map(); this.loading=false; this.reloadPending=false; this.eventUnsubscribe=null; this.eventSubscriptionToken=0; }

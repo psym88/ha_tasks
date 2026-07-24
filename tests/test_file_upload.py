@@ -5,8 +5,8 @@ from uuid import uuid4
 
 from homeassistant.components.file_upload import DOMAIN, FileUploadData
 
-from custom_components.tasks.http import _build_archive
-from custom_components.tasks.websocket import (
+from custom_components.tasks.attachment_api import _build_archive
+from custom_components.tasks.task_api import (
     _parse_uploaded_archive,
     _read_uploaded_file,
 )

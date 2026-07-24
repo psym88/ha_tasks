@@ -1,4 +1,4 @@
-import { esc } from "./shared.js";
+import { esc } from "./localize.js";
 import { errorMessage, t } from "./localize.js";
 
 export const SETTINGS_POPUP_TAG="tasks-popup-settings";

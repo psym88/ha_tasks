@@ -8,7 +8,7 @@ ROOT = Path(__file__).parents[1]
 
 
 def _decorators(function_name: str) -> set[str]:
-    tree = ast.parse((ROOT / "custom_components/tasks/websocket.py").read_text(encoding="utf-8"))
+    tree = ast.parse((ROOT / "custom_components/tasks/task_api.py").read_text(encoding="utf-8"))
     function = next(node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name)
     return {ast.unparse(decorator) for decorator in function.decorator_list}
 
@@ -32,8 +32,8 @@ def test_dashboard_task_commands_allow_authenticated_users():
 
 
 def test_upload_uses_native_file_upload_and_file_selector():
-    http_source=(ROOT / "custom_components/tasks/http.py").read_text(encoding="utf-8")
-    websocket_source=(ROOT / "custom_components/tasks/websocket.py").read_text(encoding="utf-8")
+    http_source=(ROOT / "custom_components/tasks/attachment_api.py").read_text(encoding="utf-8")
+    websocket_source=(ROOT / "custom_components/tasks/task_api.py").read_text(encoding="utf-8")
     assert "UploadView" not in http_source
     assert '"/api/tasks/upload"' not in http_source
     assert "process_uploaded_file" in websocket_source
@@ -57,7 +57,7 @@ def test_dashboard_module_is_registered_and_removed_with_config_entry():
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
-    assert "entry.async_on_unload(nfc.async_setup_listener(hass, store))" in source
+    assert "entry.async_on_unload(nfc_completion.async_setup_listener(hass, store))" in source
 
 
 def test_native_tag_integration_is_loaded_as_a_dependency():

@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from datetime import date, timedelta
 from typing import Any
 
-from .due import task_due_date
+from .due_events import task_due_date
 
 _INTERVAL_UNITS = {
     "daily": "day",

@@ -1,4 +1,5 @@
 const CATALOG_URL="/tasks_translations";
+const KEYS={addTask:"common.add_task",fixed:"task.fixed",sliding:"task.sliding",daily:"task.daily",weekly:"task.weekly",monthly:"task.monthly",yearly:"task.yearly",save:"common.save",files:"task.files",history:"task.history",noFiles:"task.no_files",noHistory:"task.no_history"};
 
 let messages={};
 let language="en";
@@ -17,6 +18,8 @@ async function loadCatalog(code){
 }
 
 export function t(key,variables={}){return interpolate(messages[key]??key,variables);}
+export const L=new Proxy({}, {get:(_,key)=>t(KEYS[key]||String(key))});
+export const esc=(value)=>String(value??"").replace(/[&<>"']/g,character=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
 export function errorMessage(error){const key=String(error?.code||error?.message||error||"");return messages[`error.${key}`]??error?.message??key;}
 export function historyNote(value){return value==="tasks.history.completed_via_nfc"?t("history.completed_via_nfc"):value;}
 export function locale(){return language;}
