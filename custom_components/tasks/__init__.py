@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from . import attachment_api, nfc_completion, task_api
-from .const import CARD_JS_URL, DOMAIN, FRONTEND_URL, PANEL_JS_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
+from .const import CARD_JS_URL, DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_JS_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
 from .due_events import TaskDueEventScheduler
 from .task_store import TasksStore
 
@@ -25,9 +25,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     task_api.async_register(hass)
     attachment_api.async_register_views(hass)
     frontend_dir = Path(__file__).parent / "frontend"
+    english_translations = Path(__file__).parent / "strings.json"
     translations_dir = Path(__file__).parent / "translations"
     await hass.http.async_register_static_paths([
         StaticPathConfig(FRONTEND_URL, str(frontend_dir), False),
+        StaticPathConfig(ENGLISH_TRANSLATIONS_URL, str(english_translations), False),
         StaticPathConfig(TRANSLATIONS_URL, str(translations_dir), False),
     ])
     return True

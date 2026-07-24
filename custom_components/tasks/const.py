@@ -14,9 +14,10 @@ TASKS_DEVICE_INFO = DeviceInfo(
 )
 PANEL_URL = "/tasks"
 PANEL_TITLE = "Tasks"
-PANEL_VERSION = "20260724.8"
+PANEL_VERSION = "20260725.1"
 FRONTEND_URL = f"/{DOMAIN}_frontend"
 TRANSLATIONS_URL = f"/{DOMAIN}_translations"
+ENGLISH_TRANSLATIONS_URL = f"/{DOMAIN}_strings.json"
 PANEL_JS_URL = f"{FRONTEND_URL}/panel.js?v={PANEL_VERSION}"
 CARD_JS_URL = f"{FRONTEND_URL}/dashboard-card.js?v={PANEL_VERSION}"
 DOWNLOAD_URL = f"/api/{DOMAIN}/download"

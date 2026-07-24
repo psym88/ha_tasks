@@ -71,7 +71,8 @@ def test_native_tag_integration_is_loaded_as_a_dependency():
 def test_frontend_and_consolidated_translations_are_registered_as_static_paths():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "StaticPathConfig(FRONTEND_URL, str(frontend_dir), False)" in source
+    assert "StaticPathConfig(ENGLISH_TRANSLATIONS_URL, str(english_translations), False)" in source
     assert "StaticPathConfig(TRANSLATIONS_URL, str(translations_dir), False)" in source
     component=ROOT / "custom_components/tasks"
     assert list(component.rglob("de.json")) == [component / "translations/de.json"]
-    assert list(component.rglob("en.json")) == [component / "translations/en.json"]
+    assert list(component.rglob("en.json")) == []

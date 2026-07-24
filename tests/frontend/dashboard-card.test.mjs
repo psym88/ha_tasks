@@ -9,8 +9,8 @@ globalThis.CustomEvent = class {constructor(type,options){this.type=type;Object.
 const fakeElement=localName=>({localName,children:[],attributes:{},listeners:{},append(...children){this.children.push(...children);},setAttribute(name,value){this.attributes[name]=value;},addEventListener(name,listener){this.listeners[name]=listener;}});
 globalThis.document = {createElement:fakeElement};
 globalThis.fetch = async url => {
-  const language=String(url).match(/\/([a-z]{2,3})\.json$/)?.[1]||"en";
-  const catalog=JSON.parse(readFileSync(new URL(`../../custom_components/tasks/translations/${language}.json`,import.meta.url),"utf8"));
+  const language=String(url).endsWith("/tasks_strings.json")?"en":String(url).match(/\/([a-z]{2,3})\.json$/)?.[1]||"en";
+  const catalog=JSON.parse(readFileSync(new URL(language==="en"?"../../custom_components/tasks/strings.json":`../../custom_components/tasks/translations/${language}.json`,import.meta.url),"utf8"));
   return {ok:true,json:async()=>catalog};
 };
 

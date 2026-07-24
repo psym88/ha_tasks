@@ -12,7 +12,8 @@ function interpolate(value,variables){
 
 async function loadCatalog(code){
   if(!loaded.has(code)){
-    loaded.set(code,fetch(`${CATALOG_URL}/${code}.json`).then(response=>response.ok?response.json():{}).then(catalog=>catalog.frontend||{}).catch(()=>({})));
+    const url=code==="en"?"/tasks_strings.json":`${CATALOG_URL}/${code}.json`;
+    loaded.set(code,fetch(url).then(response=>response.ok?response.json():{}).then(catalog=>catalog.frontend||{}).catch(()=>({})));
   }
   return loaded.get(code);
 }

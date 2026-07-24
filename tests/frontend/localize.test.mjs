@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import {readFileSync,readdirSync} from "node:fs";
 import test from "node:test";
 
-const catalog=language=>JSON.parse(readFileSync(new URL(`../../custom_components/tasks/translations/${language}.json`,import.meta.url),"utf8"));
-globalThis.fetch=async url=>{const language=String(url).match(/\/([a-z]{2,3})\.json$/)?.[1]||"en";return {ok:true,json:async()=>catalog(language)};};
+const catalog=language=>JSON.parse(readFileSync(new URL(language==="en"?"../../custom_components/tasks/strings.json":`../../custom_components/tasks/translations/${language}.json`,import.meta.url),"utf8"));
+globalThis.fetch=async url=>{const language=String(url).endsWith("/tasks_strings.json")?"en":String(url).match(/\/([a-z]{2,3})\.json$/)?.[1]||"en";return {ok:true,json:async()=>catalog(language)};};
 
 const {errorMessage,historyNote,ready,setLanguage,t}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
