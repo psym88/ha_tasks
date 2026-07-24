@@ -151,11 +151,14 @@
     "attachment.download": "Herunterladen",
     "card.add": "Task hinzufügen",
     "card.empty": "Keine passenden Tasks",
-    "card.mode": "Modus",
-    "card.mode_view": "Anzeigen",
-    "card.mode_edit": "Bearbeiten",
+    "card.options": "Optionen",
+    "card.secondary": "Sekundäre Informationen",
+    "card.secondary_info": "Angezeigte Informationen",
+    "card.filter": "Filter",
+    "card.show_action_menu": "Aktionsmenü",
+    "card.show_add_task": "Task hinzufügen",
     "card.due_days": "Tage in die Zukunft (leer = alle)",
-    "card.users": "Benutzer (keine Auswahl = alle)",
+    "card.users": "Benutzer",
     "card.description": "Fällige Tasks-Aufgaben als flache Liste"
   }
 }

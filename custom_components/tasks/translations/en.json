@@ -151,11 +151,14 @@
     "attachment.download": "Download",
     "card.add": "Add task",
     "card.empty": "No matching tasks",
-    "card.mode": "Mode",
-    "card.mode_view": "View",
-    "card.mode_edit": "Edit",
+    "card.options": "Options",
+    "card.secondary": "Secondary information",
+    "card.secondary_info": "Displayed information",
+    "card.filter": "Filter",
+    "card.show_action_menu": "Action menu",
+    "card.show_add_task": "Add task",
     "card.due_days": "Days into the future (empty = all)",
-    "card.users": "Users (no selection = all)",
+    "card.users": "Users",
     "card.description": "Due tasks as a flat list"
   }
 }

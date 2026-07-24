@@ -4,19 +4,25 @@ import { createActionMenu } from "./action-menu.js";
 import { ready, setLanguage, t } from "./localize.js";
 
 export const UNASSIGNED = "__unassigned__";
+export const SECONDARY_INFO = Object.freeze(["due","assignee","nfc_tag","labels"]);
 export const DEFAULT_CARD_CONFIG = Object.freeze({
   type: "custom:tasks-card",
-  mode: "view",
+  show_action_menu: false,
+  show_add_task: false,
+  secondary_info: SECONDARY_INFO,
   due_days: 0,
   assignee_ids: [],
 });
 
 export function normalizeCardConfig(config={}) {
   const dueDays=config.due_days===null?null:Number.isInteger(Number(config.due_days))&&Number(config.due_days)>=0?Number(config.due_days):0;
+  const secondaryInfo=Array.isArray(config.secondary_info)?config.secondary_info.filter((item,index,list)=>SECONDARY_INFO.includes(item)&&list.indexOf(item)===index):[...SECONDARY_INFO];
   return {
     ...DEFAULT_CARD_CONFIG,
     type:config.type||DEFAULT_CARD_CONFIG.type,
-    mode:config.mode==="edit"?"edit":"view",
+    show_action_menu:Boolean(config.show_action_menu),
+    show_add_task:Boolean(config.show_add_task),
+    secondary_info:secondaryInfo,
     due_days:dueDays,
     assignee_ids:Array.isArray(config.assignee_ids)?[...config.assignee_ids]:[],
   };
@@ -38,9 +44,28 @@ export function sortDashboardTasks(tasks,locale="en"){
 }
 
 export function dueStatus(taskDue,today){const dueDate=(taskDue||"").slice(0,10);return dueDate<today?"overdue":dueDate===today?"today":"future";}
-export function dashboardTaskRowHtml(task,editable,relativeDate,status,assigneeName="",tagName=""){return `<div class="task-row${editable?" editable":""}" data-task="${esc(task.task_id)}" tabindex="0"><div><div class="task-name">${esc(task.task_name)}</div><ha-chip-set><ha-assist-chip class="due-date ${esc(status)}" label="${esc(relativeDate)}"></ha-assist-chip>${assigneeName?`<ha-assist-chip label="${esc(assigneeName)}"><ha-icon slot="icon" icon="mdi:account"></ha-icon></ha-assist-chip>`:""}${tagName?`<ha-assist-chip label="${esc(tagName)}"><ha-icon slot="icon" icon="mdi:nfc"></ha-icon></ha-assist-chip>`:""}</ha-chip-set></div>${editable?'<span class="row-action-slot"></span>':""}</div>`;}
-export function dashboardCardBodyHtml(rows,editable){return `<ha-card style="--ha-card-border-width:0px;--ha-card-border-color:transparent;border:none!important;background:transparent!important;box-shadow:none!important"><div class="card-content">${editable?`<button class="add-task" type="button">+ ${t("card.add")}</button>`:""}${rows||`<div class="empty">${t("card.empty")}</div>`}</div></ha-card>`;}
-export function canEditCard(config){return normalizeCardConfig(config).mode==="edit";}
+export function dashboardTaskRowHtml(task,showActionMenu,relativeDate,status,assigneeName="",tagName="",labelNames=[],secondaryInfo=SECONDARY_INFO){const values={due:relativeDate?`<span class="due-date">${esc(relativeDate)}</span>`:"",assignee:esc(assigneeName),nfc_tag:esc(tagName),labels:esc(labelNames.join(", "))},metadata=secondaryInfo.map(key=>values[key]).filter(Boolean).join(" • ");return `<ha-list-item-button class="task-row ${esc(status)}" data-task="${esc(task.task_id)}"><ha-icon class="task-icon" slot="start" icon="mdi:clipboard-check-outline"></ha-icon><span slot="headline">${esc(task.task_name)}</span>${metadata?`<span slot="supporting-text">${metadata}</span>`:""}${showActionMenu?'<span class="row-action-slot" slot="end"></span>':""}</ha-list-item-button>`;}
+export function dashboardCardBodyHtml(rows,showAddTask){return `<ha-card><ha-list-base aria-label="Tasks">${rows||`<ha-list-item-base><ha-icon slot="start" icon="mdi:clipboard-check-outline"></ha-icon><span slot="headline">${t("card.empty")}</span></ha-list-item-base>`}${showAddTask?`<ha-list-item-button class="add-task"><ha-icon slot="start" icon="mdi:plus"></ha-icon><span slot="headline">${t("card.add")}</span></ha-list-item-button>`:""}</ha-list-base></ha-card>`;}
+export function dashboardCardEditorSchema(users=[]){
+  return [
+    {type:"expandable",name:"options",title:t("card.options"),icon:"mdi:tune",flatten:true,expanded:true,schema:[
+      {name:"show_action_menu",selector:{boolean:{}}},
+      {name:"show_add_task",selector:{boolean:{}}},
+    ]},
+    {type:"expandable",name:"secondary",title:t("card.secondary"),icon:"mdi:format-list-text",flatten:true,schema:[
+      {name:"secondary_info",selector:{select:{multiple:true,reorder:true,custom_value:false,options:[
+        {value:"due",label:t("task.due")},
+        {value:"assignee",label:t("task.user")},
+        {value:"nfc_tag",label:t("task.nfc_tag_id")},
+        {value:"labels",label:t("task.labels")},
+      ]}}},
+    ]},
+    {type:"expandable",name:"filter",title:t("card.filter"),icon:"mdi:filter-variant",flatten:true,schema:[
+      {name:"due_days",selector:{number:{min:0,step:1,mode:"box"}}},
+      {name:"assignee_ids",selector:{select:{multiple:true,mode:"dropdown",options:[{value:UNASSIGNED,label:t("task.unassigned")},...users.map(user=>({value:user.id,label:user.name}))]}}},
+    ]},
+  ];
+}
 
 export class TasksCard extends TasksBase {
   static getStubConfig(){return {...DEFAULT_CARD_CONFIG};}
@@ -49,11 +74,10 @@ export class TasksCard extends TasksBase {
   getCardSize(){return Math.max(1,Math.min(8,this.visibleTasks().length+1));}
   visibleTasks(){return sortDashboardTasks(filterDashboardTasks(this.tasks||[],this.config||DEFAULT_CARD_CONFIG,this.today),this.locale());}
   render(){
-    if(!this.shadowRoot.querySelector(".card-root"))this.shadowRoot.innerHTML=`${this.styles()}<style>:host{display:block}ha-card{overflow:hidden}.card-content{display:grid;gap:8px;padding:0}.task-row{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;min-height:52px;padding:4px 12px;border:1px solid var(--ha-card-border-color,var(--divider-color));border-radius:var(--ha-card-border-radius,12px);background:var(--ha-card-background,var(--card-background-color));cursor:pointer;transition:background-color 180ms ease-in-out}.task-row:hover{background:var(--secondary-background-color)}.task-row.editable{grid-template-columns:minmax(0,1fr) 44px}.task-name{font-weight:var(--ha-font-weight-normal,400)}ha-chip-set{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}.due-date.today{--primary-text-color:var(--warning-color,#f57c00)}.due-date.overdue{--primary-text-color:var(--error-color,#d32f2f)}.due-date.future{--primary-text-color:var(--success-color,#43a047)}.empty{padding:20px;color:var(--secondary-text-color);text-align:center}.add-task{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;min-height:52px;padding:4px 12px;border:2px dashed var(--divider-color);border-radius:var(--ha-card-border-radius,12px);background:transparent;color:var(--secondary-text-color);font:inherit;text-align:center;cursor:pointer}.add-task:focus:not(:focus-visible){outline:none}</style><div class="card-root"></div>`;
-    const root=this.shadowRoot.querySelector(".card-root"),tasks=this.visibleTasks(),editable=canEditCard(this.config);
-    root.innerHTML=dashboardCardBodyHtml(tasks.map(task=>dashboardTaskRowHtml(task,editable,this.relativeDate(task.task_due),dueStatus(task.task_due,this.today),this.users.find(user=>user.id===task.assignee_id)?.name||"",this.tagName(task))).join(""),editable);
-    root.insertAdjacentHTML("beforeend",'<style>.task-row{border-color:var(--divider-color)}</style>'+this.themeStyles());
-    root.querySelectorAll("[data-task]").forEach(row=>{const task=this.tasks.find(item=>item.task_id===row.dataset.task);row.onclick=()=>this.taskViewer(task);row.onkeydown=event=>{if(event.target===row&&(event.key==="Enter"||event.key===" "))this.taskViewer(task);};const slot=row.querySelector(".row-action-slot");if(slot)slot.replaceWith(createActionMenu({label:t("task.actions"),edit:()=>this.taskEditor(task),remove:()=>this.deleteTask(task)}));});
+    if(!this.shadowRoot.querySelector(".card-root"))this.shadowRoot.innerHTML='<style>.task-row.today .task-icon,.task-row.today .due-date{color:var(--warning-color)}.task-row.overdue .task-icon,.task-row.overdue .due-date{color:var(--error-color)}.task-row.future .task-icon,.task-row.future .due-date{color:var(--success-color)}</style><div class="card-root"></div>';
+    const root=this.shadowRoot.querySelector(".card-root"),tasks=this.visibleTasks(),config=normalizeCardConfig(this.config);
+    root.innerHTML=dashboardCardBodyHtml(tasks.map(task=>dashboardTaskRowHtml(task,config.show_action_menu,this.relativeDate(task.task_due),dueStatus(task.task_due,this.today),this.users.find(user=>user.id===task.assignee_id)?.name||"",this.tagName(task),this.labelNames(task),config.secondary_info)).join(""),config.show_add_task);
+    root.querySelectorAll("[data-task]").forEach(row=>{const task=this.tasks.find(item=>item.task_id===row.dataset.task);row.onclick=()=>this.taskViewer(task);const slot=row.querySelector(".row-action-slot");if(slot){const menu=createActionMenu({label:t("task.actions"),edit:()=>this.taskEditor(task),remove:()=>this.deleteTask(task)});menu.slot="end";slot.replaceWith(menu);}});
     const add=root.querySelector(".add-task");if(add)add.onclick=()=>{add.blur();this.taskEditor(null);};
   }
 }
@@ -61,12 +85,10 @@ export class TasksCard extends TasksBase {
 export class TasksCardEditor extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this.config={...DEFAULT_CARD_CONFIG};this.users=[];this.loaded=false;}
   set hass(value){this._hass=value;setLanguage(value?.locale?.language).then(changed=>{updateCardMetadata();if(!this.loaded){this.loaded=true;this.load();}else if(changed)this.render();});}
-  setConfig(config){this.config=normalizeCardConfig(config);this.render();}
+  setConfig(config){const next=normalizeCardConfig(config),unchanged=JSON.stringify(next)===JSON.stringify(this.config);this.config=next;if(!unchanged||!this.shadowRoot.querySelector("ha-form"))this.render();}
   async load(){try{const data=await this._hass.connection.sendMessagePromise({type:"tasks/list"});this.users=data.users||[];}catch(error){console.error("Tasks card editor load failed",error);}this.render();}
-  update(patch){this.config=normalizeCardConfig({...this.config,...patch});this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:{...this.config}},bubbles:true,composed:true}));this.render();}
-  checks(items,selected,name){return items.map(item=>`<label><input type="checkbox" name="${name}" value="${esc(item.id)}" ${selected.includes(item.id)?"checked":""}><span>${esc(item.name)}</span></label>`).join("");}
-  render(){if(!this.shadowRoot)return;this.shadowRoot.innerHTML=`<style>:host{display:block}.editor{display:grid;gap:16px}.field{display:grid;gap:7px}.choices{display:grid;gap:6px;max-height:180px;overflow:auto;padding:8px;border:1px solid var(--divider-color);border-radius:8px}.choices label{display:flex;gap:8px;align-items:center}select,input[type=number]{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}</style><div class="editor"><label class="field"><span>${t("card.mode")}</span><select name="mode"><option value="view" ${this.config.mode==="view"?"selected":""}>${t("card.mode_view")}</option><option value="edit" ${this.config.mode==="edit"?"selected":""}>${t("card.mode_edit")}</option></select></label><label class="field"><span>${t("card.due_days")}</span><input name="due_days" type="number" min="0" step="1" value="${this.config.due_days??""}"></label><div class="field"><span>${t("card.users")}</span><div class="choices users">${this.checks([{id:UNASSIGNED,name:t("task.unassigned")},...this.users],this.config.assignee_ids,"users")}</div></div></div>`;
-    this.shadowRoot.querySelector('[name="mode"]').onchange=event=>this.update({mode:event.target.value});this.shadowRoot.querySelector('[name="due_days"]').onchange=event=>this.update({due_days:event.target.value===""?null:Math.max(0,Math.trunc(Number(event.target.value)||0))});this.shadowRoot.querySelector(".users").onchange=()=>this.update({assignee_ids:[...this.shadowRoot.querySelectorAll(".users input:checked")].map(input=>input.value)});
+  update(patch){this.config=normalizeCardConfig({...this.config,...patch});this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:{...this.config}},bubbles:true,composed:true}));}
+  render(){if(!this.shadowRoot||!this._hass)return;this.shadowRoot.innerHTML="<ha-form></ha-form>";const form=this.shadowRoot.querySelector("ha-form");form.hass=this._hass;form.data={show_action_menu:this.config.show_action_menu,show_add_task:this.config.show_add_task,secondary_info:this.config.secondary_info,due_days:this.config.due_days,assignee_ids:this.config.assignee_ids};form.schema=dashboardCardEditorSchema(this.users);form.computeLabel=schema=>({show_action_menu:t("card.show_action_menu"),show_add_task:t("card.show_add_task"),secondary_info:t("card.secondary_info"),due_days:t("card.due_days"),assignee_ids:t("card.users")}[schema.name]||schema.name);form.addEventListener("value-changed",event=>this.update(event.detail?.value||{}));
   }
 }
 
