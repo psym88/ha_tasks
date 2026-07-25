@@ -54,6 +54,21 @@ def task_due_with_date(task: dict[str, Any], value: date) -> str:
     return value.isoformat()
 
 
+@callback
+def fire_task_due(hass: HomeAssistant, task: dict[str, Any]) -> None:
+    """Fire the shared due event and configured notifications for one task."""
+    async_fire_tasks_event(
+        hass,
+        "task_due",
+        "task",
+        task["task_id"],
+        resource_name=task["task_name"],
+        task_due=task["task_due"],
+    )
+    if has_due_notification(task):
+        hass.async_create_task(async_notify_task_due(hass, task))
+
+
 class TaskDueEventScheduler:
     """Fire one Tasks event for every task as it becomes due."""
 
@@ -96,7 +111,8 @@ class TaskDueEventScheduler:
         future = [
             due
             for task in self._store.tasks
-            if (due := task_due_datetime(task)) > now
+            if task.get("task_due")
+            and (due := task_due_datetime(task)) > now
         ]
         if future:
             target = min(future)
@@ -116,18 +132,9 @@ class TaskDueEventScheduler:
         """Fire each task due at the scheduled time and plan the next one."""
         self._cancel_timer = None
         for task in self._store.tasks:
+            if not task.get("task_due"):
+                continue
             due = task_due_datetime(task)
             if target <= due <= fired_at:
-                async_fire_tasks_event(
-                    self._hass,
-                    "task_due",
-                    "task",
-                    task["task_id"],
-                    resource_name=task["task_name"],
-                    task_due=task["task_due"],
-                )
-                if has_due_notification(task):
-                    self._hass.async_create_task(
-                        async_notify_task_due(self._hass, task)
-                    )
+                fire_task_due(self._hass, task)
         self.reschedule()

@@ -37,6 +37,11 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
     store = SimpleNamespace(
         tasks=[
             {
+                "task_id": "waiting",
+                "task_name": "Waiting",
+                "task_due": None,
+            },
+            {
                 "task_id": "one",
                 "task_name": "One",
                 "task_due": "2026-07-25T08:00:00+00:00",

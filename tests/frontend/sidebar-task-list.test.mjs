@@ -60,6 +60,15 @@ test("due timestamps validate calendar dates and represent missing dates as the 
   assert.equal(dueTimestamp(""),NO_DUE_TIMESTAMP);
 });
 
+test("sensor tasks use the problem trigger label without a rhythm",()=>{
+  const [row]=taskTableRows(
+    [{task_id:"problem",task_name:"Problem",task_due:null,schedule_type:"sensor",problem_sensor:"binary_sensor.problem"}],
+    {translate:key=>`translated:${key}`},
+  );
+  assert.equal(row.recurrence,"translated:task.problem");
+  assert.equal(row.rhythm,"–");
+});
+
 test("native pane filters combine dimensions and allow multiple values within one dimension",()=>{
   const rows=[
     {id:"1",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Chores","Upstairs"],notifications:"Phone, Panel",notification_names:["Phone","Panel"],recurrence:"Fixed",rhythm:"Weekly"},

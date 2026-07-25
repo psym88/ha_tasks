@@ -1,9 +1,15 @@
 """Tests for task due notifications."""
 
 import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from custom_components.tasks import notifications
+
+INTEGRATION_DIR = Path(__file__).parents[1] / "custom_components" / "tasks"
 
 
 def _task(**values):
@@ -18,6 +24,31 @@ def _task(**values):
     }
 
 
+def _hass(language="de"):
+    return SimpleNamespace(config=SimpleNamespace(language=language))
+
+
+@pytest.fixture(autouse=True)
+def notification_translations(monkeypatch):
+    async def get_translations(hass, language, category, integrations):
+        assert category == "frontend"
+        assert integrations == {"tasks"}
+        path = INTEGRATION_DIR / "translations" / f"{language}.json"
+        if not path.exists():
+            path = INTEGRATION_DIR / "translations" / "en.json"
+        frontend = json.loads(path.read_text(encoding="utf-8"))["frontend"]
+        return {
+            f"component.tasks.frontend.{key}": value
+            for key, value in frontend.items()
+        }
+
+    monkeypatch.setattr(
+        notifications,
+        "async_get_translations",
+        get_translations,
+    )
+
+
 def test_due_notification_sends_native_mobile_app_device_actions(monkeypatch):
     calls = []
 
@@ -29,7 +60,7 @@ def test_due_notification_sends_native_mobile_app_device_actions(monkeypatch):
         "async_call_action_from_config",
         call_action,
     )
-    hass = SimpleNamespace()
+    hass = _hass()
     task = _task(
         notification_target={"device_id": ["phone", "tablet"]},
         notification_critical=True,
@@ -40,6 +71,12 @@ def test_due_notification_sends_native_mobile_app_device_actions(monkeypatch):
     assert [call[1]["device_id"] for call in calls] == ["phone", "tablet"]
     assert all(call[1]["domain"] == "mobile_app" for call in calls)
     assert all(call[1]["type"] == "notify" for call in calls)
+    assert all(call[1]["title"] == "Task fällig" for call in calls)
+    assert all(
+        call[1]["message"]
+        == "„Replace water filter“ ist jetzt fällig."
+        for call in calls
+    )
     data = calls[0][1]["data"]
     assert data["ttl"] == 0
     assert data["priority"] == "high"
@@ -62,7 +99,7 @@ def test_panel_notification_uses_stable_id(monkeypatch):
             (hass, message, title, notification_id)
         ),
     )
-    hass = SimpleNamespace()
+    hass = _hass()
 
     asyncio.run(
         notifications.async_notify_task_due(
@@ -71,7 +108,60 @@ def test_panel_notification_uses_stable_id(monkeypatch):
     )
 
     assert created == [
-        (hass, "Replace water filter", "Task due", "tasks_due_task")
+        (
+            hass,
+            "„Replace water filter“ ist jetzt fällig.",
+            "Task fällig",
+            "tasks_due_task",
+        )
+    ]
+
+
+def test_problem_notification_uses_problem_wording(monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        notifications.persistent_notification,
+        "async_create",
+        lambda hass, message, title=None, notification_id=None: created.append(
+            (message, title)
+        ),
+    )
+
+    asyncio.run(
+        notifications.async_notify_task_due(
+            _hass(),
+            _task(
+                task_name="Check heat pump",
+                schedule_type="sensor",
+                notification_persistent=True,
+            ),
+        )
+    )
+
+    assert created == [
+        ("„Check heat pump“ benötigt deine Aufmerksamkeit.", "Problem erkannt")
+    ]
+
+
+def test_notification_uses_home_assistant_instance_language(monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        notifications.persistent_notification,
+        "async_create",
+        lambda hass, message, title=None, notification_id=None: created.append(
+            (message, title)
+        ),
+    )
+
+    asyncio.run(
+        notifications.async_notify_task_due(
+            _hass("en"),
+            _task(notification_persistent=True),
+        )
+    )
+
+    assert created == [
+        ("“Replace water filter” is now due.", "Task due")
     ]
 
 

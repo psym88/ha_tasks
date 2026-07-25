@@ -9,13 +9,14 @@ from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.translation import async_get_translations
 
-from .const import EVENT_TASKS
+from .const import DOMAIN, EVENT_TASKS
 
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"
-NOTIFICATION_TITLE = "Task due"
+TRANSLATION_CATEGORY = "frontend"
 
 
 def notification_id(task_id: str) -> str:
@@ -27,6 +28,26 @@ def has_due_notification(task: dict[str, Any]) -> bool:
     """Return whether a task has any due notification enabled."""
     target = task.get("notification_target") or {}
     return bool(target.get("device_id") or task.get("notification_persistent"))
+
+
+async def _notification_content(
+    hass: HomeAssistant,
+    task: dict[str, Any],
+) -> tuple[str, str]:
+    language = getattr(getattr(hass, "config", None), "language", "en")
+    translations = await async_get_translations(
+        hass,
+        language,
+        TRANSLATION_CATEGORY,
+        integrations={DOMAIN},
+    )
+    task_name = task["task_name"]
+    kind = "problem" if task.get("schedule_type") == "sensor" else "due"
+    prefix = f"component.{DOMAIN}.{TRANSLATION_CATEGORY}.notification.{kind}"
+    return (
+        translations[f"{prefix}_title"],
+        translations[f"{prefix}_message"].format(task_name=task_name),
+    )
 
 
 def _mobile_data(task: dict[str, Any]) -> dict[str, Any]:
@@ -56,12 +77,12 @@ async def async_notify_task_due(
     task: dict[str, Any],
 ) -> None:
     """Send every notification configured for a due task."""
-    message = task["task_name"]
+    title, message = await _notification_content(hass, task)
     if task.get("notification_persistent"):
         persistent_notification.async_create(
             hass,
             message,
-            title=NOTIFICATION_TITLE,
+            title=title,
             notification_id=notification_id(task["task_id"]),
         )
 
@@ -73,7 +94,7 @@ async def async_notify_task_due(
                     CONF_DEVICE_ID: device_id,
                     CONF_DOMAIN: MOBILE_APP_DOMAIN,
                     CONF_TYPE: "notify",
-                    "title": NOTIFICATION_TITLE,
+                    "title": title,
                     "message": message,
                     "data": _mobile_data(task),
                 },

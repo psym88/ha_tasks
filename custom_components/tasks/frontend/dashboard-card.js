@@ -41,10 +41,13 @@ export function filterDashboardTasks(tasks,config,today,timeZone,currentUserId){
 }
 
 export function sortDashboardTasks(tasks,locale="en"){
-  return [...tasks].sort((a,b)=>(a.task_due||"").localeCompare(b.task_due||"")||(a.task_name||"").localeCompare(b.task_name||"",locale));
+  return [...tasks].sort((a,b)=>{
+    if(Boolean(a.task_due)!==Boolean(b.task_due))return a.task_due?-1:1;
+    return (a.task_due||"").localeCompare(b.task_due||"")||(a.task_name||"").localeCompare(b.task_name||"",locale);
+  });
 }
 
-export function dueStatus(taskDue,today,timeZone){const dueDate=dueDateKey(taskDue,timeZone);return dueDate<today?"overdue":dueDate===today?"today":"future";}
+export function dueStatus(taskDue,today,timeZone){const dueDate=dueDateKey(taskDue,timeZone);return !dueDate?"":dueDate<today?"overdue":dueDate===today?"today":"future";}
 export function dashboardTaskRowHtml(task,showActionMenu,relativeDate,status,assigneeName="",tagName="",labelNames=[],secondaryInfo=SECONDARY_INFO){const values={due:relativeDate?`<span class="due-date">${esc(relativeDate)}</span>`:"",assignee:esc(assigneeName),nfc_tag:esc(tagName),labels:esc(labelNames.join(", "))},metadata=secondaryInfo.map(key=>values[key]).filter(Boolean).join(" • ");return `<ha-list-item-button class="task-row ${esc(status)}" data-task="${esc(task.task_id)}"><ha-icon class="task-icon" slot="start" icon="${esc(task.task_icon||"mdi:clipboard-check-outline")}"></ha-icon><span slot="headline">${esc(task.task_name)}</span>${metadata?`<span slot="supporting-text">${metadata}</span>`:""}${showActionMenu?'<span class="row-action-slot" slot="end"></span>':""}</ha-list-item-button>`;}
 export function dashboardCardBodyHtml(rows,showAddTask){return `<ha-card><ha-list-base aria-label="Tasks">${rows||`<ha-list-item-base><ha-icon slot="start" icon="mdi:clipboard-check-outline"></ha-icon><span slot="headline">${t("card.empty")}</span></ha-list-item-base>`}${showAddTask?`<ha-list-item-button class="add-task"><ha-icon slot="start" icon="mdi:plus"></ha-icon><span slot="headline">${t("card.add")}</span></ha-list-item-button>`:""}</ha-list-base></ha-card>`;}
 const editorGroup=(name,titleName,field)=>({type:"grid",name,flatten:true,column_min_width:"100%",schema:[{type:"constant",name:titleName},field]});

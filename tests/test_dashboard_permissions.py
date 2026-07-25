@@ -75,4 +75,4 @@ def test_frontend_and_consolidated_translations_are_registered_as_static_paths()
     assert "StaticPathConfig(TRANSLATIONS_URL, str(translations_dir), False)" in source
     component=ROOT / "custom_components/tasks"
     assert list(component.rglob("de.json")) == [component / "translations/de.json"]
-    assert list(component.rglob("en.json")) == []
+    assert list(component.rglob("en.json")) == [component / "translations/en.json"]

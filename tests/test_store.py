@@ -3,6 +3,8 @@
 import asyncio
 from datetime import date
 
+import pytest
+
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -27,8 +29,6 @@ def _weekly_task():
         "label_ids": [],
         "nfc_tag_id": None,
         "task_due": "2026-07-29",
-        "schedule_start_date": None,
-        "schedule_anchor_date": "2026-07-29",
         "schedule_type": "fixed",
         "schedule_unit": "weekly",
         "schedule_interval": 1,
@@ -36,6 +36,28 @@ def _weekly_task():
         "schedule_day": 29,
         "schedule_month": 7,
     }
+
+
+def test_new_sliding_task_starts_due_after_its_first_interval():
+    async def run():
+        store = _store(_weekly_task())
+        store._data["tasks"] = []
+        created = await store.async_add_task(
+            {
+                "task_name": "Replace filter",
+                "schedule_type": "sliding",
+                "schedule_unit": "weekly",
+                "schedule_interval": 2,
+                "schedule_weekdays": [],
+                "schedule_day": None,
+                "schedule_month": None,
+            },
+            date(2026, 7, 25),
+        )
+
+        assert created["task_due"] == "2026-08-08"
+
+    asyncio.run(run())
 
 
 def test_schedule_update_discards_inactive_values():
@@ -147,5 +169,94 @@ def test_empty_task_notification_route_is_stored_as_none():
         )
 
         assert updated["notification_route"] is None
+
+    asyncio.run(run())
+
+
+def test_sensor_task_waits_without_due_and_discards_recurrence_fields():
+    async def run():
+        store = _store(_weekly_task())
+        store._data["tasks"] = []
+
+        created = await store.async_add_task(
+            {
+                "task_name": "Check heat pump",
+                "schedule_type": "sensor",
+                "problem_sensor": "binary_sensor.heat_pump_problem",
+            },
+            date(2026, 7, 25),
+        )
+
+        assert created["task_due"] is None
+        assert created["problem_sensor"] == "binary_sensor.heat_pump_problem"
+        assert created["schedule_unit"] is None
+        assert created["schedule_interval"] is None
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("payload", "error"),
+    (
+        (
+            {
+                "task_name": "Incomplete recurrence",
+                "schedule_type": "sliding",
+                "schedule_interval": 1,
+            },
+            "invalid_frequency",
+        ),
+        (
+            {
+                "task_name": "Invalid problem sensor",
+                "schedule_type": "sensor",
+                "problem_sensor": "sensor.temperature",
+            },
+            "problem_sensor_required",
+        ),
+    ),
+)
+def test_store_rejects_incomplete_trigger_configurations(payload, error):
+    async def run():
+        store = _store(_weekly_task())
+        store._data["tasks"] = []
+
+        with pytest.raises(ValueError, match=error):
+            await store.async_add_task(payload, date(2026, 7, 25))
+
+    asyncio.run(run())
+
+
+def test_problem_trigger_sets_due_once_until_task_is_completed():
+    async def run():
+        task = {
+            "task_id": "task",
+            "task_name": "Check heat pump",
+            "schedule_type": "sensor",
+            "problem_sensor": "binary_sensor.heat_pump_problem",
+            "task_due": None,
+        }
+        store = _store(task)
+
+        triggered = await store.async_trigger_problem_task(
+            "task", "2026-07-25T10:00:00+00:00"
+        )
+        duplicate = await store.async_trigger_problem_task(
+            "task", "2026-07-25T10:01:00+00:00"
+        )
+
+        assert triggered["task_due"] == "2026-07-25T10:00:00+00:00"
+        assert duplicate is None
+
+        completed = await store.async_complete_task(
+            "task", "2026-07-25", "user-1", "Marco"
+        )
+        assert completed["task_due"] is None
+        assert store.history("task")[0]["task_due_after"] is None
+
+        retriggered = await store.async_trigger_problem_task(
+            "task", "2026-07-26T08:00:00+00:00"
+        )
+        assert retriggered["task_due"] == "2026-07-26T08:00:00+00:00"
 
     asyncio.run(run())

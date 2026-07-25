@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from . import attachment_api, nfc_completion, notifications, task_api
 from .const import CARD_JS_URL, DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_JS_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
 from .due_events import TaskDueEventScheduler
+from .problem_events import ProblemSensorScheduler
 from .task_store import TasksStore
 
 
@@ -40,9 +41,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = TasksStore(hass, upload_dir)
     await store.async_load()
     due_scheduler = TaskDueEventScheduler(hass, store)
+    problem_scheduler = ProblemSensorScheduler(hass, store)
     entry.runtime_data = TasksData(store)
     due_scheduler.start()
+    await problem_scheduler.async_start()
     entry.async_on_unload(due_scheduler.stop)
+    entry.async_on_unload(problem_scheduler.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, store))
     entry.async_on_unload(notifications.async_setup_listener(hass))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

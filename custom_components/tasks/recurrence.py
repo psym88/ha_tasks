@@ -16,7 +16,13 @@ _INTERVAL_UNITS = {
 
 
 def validate_schedule(task: dict[str, Any]) -> None:
-    """Reject incomplete fixed calendar rules."""
+    """Reject incomplete recurrence rules."""
+    if (
+        task.get("schedule_type") not in {"fixed", "sliding"}
+        or task.get("schedule_unit") not in _INTERVAL_UNITS
+        or task.get("schedule_interval") is None
+    ):
+        raise ValueError("invalid_frequency")
     if task.get("schedule_type") != "fixed":
         return
     if task.get("schedule_unit") == "weekly" and not task.get("schedule_weekdays"):
@@ -28,6 +34,16 @@ def validate_schedule(task: dict[str, Any]) -> None:
             raise ValueError("select_month_of_year")
         if task.get("schedule_day") is None:
             raise ValueError("select_day_of_month")
+
+
+def validate_trigger(task: dict[str, Any]) -> None:
+    """Reject incomplete recurrence and problem-sensor triggers."""
+    if task.get("schedule_type") == "sensor":
+        problem_sensor = str(task.get("problem_sensor") or "").strip()
+        if not problem_sensor.startswith("binary_sensor."):
+            raise ValueError("problem_sensor_required")
+        return
+    validate_schedule(task)
 
 
 def add_interval(value: date, schedule_interval: int, unit: str) -> date:
@@ -112,25 +128,7 @@ def occurrences(task: dict[str, Any], from_date: date) -> Iterator[date]:
     """Yield every occurrence after a completion or from a new schedule boundary."""
     current_due = task_due_date(task) if task.get("task_due") else None
     schedule = dict(task)
-    anchor = (
-        date.fromisoformat(task.get("schedule_anchor_date") or current_due.isoformat())
-        if current_due is not None
-        else None
-    )
-
-    # Stored schedules created before validation became strict used their anchor
-    # selections implicitly. Preserve that data while still rejecting new rules.
-    if current_due is not None and schedule.get("schedule_type") == "fixed":
-        schedule_unit = schedule.get("schedule_unit", "monthly")
-        if schedule_unit == "weekly" and not schedule.get("schedule_weekdays"):
-            schedule["schedule_weekdays"] = [anchor.weekday()]
-        elif schedule_unit == "monthly" and schedule.get("schedule_day") is None:
-            schedule["schedule_day"] = anchor.day
-        elif schedule_unit == "yearly":
-            if schedule.get("schedule_month") is None:
-                schedule["schedule_month"] = anchor.month
-            if schedule.get("schedule_day") is None:
-                schedule["schedule_day"] = anchor.day
+    anchor = current_due
 
     validate_schedule(schedule)
     schedule_interval = max(1, int(schedule.get("schedule_interval") or 1))
@@ -138,20 +136,18 @@ def occurrences(task: dict[str, Any], from_date: date) -> Iterator[date]:
     schedule_type = schedule["schedule_type"]
 
     if current_due is None:
-        boundary = max(
-            from_date,
-            date.fromisoformat(
-                schedule.get("schedule_start_date") or from_date.isoformat()
-            ),
-        )
+        boundary = from_date
         if schedule_type == "sliding":
-            due = boundary
+            due = add_interval(
+                boundary,
+                schedule_interval,
+                _INTERVAL_UNITS[schedule_unit],
+            )
         else:
-            initial_schedule = {**schedule, "schedule_interval": 1}
             due = _fixed_due_on_or_after(
-                initial_schedule,
+                schedule,
                 boundary,
-                boundary,
+                boundary + timedelta(days=1),
             )
         anchor = due
     elif schedule_type == "sliding":

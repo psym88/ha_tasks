@@ -50,6 +50,41 @@ def test_tasks_are_native_todo_items_sorted_by_task_due():
     )
 
 
+def test_waiting_sensor_task_is_hidden_from_native_todo_list():
+    items = entity(
+        SimpleNamespace(
+            tasks=[
+                task(task_id="dated", task_due="2026-07-25"),
+                task(
+                    task_id="sensor",
+                    task_due=None,
+                    schedule_type="sensor",
+                    problem_sensor="binary_sensor.problem",
+                ),
+            ]
+        )
+    ).todo_items
+
+    assert [item.uid for item in items] == ["dated"]
+
+
+def test_triggered_sensor_task_appears_in_native_todo_list():
+    items = entity(
+        SimpleNamespace(
+            tasks=[
+                task(
+                    task_id="sensor",
+                    task_due="2026-07-25T10:00:00+00:00",
+                    schedule_type="sensor",
+                    problem_sensor="binary_sensor.problem",
+                )
+            ]
+        )
+    ).todo_items
+
+    assert [item.uid for item in items] == ["sensor"]
+
+
 def test_todo_preserves_an_exact_due_datetime():
     due = datetime(2026, 7, 24, 8, tzinfo=timezone.utc)
     item = entity(
@@ -71,7 +106,8 @@ def test_todo_list_uses_shared_device_and_counts_open_tasks():
     assert not todo.supported_features & TodoListEntityFeature.CREATE_TODO_ITEM
     assert todo.supported_features & TodoListEntityFeature.UPDATE_TODO_ITEM
     assert not todo.supported_features & TodoListEntityFeature.DELETE_TODO_ITEM
-    assert not todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
     assert not todo.supported_features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
 
 

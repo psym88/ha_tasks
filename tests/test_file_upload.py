@@ -7,7 +7,7 @@ from homeassistant.components.file_upload import DOMAIN, FileUploadData
 
 from custom_components.tasks.attachment_api import _build_archive
 from custom_components.tasks.task_api import (
-    _parse_uploaded_archive,
+    _parse_uploaded_archive_with_report,
     _read_uploaded_file,
 )
 
@@ -40,6 +40,10 @@ def test_native_backup_upload_is_parsed_and_removed(tmp_path):
     upload_data.file_path(file_id).write_bytes(_build_archive(data, {}))
     hass = SimpleNamespace(data={DOMAIN: upload_data})
 
-    assert _parse_uploaded_archive(hass, file_id) == (data, {})
+    assert _parse_uploaded_archive_with_report(hass, file_id) == (
+        data,
+        {},
+        {"conversions": []},
+    )
     assert file_id not in upload_data.files
     assert not upload_dir.exists()

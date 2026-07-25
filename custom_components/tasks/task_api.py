@@ -18,14 +18,14 @@ from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
-from .attachment_api import _parse_archive, _parse_archive_with_report
+from .attachment_api import _parse_archive_with_report
 from .due_events import task_due_date, task_due_with_date
-from .recurrence import occurrences, validate_schedule
+from .recurrence import occurrences
 from .task_events import async_fire_tasks_event
 from .task_store import get_store
 
 TEXT = vol.Any(str, None)
-SCHEDULE_FIELDS = {
+RECURRENCE_FIELDS = {
     vol.Required("schedule_type"): vol.In(("fixed", "sliding")),
     vol.Required("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
     vol.Required("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -38,7 +38,21 @@ SCHEDULE_FIELDS = {
     vol.Optional("schedule_month"): vol.Any(
         vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
     ),
-    vol.Optional("schedule_start_date"): TEXT,
+}
+SCHEDULE_FIELDS = {
+    vol.Required("schedule_type"): vol.In(("fixed", "sliding", "sensor")),
+    vol.Optional("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
+    vol.Optional("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    vol.Optional("schedule_weekdays", default=[]): [
+        vol.All(vol.Coerce(int), vol.Range(min=0, max=6))
+    ],
+    vol.Optional("schedule_day"): vol.Any(
+        vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None
+    ),
+    vol.Optional("schedule_month"): vol.Any(
+        vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
+    ),
+    vol.Optional("problem_sensor"): TEXT,
 }
 TASK_CREATE_FIELDS = {
     vol.Required("task_name"): str,
@@ -56,7 +70,7 @@ TASK_CREATE_FIELDS = {
     vol.Optional("notification_route"): vol.Any(
         None, vol.All(str, vol.Length(max=2048))
     ),
-    vol.Optional("task_due"): str,
+    vol.Optional("task_due"): vol.Any(str, None),
     **SCHEDULE_FIELDS,
 }
 TASK_UPDATE_FIELDS = {
@@ -65,8 +79,7 @@ TASK_UPDATE_FIELDS = {
 }
 PREVIEW_FIELDS = {
     vol.Optional("task_due"): str,
-    vol.Optional("schedule_anchor_date"): str,
-    **SCHEDULE_FIELDS,
+    **RECURRENCE_FIELDS,
 }
 PREVIEW_COUNT = 24
 ATTACHMENT_FILE_SELECTOR = FileSelector(FileSelectorConfig(accept="*/*"))
@@ -85,14 +98,6 @@ def _read_uploaded_file(
             mimetypes.guess_type(filename)[0] or "application/octet-stream"
         )
         return filename, content_type, file_path.read_bytes()
-
-
-def _parse_uploaded_archive(
-    hass: HomeAssistant, file_id: str
-) -> tuple[dict, dict[str, bytes]]:
-    """Consume and validate a native Home Assistant backup upload."""
-    with process_uploaded_file(hass, file_id) as file_path:
-        return _parse_archive(file_path.read_bytes())
 
 
 def _parse_uploaded_archive_with_report(
@@ -142,14 +147,6 @@ def updated(
     )
 
 
-def validate_task_schedule(
-    msg: dict[str, Any], existing: dict[str, Any] | None = None
-) -> None:
-    """Reject incomplete fixed calendar rules."""
-    values = {**(existing or {}), **msg}
-    validate_schedule(values)
-
-
 @websocket_api.websocket_command({vol.Required("type"): "tasks/list"})
 @websocket_api.async_response
 @require_store
@@ -171,7 +168,6 @@ async def ws_list(hass, connection, msg, store):
 @websocket_api.async_response
 @require_store
 async def ws_task_create(hass, connection, msg, store):
-    validate_task_schedule(msg)
     today = dt_util.now().date()
     result = await store.async_add_task(msg, today)
     connection.send_result(msg["id"], result)
@@ -192,13 +188,16 @@ async def ws_task_create(hass, connection, msg, store):
 @require_store
 async def ws_task_update(hass, connection, msg, store):
     previous = store.task(msg["task_id"])
-    validate_task_schedule(msg, previous)
     today = dt_util.now().date()
     result = await store.async_update_task(msg["task_id"], msg, today)
     connection.send_result(msg["id"], result)
     updated(
         hass, connection, msg, "updated", "task", msg["task_id"],
         resource_name=result["task_name"],
+        problem_trigger_changed=(
+            previous.get("schedule_type") != result.get("schedule_type")
+            or previous.get("problem_sensor") != result.get("problem_sensor")
+        ),
     )
 
 
@@ -222,7 +221,6 @@ async def ws_task_delete(hass, connection, msg, store):
 @require_store
 async def ws_task_preview_next_due(hass, connection, msg, store):
     """Preview recurrence using the authoritative backend scheduler."""
-    validate_schedule(msg)
     if msg.get("task_due"):
         current = task_due_date(msg)
         task_dues = [

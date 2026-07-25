@@ -17,21 +17,19 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .due_events import (
     normalize_task_due,
-    parse_task_due,
-    task_due_date,
     task_due_datetime,
     task_due_with_date,
 )
-from .recurrence import occurrences, validate_schedule
+from .recurrence import occurrences, validate_trigger
 
 _SCHEDULE_FIELDS = (
-    "schedule_start_date",
     "schedule_type",
     "schedule_unit",
     "schedule_interval",
     "schedule_weekdays",
     "schedule_day",
     "schedule_month",
+    "problem_sensor",
 )
 _TASK_FIELDS = (
     "task_name",
@@ -62,8 +60,10 @@ def _now() -> str:
 def _schedule_signature(task: dict[str, Any]) -> tuple[Any, ...]:
     """Return only values that affect the active recurrence rule."""
     mode = task.get("schedule_type")
+    if mode == "sensor":
+        return (mode, task.get("problem_sensor"))
     schedule_unit = task.get("schedule_unit")
-    values: list[Any] = [task.get("schedule_start_date") or None, mode, schedule_unit, int(task.get("schedule_interval") or 1)]
+    values: list[Any] = [mode, schedule_unit, int(task.get("schedule_interval") or 1)]
     if mode == "fixed" and schedule_unit == "weekly":
         values.append(tuple(sorted(int(day) for day in task.get("schedule_weekdays") or [])))
     elif mode == "fixed" and schedule_unit == "monthly":
@@ -76,6 +76,19 @@ def _schedule_signature(task: dict[str, Any]) -> tuple[Any, ...]:
 def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
     """Clear recurrence values that do not belong to the active rule."""
     normalized = dict(task)
+    if task.get("schedule_type") == "sensor":
+        normalized.update(
+            {
+                "schedule_unit": None,
+                "schedule_interval": None,
+                "schedule_weekdays": [],
+                "schedule_day": None,
+                "schedule_month": None,
+                "problem_sensor": str(task.get("problem_sensor") or "").strip(),
+            }
+        )
+        return normalized
+    normalized["problem_sensor"] = None
     normalized["schedule_weekdays"] = (
         list(task.get("schedule_weekdays") or [])
         if task.get("schedule_type") == "fixed"
@@ -274,17 +287,19 @@ class TasksStore:
         return route or None
 
     async def async_add_task(self, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
-        task_due = normalize_task_due(
-            str(
-                payload.get("task_due")
-                or next(occurrences(payload, today or dt_util.now().date())).isoformat()
+        validate_trigger(payload)
+        sensor_schedule = payload.get("schedule_type") == "sensor"
+        task_due = (
+            None
+            if sensor_schedule
+            else normalize_task_due(
+                str(
+                    payload.get("task_due")
+                    or next(
+                        occurrences(payload, today or dt_util.now().date())
+                    ).isoformat()
+                )
             )
-        )
-        parsed_due = parse_task_due(task_due)
-        due_date = (
-            dt_util.as_local(parsed_due).date()
-            if isinstance(parsed_due, datetime)
-            else parsed_due
         )
         async with self._lock:
             nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
@@ -315,7 +330,6 @@ class TasksStore:
                     payload.get("notification_route")
                 ),
                 "task_due": task_due,
-                "schedule_anchor_date": due_date.isoformat(),
             })
             self._data["tasks"].append(task)
             await self._save()
@@ -358,7 +372,7 @@ class TasksStore:
                         if key in payload
                     },
                 }
-                validate_schedule(merged_schedule)
+                validate_trigger(merged_schedule)
                 normalized_schedule = _normalize_schedule(merged_schedule)
             task.update(values)
             if normalized_schedule is not None:
@@ -366,19 +380,24 @@ class TasksStore:
                     task[key] = normalized_schedule[key]
             schedule_changed = _schedule_signature(task) != old_schedule
             if schedule_changed:
-                schedule = {
-                    key: value
-                    for key, value in task.items()
-                    if key not in {"task_due", "schedule_anchor_date"}
-                }
-                due = next(occurrences(schedule, today or dt_util.now().date()))
-                task["task_due"] = task_due_with_date(task, due)
-                task["schedule_anchor_date"] = due.isoformat()
-            elif "task_due" in payload:
+                if task.get("schedule_type") == "sensor":
+                    task["task_due"] = None
+                else:
+                    schedule = {
+                        key: value
+                        for key, value in task.items()
+                        if key != "task_due"
+                    }
+                    due = next(
+                        occurrences(schedule, today or dt_util.now().date())
+                    )
+                    task["task_due"] = (
+                        task_due_with_date(task, due)
+                        if task.get("task_due") and old_schedule[0] != "sensor"
+                        else due.isoformat()
+                    )
+            elif "task_due" in payload and payload["task_due"] is not None:
                 task["task_due"] = normalize_task_due(str(payload["task_due"]))
-                due = task_due_date(task)
-                task["schedule_start_date"] = due.isoformat()
-                task["schedule_anchor_date"] = due.isoformat()
             await self._save()
             return task
 
@@ -403,9 +422,14 @@ class TasksStore:
     ) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
-            task_due_before = task["task_due"]
-            next_date = next(occurrences(task, date.fromisoformat(completion_date)))
-            task_due_after = task_due_with_date(task, next_date)
+            task_due_before = task.get("task_due")
+            if task.get("schedule_type") == "sensor":
+                task_due_after = None
+            else:
+                next_date = next(
+                    occurrences(task, date.fromisoformat(completion_date))
+                )
+                task_due_after = task_due_with_date(task, next_date)
             record = {
                 "history_entry_id": uuid4().hex,
                 "completion_date": completion_date,
@@ -432,6 +456,18 @@ class TasksStore:
             removed = next((x for x in entries if x["history_entry_id"] == history_entry_id), None)
             if removed is None:
                 raise ValueError("unknown_history_entry")
+            if (
+                task.get("schedule_type") == "sensor"
+                or removed.get("task_due_before") is None
+                or removed.get("task_due_after") is None
+            ):
+                self._data["history"][task_id] = [
+                    entry
+                    for entry in entries
+                    if entry["history_entry_id"] != history_entry_id
+                ]
+                await self._save()
+                return task
             chronological = sorted(entries, key=lambda entry: entry["recorded_at"])
             original_due = chronological[0]["task_due_before"]
             remaining = [entry for entry in chronological if entry["history_entry_id"] != history_entry_id]
@@ -497,4 +533,16 @@ class TasksStore:
 
     @staticmethod
     def is_due(task: dict[str, Any], now: datetime) -> bool:
-        return task_due_datetime(task) <= now
+        return bool(task.get("task_due")) and task_due_datetime(task) <= now
+
+    async def async_trigger_problem_task(
+        self, task_id: str, triggered_at: str
+    ) -> dict[str, Any] | None:
+        """Make one waiting sensor task due exactly once."""
+        async with self._lock:
+            task = self._find("tasks", task_id)
+            if task.get("schedule_type") != "sensor" or task.get("task_due"):
+                return None
+            task["task_due"] = normalize_task_due(triggered_at)
+            await self._save()
+            return dict(task)

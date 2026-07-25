@@ -4,14 +4,14 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** stores its description, user and Home Assistant label assignments, native date-or-datetime `task_due` value, optional start boundary, optional NFC tag, recurrence rule, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
+- A **task** stores its description, user and Home Assistant label assignments, nullable native date-or-datetime `task_due` value, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
 - Calendar recurrence stays anchored to configured dates. Completion-based recurrence advances from the completion date.
 - Before version 1.0, stored-schema changes need no compatibility migration.
 
 ## Home Assistant platforms
 
 - Tasks are items of one push-only `todo.tasks` entity. Standard item fields map to the task ID, name, description, due value, and open/completed status.
-- `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts every incomplete item, not only due items.
+- `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts its visible incomplete items, not only due items. Waiting problem-sensor tasks are excluded from the native to-do list until they trigger.
 - Todo and due sensor entities share one Tasks service device.
 - A single timer tracks the nearest future `task_due`, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
 

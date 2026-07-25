@@ -13,7 +13,6 @@ from custom_components.tasks.recurrence import (
 def task(**values):
     return {
         "task_due": "2026-07-20",
-        "schedule_anchor_date": "2026-07-20",
         "schedule_type": "fixed",
         "schedule_unit": "daily",
         "schedule_interval": 1,
@@ -25,7 +24,7 @@ def schedule(**values):
     return {
         key: value
         for key, value in task(**values).items()
-        if key not in {"task_due", "schedule_anchor_date"}
+        if key != "task_due"
     }
 
 
@@ -48,7 +47,6 @@ def test_sliding_intervals():
 def test_sliding_monthly_uses_completion_day():
     value = task(
         task_due="2026-01-31",
-        schedule_anchor_date="2026-01-31",
         schedule_type="sliding",
         schedule_unit="monthly",
     )
@@ -95,25 +93,21 @@ def test_completing_fixed_schedule_early_keeps_upcoming_occurrence():
     cases = (
         task(
             task_due="2026-07-21",
-            schedule_anchor_date="2026-07-21",
             schedule_unit="daily",
             schedule_interval=3,
         ),
         task(
             task_due="2026-07-22",
-            schedule_anchor_date="2026-07-22",
             schedule_unit="weekly",
             schedule_weekdays=[2],
         ),
         task(
             task_due="2026-07-31",
-            schedule_anchor_date="2026-07-31",
             schedule_unit="monthly",
             schedule_day=31,
         ),
         task(
             task_due="2026-12-25",
-            schedule_anchor_date="2026-12-25",
             schedule_unit="yearly",
             schedule_month=12,
             schedule_day=25,
@@ -148,7 +142,6 @@ def test_every_other_week():
 def test_month_anchor_and_last_day():
     value = task(
         task_due="2026-01-31",
-        schedule_anchor_date="2026-01-31",
         schedule_unit="monthly",
         schedule_day=31,
     )
@@ -158,16 +151,6 @@ def test_month_anchor_and_last_day():
     value["schedule_day"] = "last"
     value["task_due"] = "2026-03-31"
     assert sequence(value, date(2026, 3, 31)) == [date(2026, 4, 30)]
-
-
-def test_monthly_legacy_data_without_selected_day_uses_anchor():
-    value = task(
-        task_due="2026-01-31",
-        schedule_anchor_date="2026-01-31",
-        schedule_unit="monthly",
-        schedule_day=None,
-    )
-    assert sequence(value, date(2026, 1, 31)) == [date(2026, 2, 28)]
 
 
 def test_occurrences_uses_each_occurrence_as_the_next_completion():
@@ -205,23 +188,41 @@ def test_initial_fixed_weekly_due_starts_on_first_selected_weekday():
         date(2026, 8, 6),
         date(2026, 8, 20),
     ]
-    assert sequence(value, date(2026, 7, 23)) == [date(2026, 7, 23)]
+    assert sequence(value, date(2026, 7, 23)) == [date(2026, 8, 6)]
 
 
-def test_start_date_is_boundary_for_calendar_and_due_for_sliding():
-    fixed = schedule(
-        schedule_unit="weekly",
-        schedule_weekdays=[3],
-        schedule_start_date="2026-09-01",
+def test_initial_fixed_due_is_always_in_the_future():
+    today = date(2026, 7, 23)
+    schedules = (
+        (schedule(schedule_interval=3), date(2026, 7, 26)),
+        (
+            schedule(
+                schedule_unit="weekly",
+                schedule_interval=2,
+                schedule_weekdays=[3],
+            ),
+            date(2026, 8, 6),
+        ),
+        (
+            schedule(
+                schedule_unit="monthly",
+                schedule_interval=2,
+                schedule_day=23,
+            ),
+            date(2026, 9, 23),
+        ),
+        (
+            schedule(
+                schedule_unit="yearly",
+                schedule_interval=2,
+                schedule_month=7,
+                schedule_day=23,
+            ),
+            date(2028, 7, 23),
+        ),
     )
-    assert sequence(fixed, date(2026, 7, 21)) == [date(2026, 9, 3)]
-    sliding = schedule(
-        schedule_type="sliding",
-        schedule_start_date="2026-09-01",
-    )
-    assert sequence(sliding, date(2026, 7, 21)) == [date(2026, 9, 1)]
-    sliding["schedule_start_date"] = None
-    assert sequence(sliding, date(2026, 7, 21)) == [date(2026, 7, 21)]
+    for value, expected in schedules:
+        assert sequence(value, today) == [expected]
 
 
 def test_fixed_yearly_schedule_and_leap_day_clamping():
@@ -230,13 +231,13 @@ def test_fixed_yearly_schedule_and_leap_day_clamping():
         schedule_month=7,
         schedule_day=1,
     )
-    assert sequence(yearly, date(2026, 7, 1)) == [date(2026, 7, 1)]
+    assert sequence(yearly, date(2026, 7, 1)) == [date(2027, 7, 1)]
     assert sequence(yearly, date(2026, 7, 2)) == [date(2027, 7, 1)]
     yearly["schedule_interval"] = 2
     assert sequence(yearly, date(2026, 7, 2), 3) == [
-        date(2027, 7, 1),
-        date(2029, 7, 1),
-        date(2031, 7, 1),
+        date(2028, 7, 1),
+        date(2030, 7, 1),
+        date(2032, 7, 1),
     ]
     leap = schedule(
         schedule_unit="yearly",

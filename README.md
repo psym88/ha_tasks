@@ -47,7 +47,7 @@ The task table shows Label directly after Task and supports search, sorting, gro
   <img alt="Tasks overview" src="docs/images/task-list-light.png" width="520">
 </picture>
 
-Schedules can repeat by calendar or from the last completion. The optional start date limits when a recurrence begins. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
+Tasks can be triggered by a fixed calendar schedule, from the last completion, or when a binary problem sensor turns on. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/schedule-preview-dark.png">
@@ -77,7 +77,7 @@ Open **Settings** above the task list and expand **Backup**. Export creates a ZI
 
 All tasks are exposed as items of the native `todo.tasks` entity. Home Assistant can create, edit, complete, and delete these items using its standard to-do dashboard, actions, and triggers. Item `uid`, `summary`, `description`, and `due` map to the integration's `task_id`, `task_name`, `task_description`, and `task_due`. `task_due` accepts a native ISO date for an all-day task or an ISO datetime for an exact due time. Recurrence, user and label assignments, NFC tags, attachments, and completion history remain in the Tasks store.
 
-The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` itself is Home Assistant's standard count of all incomplete items. The to-do and due sensor entities belong to the shared **Tasks** device.
+The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` is Home Assistant's standard count of its currently visible incomplete items; problem-sensor tasks remain hidden there until their sensor triggers. The to-do and due sensor entities belong to the shared **Tasks** device.
 
 Example badge for [Navbar Card](https://github.com/joseluis9595/lovelace-navbar-card):
 

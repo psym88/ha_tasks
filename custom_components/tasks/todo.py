@@ -40,7 +40,11 @@ class TasksTodoList(TodoListEntity):
     _attr_unique_id = "tasks"
     _attr_should_poll = False
     _attr_device_info = TASKS_DEVICE_INFO
-    _attr_supported_features = TodoListEntityFeature.UPDATE_TODO_ITEM
+    _attr_supported_features = (
+        TodoListEntityFeature.UPDATE_TODO_ITEM
+        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+        | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
+    )
 
     def __init__(self, hass: HomeAssistant, store) -> None:
         self._home_assistant = hass
@@ -52,13 +56,23 @@ class TasksTodoList(TodoListEntity):
             TodoItem(
                 uid=task["task_id"],
                 summary=task["task_name"],
-                due=parse_task_due(task["task_due"]),
+                due=(
+                    parse_task_due(task["task_due"])
+                    if task.get("task_due")
+                    else None
+                ),
                 status=TodoItemStatus.NEEDS_ACTION,
             )
             for task in sorted(
-                self._store.tasks,
+                (
+                    task
+                    for task in self._store.tasks
+                    if task.get("schedule_type") != "sensor"
+                    or task.get("task_due")
+                ),
                 key=lambda task: (
-                    task["task_due"],
+                    task.get("task_due") is None,
+                    task.get("task_due") or "",
                     task["task_name"].casefold(),
                 ),
             )

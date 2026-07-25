@@ -1,0 +1,8 @@
+{
+  "frontend": {
+    "notification.due_title": "Task due",
+    "notification.due_message": "“{task_name}” is now due.",
+    "notification.problem_title": "Problem detected",
+    "notification.problem_message": "“{task_name}” needs your attention."
+  }
+}

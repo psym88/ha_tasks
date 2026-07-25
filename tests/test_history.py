@@ -86,7 +86,6 @@ def test_completing_calendar_task_early_keeps_upcoming_task_due():
                 {
                     "task_id": "task-1",
                     "task_due": "2026-07-22",
-                    "schedule_anchor_date": "2026-07-22",
                     "schedule_type": "fixed",
                     "schedule_unit": "weekly",
                     "schedule_interval": 1,
@@ -114,7 +113,6 @@ def _history_store(schedule_type="sliding"):
     task = {
         "task_id": "task-1",
         "task_due": "2026-07-21",
-        "schedule_anchor_date": "2026-07-21",
         "schedule_type": schedule_type,
         "schedule_unit": "daily",
         "schedule_interval": 1,
@@ -199,7 +197,6 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
                 "task_name": "Bins",
                 "task_description": None,
                 "assignee_id": None,
-                "schedule_start_date": None,
                 "schedule_type": "fixed",
                 "schedule_unit": "weekly",
                 "schedule_interval": 2,
@@ -210,7 +207,6 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
             date(2026, 7, 21),
         )
         assert task["task_due"] == "2026-07-23"
-        assert task["schedule_anchor_date"] == "2026-07-23"
 
         updated = await store.async_update_task(
             task["task_id"], {"task_name": "Recycling bins"}, date(2026, 7, 28)
@@ -221,6 +217,5 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
             task["task_id"], {"schedule_weekdays": [4]}, date(2026, 7, 28)
         )
         assert replanned["task_due"] == "2026-07-31"
-        assert replanned["schedule_anchor_date"] == "2026-07-31"
 
     asyncio.run(run())

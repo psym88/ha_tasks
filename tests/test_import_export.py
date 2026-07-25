@@ -45,8 +45,6 @@ def archive_task(task_id: str, task_name: str) -> dict:
         "label_ids": [],
         "nfc_tag_id": None,
         "task_due": "2026-07-24",
-        "schedule_start_date": None,
-        "schedule_anchor_date": "2026-07-24",
         "schedule_type": "sliding",
         "schedule_unit": "monthly",
         "schedule_interval": 1,
