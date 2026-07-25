@@ -13,7 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from . import TasksData
 from .const import EVENT_TASKS, TASKS_DEVICE_INFO
-from .due_events import parse_task_due
+from .datetime_utils import parse_aware_datetime
 from .task_events import async_fire_tasks_event
 
 
@@ -56,7 +56,7 @@ class TasksTodoList(TodoListEntity):
                 uid=task["task_id"],
                 summary=task["task_name"],
                 due=(
-                    parse_task_due(task["task_due"])
+                    parse_aware_datetime(task["task_due"])
                     if task.get("task_due")
                     else None
                 ),

@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
-from .due_events import parse_task_due
+from .datetime_utils import parse_aware_datetime
 
 _INTERVAL_UNITS = {
     "daily": "day",
@@ -161,17 +161,16 @@ def occurrences(
         raise ValueError("recurrence_timezone_required")
     boundary = dt_util.as_local(from_datetime)
     current_due = (
-        dt_util.as_local(parse_task_due(task["task_due"]))
+        dt_util.as_local(parse_aware_datetime(task["task_due"]))
         if task.get("task_due")
         else None
     )
-    schedule = dict(task)
     anchor = current_due
 
-    validate_schedule(schedule)
-    schedule_interval = max(1, int(schedule.get("schedule_interval") or 1))
-    schedule_unit = schedule.get("schedule_unit", "monthly")
-    schedule_type = schedule["schedule_type"]
+    validate_schedule(task)
+    schedule_interval = max(1, int(task.get("schedule_interval") or 1))
+    schedule_unit = task.get("schedule_unit", "monthly")
+    schedule_type = task["schedule_type"]
 
     if current_due is None:
         if schedule_type == "sliding":
@@ -182,7 +181,7 @@ def occurrences(
             )
         else:
             due = _fixed_due_on_or_after(
-                schedule,
+                task,
                 boundary,
                 boundary + timedelta(microseconds=1),
             )
@@ -197,7 +196,7 @@ def occurrences(
             current_due
             if boundary < current_due
             else _fixed_due_on_or_after(
-                schedule,
+                task,
                 anchor,
                 boundary + timedelta(microseconds=1),
             )
@@ -214,7 +213,7 @@ def occurrences(
         else:
             assert anchor is not None
             due = _fixed_due_on_or_after(
-                schedule,
+                task,
                 anchor,
                 due + timedelta(microseconds=1),
             )

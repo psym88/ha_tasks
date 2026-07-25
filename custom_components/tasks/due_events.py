@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
@@ -10,21 +9,9 @@ from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
 from .const import EVENT_TASKS
+from .datetime_utils import parse_aware_datetime
 from .notifications import async_notify_task_due, has_due_notification
 from .task_events import async_fire_tasks_event
-
-
-def parse_task_due(value: str) -> datetime:
-    """Parse a timezone-aware task due datetime."""
-    parsed = datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        raise ValueError("task_due_timezone_required")
-    return parsed
-
-
-def normalize_task_due(value: str) -> str:
-    """Return a canonical UTC task due datetime string."""
-    return dt_util.as_utc(parse_task_due(value)).isoformat()
 
 
 @callback
@@ -85,7 +72,7 @@ class TaskDueEventScheduler:
             due
             for task in self._store.tasks
             if task.get("task_due")
-            and (due := parse_task_due(task["task_due"])) > now
+            and (due := parse_aware_datetime(task["task_due"])) > now
         ]
         if future:
             target = min(future)
@@ -107,7 +94,7 @@ class TaskDueEventScheduler:
         for task in self._store.tasks:
             if not task.get("task_due"):
                 continue
-            due = parse_task_due(task["task_due"])
+            due = parse_aware_datetime(task["task_due"])
             if target <= due <= fired_at:
                 fire_task_due(self._hass, task)
         self.reschedule()

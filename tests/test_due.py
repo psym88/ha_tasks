@@ -5,24 +5,27 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.tasks.due_events import (
-    TaskDueEventScheduler,
-    normalize_task_due,
-    parse_task_due,
+from custom_components.tasks.datetime_utils import (
+    normalize_utc_datetime,
+    parse_aware_datetime,
 )
+from custom_components.tasks.due_events import TaskDueEventScheduler
 
 
 def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
-    assert parse_task_due("2026-07-25T08:00:00+02:00") == datetime(
+    assert parse_aware_datetime("2026-07-25T08:00:00+02:00") == datetime(
         2026, 7, 25, 8, tzinfo=timezone(timedelta(hours=2))
     )
-    assert normalize_task_due("2026-07-25T08:00:00+02:00") == (
+    assert normalize_utc_datetime("2026-07-25T08:00:00+02:00") == (
         "2026-07-25T06:00:00+00:00"
     )
-    with pytest.raises(ValueError, match="task_due_timezone_required"):
-        parse_task_due("2026-07-25")
-    with pytest.raises(ValueError, match="task_due_timezone_required"):
-        parse_task_due("2026-07-25T08:00:00")
+    assert normalize_utc_datetime(
+        datetime(2026, 7, 25, 8, tzinfo=timezone(timedelta(hours=2)))
+    ) == "2026-07-25T06:00:00+00:00"
+    with pytest.raises(ValueError, match="datetime_timezone_required"):
+        parse_aware_datetime("2026-07-25")
+    with pytest.raises(ValueError, match="datetime_timezone_required"):
+        parse_aware_datetime("2026-07-25T08:00:00")
 
 
 def test_due_scheduler_fires_one_event_per_task(monkeypatch):

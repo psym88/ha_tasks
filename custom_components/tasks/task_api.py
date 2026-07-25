@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
 from .attachment_api import _parse_archive_with_report
-from .due_events import normalize_task_due, parse_task_due
+from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .recurrence import occurrences
 from .task_events import async_fire_tasks_event
 from .task_store import get_store
@@ -222,7 +222,7 @@ async def ws_task_delete(hass, connection, msg, store):
 async def ws_task_preview_next_due(hass, connection, msg, store):
     """Preview recurrence using the authoritative backend scheduler."""
     if msg.get("task_due"):
-        current = parse_task_due(msg["task_due"])
+        current = parse_aware_datetime(msg["task_due"])
         task_dues = [
             current,
             *islice(occurrences(msg, current), PREVIEW_COUNT - 1),
@@ -231,7 +231,7 @@ async def ws_task_preview_next_due(hass, connection, msg, store):
         task_dues = list(
             islice(occurrences(msg, dt_util.utcnow()), PREVIEW_COUNT)
         )
-    serialized = [normalize_task_due(due.isoformat()) for due in task_dues]
+    serialized = [normalize_utc_datetime(due) for due in task_dues]
     connection.send_result(
         msg["id"],
         {"task_dues": serialized},

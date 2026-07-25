@@ -45,7 +45,7 @@
     "error.select_at_least_one_weekday": "Wähle mindestens einen Wochentag aus.",
     "error.select_day_of_month": "Wähle einen Tag des Monats aus.",
     "error.select_month_of_year": "Wähle einen Monat des Jahres aus.",
-    "error.task_due_timezone_required": "Der Fälligkeitszeitpunkt muss eine Zeitzone enthalten.",
+    "error.datetime_timezone_required": "Der Zeitpunkt muss eine Zeitzone enthalten.",
     "error.unknown_attachment": "Der Anhang existiert nicht mehr.",
     "error.unknown_history_entry": "Der Verlaufseintrag existiert nicht mehr.",
     "error.unknown_task": "Der Task existiert nicht mehr.",
