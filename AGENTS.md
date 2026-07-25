@@ -49,6 +49,8 @@ Follow the Keep a Changelog convention in GitHub Release notes. Use only its six
 5. `### Fixed`
 6. `### Security`
 
+When a release contains a breaking change, place `### Changed` before every other section so the breaking information appears first. Put all breaking bullets at the top of that section, begin each one with `**Breaking:**`, and state any required user action explicitly and completely.
+
 Use `Fixed`, never `Fixes`, `Bugfixes`, or `Fixed Changes`. Use `Changed`, never `Changes`, `Improvements`, `Updates`, or `Miscellaneous`.
 Write concise user-facing bullet points in the past tense. Do not paste commit subjects, merge commits, issue noise, test-only work, or implementation details unless they materially affect users.
 
@@ -60,7 +62,7 @@ Map changes consistently:
 - deprecations → `Deprecated`
 - removals → `Removed`
 - security corrections → `Security`
-- any commit marked with `!` → `Changed`, with the bullet beginning `**Breaking:**`
+- any commit marked with `!` → `Changed`, with the bullet beginning `**Breaking:**`; place it before all non-breaking release-note content
 
 ## Pre-release workflow
 

@@ -15,7 +15,6 @@ from custom_components.tasks.archive_converter import (
 )
 from custom_components.tasks.attachment_api import (
     _build_archive,
-    _parse_archive,
     _parse_archive_with_report,
 )
 from custom_components.tasks.task_store import TasksStore
@@ -181,7 +180,11 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
     }
     content = _build_archive(data, {"file-1": b"content"})
 
-    assert _parse_archive(content) == (data, {"file-1": b"content"})
+    assert _parse_archive_with_report(content) == (
+        data,
+        {"file-1": b"content"},
+        {"conversions": []},
+    )
     with zipfile.ZipFile(BytesIO(content)) as archive:
         manifest = json.loads(archive.read("tasks.json"))
     assert manifest == {
@@ -213,7 +216,11 @@ def test_archive_parser_treats_task_records_as_opaque():
         "attachments": [],
     }
 
-    assert _parse_archive(_build_archive(data, {})) == (data, {})
+    assert _parse_archive_with_report(_build_archive(data, {})) == (
+        data,
+        {},
+        {"conversions": []},
+    )
 
 
 def test_archive_converter_upgrades_format_1_without_mutating_data():
@@ -296,7 +303,6 @@ def test_archive_parser_imports_format_1():
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("tasks.json", json.dumps({"format": 1, "data": data}))
 
-    assert _parse_archive(output.getvalue()) == (data, {})
     assert _parse_archive_with_report(output.getvalue()) == (
         data,
         {},
@@ -347,7 +353,7 @@ def test_archive_parser_validates_only_manifest_envelope(manifest, error):
         archive.writestr("tasks.json", json.dumps(manifest))
 
     with pytest.raises(ValueError, match=error):
-        _parse_archive(output.getvalue())
+        _parse_archive_with_report(output.getvalue())
 
 
 def test_archive_parser_rejects_legacy_manifest_name():
@@ -360,4 +366,4 @@ def test_archive_parser_rejects_legacy_manifest_name():
         )
 
     with pytest.raises(ValueError, match="invalid_archive"):
-        _parse_archive(output.getvalue())
+        _parse_archive_with_report(output.getvalue())

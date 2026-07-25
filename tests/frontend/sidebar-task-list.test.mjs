@@ -13,7 +13,7 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
@@ -202,8 +202,6 @@ test("custom table view survives reloads using the same storage split as Home As
 });
 
 test("declarative dimensions can group the native table",()=>{
-  assert.deepEqual(TASK_GROUP_COLUMNS,["assignee","labels","notifications","recurrence","rhythm"]);
-  assert.deepEqual(TASK_GROUP_COLUMNS,Object.keys(TASK_TABLE_DIMENSIONS));
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
   assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true\}/);
   assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);

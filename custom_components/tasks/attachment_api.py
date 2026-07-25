@@ -75,12 +75,6 @@ def _parse_archive_with_report(
     return manifest["data"], files, {"conversions": conversions}
 
 
-def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
-    """Parse an archive without returning its import report."""
-    data, files, _report = _parse_archive_with_report(content)
-    return data, files
-
-
 def async_register_views(hass: HomeAssistant) -> None:
     hass.http.register_view(DownloadView)
     hass.http.register_view(ArchiveView)

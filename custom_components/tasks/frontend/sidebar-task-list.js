@@ -15,7 +15,6 @@ export const TASK_TABLE_DIMENSIONS = {
   recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",defaultHidden:true},
   rhythm:{title:"table.rhythm",icon:"mdi:repeat",defaultHidden:true},
 };
-export const TASK_GROUP_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 export const TASK_TABLE_STORAGE_KEYS = {
@@ -85,11 +84,15 @@ export function dueTimestamp(value) {
   return Number.isNaN(timestamp)?NO_DUE_TIMESTAMP:timestamp;
 }
 
+export function deviceName(device) {
+  return device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id;
+}
+
 export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
   const userNames=new Map(users.map(user=>[user.id,user.name]));
   const tagNames=new Map(tags.map(tag=>[tag.id,tag.name]));
   const labelNames=new Map(labels.map(label=>[label.label_id,label.name]));
-  const deviceNames=new Map(devices.map(device=>[device.id,device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id]));
+  const deviceNames=new Map(devices.map(device=>[device.id,deviceName(device)]));
   const fileCounts=new Map();
   for(const file of attachments)fileCounts.set(file.task_id,(fileCounts.get(file.task_id)||0)+1);
   return tasks.map(task=>{
@@ -215,7 +218,7 @@ export const withTaskList = Base => class extends Base {
   async bulkDelete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.delete_title"),t("bulk.delete_confirm",{count:tasks.length}),t("common.delete"),"danger"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/delete",task_id:task.task_id}),true);}
   personItems(slot=""){return [["__unassigned__",t("task.unassigned"),"mdi:account-off-outline"],...this.users.map(user=>[user.id,user.name,"mdi:account"])].map(([value,label,icon])=>dropdownItem(`person_${value}`,label,icon,slot));}
   labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,"",null,slot),checkbox=document.createElement("ha-checkbox"),display=document.createElement("ha-label");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;display.color=label.color;display.description=label.description||undefined;display.textContent=label.name;if(label.icon){const icon=document.createElement("ha-icon");icon.slot="icon";icon.setAttribute("icon",label.icon);display.prepend(icon);}item.append(checkbox,display);return item;});}
-  notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
+  notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,deviceName(device)])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
   handleBulkMenu(value,item){if(value==="active")void this.bulkSetActive(item.dataset.active==="true");else if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
   selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
   observeTaskTableWidth(wrapper){
