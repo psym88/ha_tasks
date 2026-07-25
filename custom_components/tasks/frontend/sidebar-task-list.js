@@ -6,7 +6,7 @@ export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(i
 
 export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
-export const DEFAULT_TASK_COLUMN_ORDER = ["name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"];
+export const DEFAULT_TASK_COLUMN_ORDER = ["icon","name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"];
 export const DEFAULT_HIDDEN_TASK_COLUMNS = ["labels","notifications","recurrence","rhythm"];
 export const TASK_TABLE_DIMENSIONS = {
   assignee:{title:"table.assignee",icon:"mdi:account"},
@@ -127,13 +127,10 @@ function textCell(value,title) {
   return cell;
 }
 
-function taskNameCell(row) {
-  const cell=document.createElement("span"),icon=document.createElement("ha-icon"),name=document.createElement("span");
-  cell.style.cssText="display:inline-flex;align-items:center;gap:12px";
+function taskIconCell(row) {
+  const icon=document.createElement("ha-icon");
   icon.setAttribute("icon",row.icon);
-  name.textContent=row.name;
-  cell.append(icon,name);
-  return cell;
+  return icon;
 }
 
 function dropdownItem(value,label,icon,slot="") {
@@ -190,7 +187,8 @@ export const withTaskList = Base => class extends Base {
   tableColumns(){
     const groupable={sortable:true,filterable:true,groupable:true};
     const available={
-      name:{title:t("table.task"),main:true,sortable:true,filterable:true,flex:3,template:row=>taskNameCell(row)},
+      icon:{title:"",label:t("task.icon"),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell(row)},
+      name:{title:t("table.task"),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"},
       due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.relativeDate(row.task.task_due):"–",row.task.task_due?this.date(row.task.task_due):"")},
       nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true},
       files:{title:t("task.files"),sortable:true,filterable:false},

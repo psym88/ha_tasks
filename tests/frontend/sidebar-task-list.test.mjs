@@ -84,9 +84,11 @@ test("panel uses the native Home Assistant data-table wrapper",()=>{
 
 test("native task column renders the stored icon with a fallback",()=>{
   assert.match(source,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
-  assert.match(source,/createElement\("ha-icon"\)/);
+  assert.match(source,/function taskIconCell\(row\)/);
   assert.match(source,/icon\.setAttribute\("icon",row\.icon\)/);
-  assert.match(source,/name:\{title:t\("table\.task"\)[^}]+template:row=>taskNameCell\(row\)/);
+  assert.match(source,/icon:\{title:"",label:t\("task\.icon"\),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell\(row\)\}/);
+  assert.match(source,/name:\{title:t\("table\.task"\),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"\}/);
+  assert.doesNotMatch(source,/template:row=>taskNameCell\(row\)/);
 });
 
 test("native table multi-select tracks selected task ids and count",()=>{
@@ -141,7 +143,7 @@ test("panel title uses Home Assistant's compact native title margin",()=>{
 });
 
 test("table starts with the requested visible columns in order",()=>{
-  assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"]);
+  assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["icon","name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"]);
   assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
   assert.match(source,/wrapper\.columnOrder=Array\.isArray\(view\.columnOrder\)/);
   assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
