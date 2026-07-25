@@ -67,7 +67,7 @@ To complete a task with NFC, create a tag under **Settings → Tags** and assign
 
 ### Dashboard card
 
-Add the **Tasks** card from the dashboard card picker. Its visual editor controls view/edit mode, the due-date range, and assignee filters. Open panels and cards update immediately when Tasks emits an event.
+Add the **Tasks** card from the dashboard card picker. Its visual editor controls view/edit mode, the due-date range, and assignee filters. The assignee dropdown can dynamically target the logged-in user or selected users. Open panels and cards update immediately when Tasks emits an event.
 
 ### Backup and restore
 

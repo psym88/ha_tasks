@@ -13,7 +13,11 @@ from custom_components.tasks.archive_converter import (
     ARCHIVE_FORMAT,
     upgrade_archive_manifest,
 )
-from custom_components.tasks.attachment_api import _build_archive, _parse_archive
+from custom_components.tasks.attachment_api import (
+    _build_archive,
+    _parse_archive,
+    _parse_archive_with_report,
+)
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -88,7 +92,7 @@ def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
         target._data["tasks"][0]["task_name"] = "Existing data"
         (target._upload_dir / "file-2").write_bytes(b"keep")
         (target._upload_dir / "obsolete").write_bytes(b"old")
-        await target.async_import_archive(data, files)
+        report = await target.async_import_archive(data, files)
 
         assert [
             (task["task_id"], task["task_name"]) for task in target._data["tasks"]
@@ -114,6 +118,13 @@ def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
         assert (target._upload_dir / "file-1").read_bytes() == b"content"
         assert (target._upload_dir / "file-2").read_bytes() == b"keep"
         assert (target._upload_dir / "file-3").read_bytes() == b"added"
+        assert report == {
+            "tasks_imported": 1,
+            "tasks_skipped": ["Imported conflict"],
+            "history_entries_imported": 1,
+            "attachments_imported": 1,
+            "attachments_skipped": 2,
+        }
 
     asyncio.run(run())
 
@@ -232,6 +243,11 @@ def test_archive_parser_imports_format_1():
         archive.writestr("tasks.json", json.dumps({"format": 1, "data": data}))
 
     assert _parse_archive(output.getvalue()) == (data, {})
+    assert _parse_archive_with_report(output.getvalue()) == (
+        data,
+        {},
+        {"conversions": [(1, 2)]},
+    )
 
 
 @pytest.mark.parametrize(

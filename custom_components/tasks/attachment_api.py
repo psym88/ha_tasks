@@ -44,8 +44,11 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
+def _parse_archive_with_report(
+    content: bytes,
+) -> tuple[dict, dict[str, bytes], dict[str, list[tuple[int, int]]]]:
     """Parse and decompress an archive outside the Home Assistant event loop."""
+    conversions: list[tuple[int, int]] = []
     with zipfile.ZipFile(BytesIO(content)) as archive:
         names = archive.namelist()
         if len(names) != len(set(names)) or "tasks.json" not in names or any(
@@ -57,7 +60,7 @@ def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
             raise ValueError("archive_too_large")
         try:
             manifest = upgrade_archive_manifest(
-                json.loads(archive.read("tasks.json"))
+                json.loads(archive.read("tasks.json")), conversions
             )
             manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
         except vol.Invalid as err:
@@ -69,7 +72,13 @@ def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
             for name in names
             if name.startswith("attachments/") and not name.endswith("/")
         }
-    return manifest["data"], files
+    return manifest["data"], files, {"conversions": conversions}
+
+
+def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
+    """Parse an archive without returning its import report."""
+    data, files, _report = _parse_archive_with_report(content)
+    return data, files
 
 
 def async_register_views(hass: HomeAssistant) -> None:

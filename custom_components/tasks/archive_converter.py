@@ -32,20 +32,25 @@ _UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
 }
 
 
-def upgrade_archive_manifest(manifest: Any) -> dict[str, Any]:
+def upgrade_archive_manifest(
+    manifest: Any, conversions: list[tuple[int, int]] | None = None
+) -> dict[str, Any]:
     """Return an archive manifest upgraded to the current format."""
     if not isinstance(manifest, dict) or type(manifest.get("format")) is not int:
         raise ValueError("invalid_archive")
 
     upgraded = dict(manifest)
     while upgraded["format"] < ARCHIVE_FORMAT:
-        converter = _UPGRADES.get(upgraded["format"])
+        source_format = upgraded["format"]
+        converter = _UPGRADES.get(source_format)
         if converter is None:
             raise ValueError("unsupported_archive_format")
         try:
             upgraded = converter(upgraded)
         except vol.Invalid as err:
             raise ValueError("invalid_archive") from err
+        if conversions is not None:
+            conversions.append((source_format, upgraded["format"]))
 
     if upgraded["format"] != ARCHIVE_FORMAT:
         raise ValueError("unsupported_archive_format")

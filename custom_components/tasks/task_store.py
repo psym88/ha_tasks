@@ -140,7 +140,7 @@ class TasksStore:
 
     async def async_import_archive(
         self, data: Any, files: dict[str, bytes]
-    ) -> None:
+    ) -> dict[str, Any]:
         """Add new archive records without overwriting existing data."""
         imported = deepcopy(data)
         async with self._lock:
@@ -152,6 +152,10 @@ class TasksStore:
             new_tasks = [
                 task for task in imported["tasks"]
                 if task["task_id"] not in existing_task_ids
+            ]
+            skipped_tasks = [
+                task for task in imported["tasks"]
+                if task["task_id"] in existing_task_ids
             ]
             new_task_ids = {task["task_id"] for task in new_tasks}
             new_attachments = [
@@ -187,6 +191,20 @@ class TasksStore:
                     self._remove_attachment_files, created_files
                 )
                 raise
+            return {
+                "tasks_imported": len(new_tasks),
+                "tasks_skipped": [
+                    task.get("task_name") or task["task_id"]
+                    for task in skipped_tasks
+                ],
+                "history_entries_imported": sum(
+                    len(imported["history"].get(task_id, []))
+                    for task_id in new_task_ids
+                ),
+                "attachments_imported": len(new_attachments),
+                "attachments_skipped": len(imported["attachments"])
+                - len(new_attachments),
+            }
 
     def _write_attachment_files(self, files: dict[str, bytes]) -> list[Path]:
         self._upload_dir.mkdir(parents=True, exist_ok=True)

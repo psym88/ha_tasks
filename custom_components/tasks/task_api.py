@@ -18,7 +18,7 @@ from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
-from .attachment_api import _parse_archive
+from .attachment_api import _parse_archive, _parse_archive_with_report
 from .due_events import task_due_date, task_due_with_date
 from .recurrence import occurrences, validate_schedule
 from .task_events import async_fire_tasks_event
@@ -93,6 +93,14 @@ def _parse_uploaded_archive(
     """Consume and validate a native Home Assistant backup upload."""
     with process_uploaded_file(hass, file_id) as file_path:
         return _parse_archive(file_path.read_bytes())
+
+
+def _parse_uploaded_archive_with_report(
+    hass: HomeAssistant, file_id: str
+) -> tuple[dict, dict[str, bytes], dict]:
+    """Consume a native backup upload and include its conversion report."""
+    with process_uploaded_file(hass, file_id) as file_path:
+        return _parse_archive_with_report(file_path.read_bytes())
 
 
 @callback
@@ -288,10 +296,10 @@ async def ws_history_delete(hass, connection, msg, store):
 @require_store
 async def ws_archive_import(hass, connection, msg, store):
     try:
-        data, files = await hass.async_add_executor_job(
-            _parse_uploaded_archive, hass, msg["file_id"]
+        data, files, archive_report = await hass.async_add_executor_job(
+            _parse_uploaded_archive_with_report, hass, msg["file_id"]
         )
-        await store.async_import_archive(data, files)
+        import_report = await store.async_import_archive(data, files)
     except (
         ValueError,
         KeyError,
@@ -300,7 +308,9 @@ async def ws_archive_import(hass, connection, msg, store):
     ) as err:
         connection.send_error(msg["id"], "invalid_archive", str(err))
         return
-    connection.send_result(msg["id"], {"imported": True})
+    connection.send_result(
+        msg["id"], {"imported": True, **archive_report, **import_report}
+    )
     updated(hass, connection, msg, "imported", "archive")
 
 
