@@ -186,7 +186,7 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
         manifest = json.loads(archive.read("tasks.json"))
     assert manifest == {
         "integration": "tasks",
-        "format": 2,
+        "format": 3,
         "data": data,
     }
 
@@ -230,6 +230,62 @@ def test_archive_converter_upgrades_format_1_without_mutating_data():
     assert legacy == {"format": 1, "data": data}
 
 
+def test_archive_converter_upgrades_format_2_dates_without_adding_active():
+    legacy = {
+        "integration": "tasks",
+        "format": 2,
+        "data": {
+            "tasks": [
+                {
+                    "task_id": "task-1",
+                    "task_due": "2026-07-22",
+                },
+                {
+                    "task_id": "task-2",
+                    "task_due": "2026-07-22T12:15:00+02:00",
+                },
+            ],
+            "history": {
+                "task-1": [
+                    {
+                        "history_entry_id": "history-1",
+                        "completion_date": "2026-07-23",
+                        "recorded_at": "2026-07-23T12:30:00+02:00",
+                        "task_due_before": "2026-07-22",
+                        "task_due_after": "2026-08-22",
+                    }
+                ]
+            },
+            "attachments": [],
+        },
+    }
+
+    upgraded = upgrade_archive_manifest(legacy)
+
+    assert upgraded["format"] == 3
+    assert upgraded["data"]["tasks"] == [
+        {
+            "task_id": "task-1",
+            "task_due": "2026-07-22T00:00:00+00:00",
+        },
+        {
+            "task_id": "task-2",
+            "task_due": "2026-07-22T10:15:00+00:00",
+        },
+    ]
+    assert upgraded["data"]["history"]["task-1"] == [
+        {
+            "history_entry_id": "history-1",
+            "completed_at": "2026-07-23T10:30:00+00:00",
+            "task_due_before": "2026-07-22T00:00:00+00:00",
+            "task_due_after": "2026-08-22T00:00:00+00:00",
+        }
+    ]
+    assert "active" not in upgraded["data"]["tasks"][0]
+    assert legacy["data"]["tasks"][0]["task_due"] == "2026-07-22"
+    assert "completion_date" in legacy["data"]["history"]["task-1"][0]
+
+
 def test_archive_parser_imports_format_1():
     data = {
         "tasks": [archive_task("task-1", "Bins")],
@@ -244,7 +300,7 @@ def test_archive_parser_imports_format_1():
     assert _parse_archive_with_report(output.getvalue()) == (
         data,
         {},
-        {"conversions": [(1, 2)]},
+        {"conversions": [(1, 2), (2, 3)]},
     )
 
 
@@ -270,7 +326,7 @@ def test_archive_parser_imports_format_1():
         (
             {
                 "integration": "tasks",
-                "format": 3,
+                "format": 4,
                 "data": {"tasks": [], "history": {}, "attachments": []},
             },
             "unsupported_archive_format",

@@ -4,18 +4,19 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** stores its description, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. New schedules use their creation time as the initial local wall-time anchor. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
-- Fixed schedules stay anchored to configured calendar rules and their local wall time. Completion-based schedules advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
-- A problem-sensor task has no due value while waiting. An `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile sensors that are already on.
+- A **task** stores its description, active state, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
+- Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
+- A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
+- Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, the native to-do list, and the due-task count. Resuming performs no scheduled-due recalculation.
 - Before version 1.0, stored-schema changes need no compatibility migration.
 
 ## Home Assistant platforms
 
-- Scheduled tasks and triggered problem-sensor tasks are items of one push-only `todo.tasks` entity; waiting problem-sensor tasks are excluded. Items expose the task ID, name, due value, and open status. Native mutations can rename or complete an item. Due changes are accepted for Home Assistant dialog compatibility but ignored, while creation and deletion remain integration-owned operations.
-- `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts its visible incomplete items, not only due items.
+- Active scheduled tasks and active triggered problem-sensor tasks are items of one push-only `todo.tasks` entity; paused tasks and waiting problem-sensor tasks are excluded. Items expose the task ID, name, due value, and open status. Native mutations can rename or complete an item. Due changes are accepted for Home Assistant dialog compatibility but ignored, while creation and deletion remain integration-owned operations.
+- `sensor.tasks_due` remains a separate summary of active due tasks because a to-do entity's native state counts its visible incomplete items, not only due items.
 - Todo and due sensor entities share one Tasks service device.
-- A single timer tracks the nearest future scheduled `task_due`, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
-- A separate problem-sensor scheduler listens for binary-sensor state transitions. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
+- A single timer tracks the nearest future `task_due` among active tasks, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
+- A separate problem-sensor scheduler listens for binary-sensor state transitions for active tasks. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
 
 ## Backend
 
@@ -33,7 +34,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - `task_events.py`: public Tasks event helper
 - `config_flow.py` and `__init__.py`: setup and integration lifecycle
 
-Import upgrades supported older archive manifests before validating them against the current outer schema. Task records remain opaque to the archive layer.
+Import upgrades supported older archive manifests before validating them against the current outer schema. Archive format 3 converts legacy date-based task due and completion-history values to timezone-aware UTC datetimes; missing task activation values retain the active default.
 
 ## Frontend
 
