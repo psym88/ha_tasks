@@ -55,6 +55,12 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
                 "task_due": "2026-07-25T08:00:00+00:00",
             },
             {
+                "task_id": "inactive",
+                "task_name": "Inactive",
+                "active": False,
+                "task_due": "2026-07-25T08:00:00+00:00",
+            },
+            {
                 "task_id": "later",
                 "task_name": "Later",
                 "task_due": "2026-07-25T09:00:00+00:00",
@@ -105,3 +111,35 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
     assert captured["hass"] is hass
     assert captured["point"] == target
     assert getattr(captured["action"], "_hass_callback", False)
+
+
+def test_due_scheduler_ignores_inactive_future_tasks(monkeypatch):
+    now = datetime(2026, 7, 25, 8, tzinfo=timezone.utc)
+    captured = {}
+    hass = SimpleNamespace()
+    store = SimpleNamespace(
+        tasks=[
+            {
+                "active": False,
+                "task_due": (now + timedelta(seconds=5)).isoformat(),
+            },
+            {
+                "task_due": (now + timedelta(seconds=10)).isoformat(),
+            },
+        ]
+    )
+
+    monkeypatch.setattr(
+        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
+    )
+    monkeypatch.setattr(
+        "custom_components.tasks.due_events.async_track_point_in_time",
+        lambda _hass, _action, point: (
+            captured.update(point=point),
+            lambda: None,
+        )[1],
+    )
+
+    TaskDueEventScheduler(hass, store).reschedule()
+
+    assert captured["point"] == now + timedelta(seconds=10)

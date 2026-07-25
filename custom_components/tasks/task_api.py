@@ -60,6 +60,7 @@ TASK_CREATE_FIELDS = {
     vol.Required("task_name"): str,
     vol.Optional("task_icon"): TEXT,
     vol.Optional("task_description"): TEXT,
+    vol.Optional("active"): cv.boolean,
     vol.Optional("assignee_id"): TEXT,
     vol.Optional("label_ids"): [str],
     vol.Optional("nfc_tag_id"): TEXT,
@@ -193,16 +194,16 @@ async def ws_task_update(hass, connection, msg, store):
         msg["task_id"], msg, dt_util.utcnow()
     )
     connection.send_result(msg["id"], result)
+    activated = not previous.get("active", True) and result.get("active", True)
     updated(
         hass, connection, msg, "updated", "task", msg["task_id"],
         resource_name=result["task_name"],
         problem_trigger_changed=(
             previous.get("schedule_type") != result.get("schedule_type")
             or previous.get("problem_sensor") != result.get("problem_sensor")
+            or activated
         ),
     )
-
-
 @websocket_api.websocket_command({vol.Required("type"): "tasks/task/delete", vol.Required("task_id"): str})
 @websocket_api.async_response
 @require_store

@@ -34,6 +34,7 @@ function addDays(iso,days){const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||"")
 export function filterDashboardTasks(tasks,config,now,timeZone,currentUserId){
   const cfg=normalizeCardConfig(config),today=dueDateKey(now,timeZone),limit=cfg.due_days===null?null:addDays(today,cfg.due_days);
   return tasks.filter(task=>{
+    if(task.active===false)return false;
     if(limit&&(!task.task_due||dueDateKey(task.task_due,timeZone)>limit))return false;
     if(cfg.assignee_ids.length){const assignee=task.assignee_id||UNASSIGNED,selected=cfg.assignee_ids.includes(assignee)||(cfg.assignee_ids.includes(CURRENT_USER)&&Boolean(currentUserId)&&assignee===currentUserId);if(!selected)return false;}
     return true;
@@ -82,7 +83,7 @@ export class TasksCard extends TasksBase {
     if(!this.shadowRoot.querySelector(".card-root"))this.shadowRoot.innerHTML='<style>.task-row.today .task-icon,.task-row.today .due-date{color:var(--warning-color)}.task-row.overdue .task-icon,.task-row.overdue .due-date{color:var(--error-color)}.task-row.future .task-icon,.task-row.future .due-date{color:var(--success-color)}</style><div class="card-root"></div>';
     const root=this.shadowRoot.querySelector(".card-root"),tasks=this.visibleTasks(),config=normalizeCardConfig(this.config);
     root.innerHTML=dashboardCardBodyHtml(tasks.map(task=>dashboardTaskRowHtml(task,config.show_action_menu,this.relativeDate(task.task_due),dueStatus(task.task_due,this.now,this.timeZone()),this.users.find(user=>user.id===task.assignee_id)?.name||"",this.tagName(task),this.labelNames(task),config.secondary_info)).join(""),config.show_add_task);
-    root.querySelectorAll("[data-task]").forEach(row=>{const task=this.tasks.find(item=>item.task_id===row.dataset.task);row.onclick=()=>this.taskViewer(task);const slot=row.querySelector(".row-action-slot");if(slot){const menu=createActionMenu({label:t("task.actions"),edit:()=>this.taskEditor(task),remove:()=>this.deleteTask(task)});menu.slot="end";slot.replaceWith(menu);}});
+    root.querySelectorAll("[data-task]").forEach(row=>{const task=this.tasks.find(item=>item.task_id===row.dataset.task);row.onclick=()=>this.taskViewer(task);const slot=row.querySelector(".row-action-slot");if(slot){const menu=createActionMenu({label:t("task.actions"),active:task.active!==false,toggleActive:()=>this.ws({type:"tasks/task/update",task_id:task.task_id,active:task.active===false}),edit:()=>this.taskEditor(task),remove:()=>this.deleteTask(task)});menu.slot="end";slot.replaceWith(menu);}});
     const add=root.querySelector(".add-task");if(add)add.onclick=()=>{add.blur();this.taskEditor(null);};
   }
 }

@@ -60,8 +60,8 @@ test("due timestamps sort parsed datetimes and represent missing values as the m
 });
 
 test("due table keeps numeric sorting separate from localized date-time display",()=>{
-  assert.match(source,/due_ts:dueTimestamp\(task\.task_due\)/);
-  assert.match(source,/this\.date\(row\.task\.task_due," - "\)/);
+  assert.match(source,/due_ts:dueTimestamp\(task\.active===false\?null:task\.task_due\)/);
+  assert.match(source,/row\.task\.active!==false&&row\.task\.task_due\?this\.date\(row\.task\.task_due," - "\)/);
 });
 
 test("sensor tasks use the problem trigger label without a rhythm",()=>{
@@ -95,13 +95,14 @@ test("panel uses the native Home Assistant data-table wrapper",()=>{
   assert.doesNotMatch(source,/groupRow\(|wireGroup\(|placeholder-add|class="group"/);
 });
 
-test("native task column renders the stored icon with a fallback",()=>{
+test("native task column replaces the stored icon for inactive tasks",()=>{
   assert.match(source,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
   assert.match(source,/function taskIconCell\(row\)/);
-  assert.match(source,/icon\.setAttribute\("icon",row\.icon\)/);
+  assert.match(source,/icon\.setAttribute\("icon",row\.task\.active===false\?"mdi:pause-circle":row\.icon\)/);
+  assert.match(source,/if\(row\.task\.active===false\)icon\.style\.color="var\(--error-color\)"/);
   assert.match(source,/icon:\{title:"",label:t\("task\.icon"\),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell\(row\)\}/);
   assert.match(source,/name:\{title:t\("table\.task"\),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"\}/);
-  assert.doesNotMatch(source,/template:row=>taskNameCell\(row\)/);
+  assert.doesNotMatch(source,/taskNameCell|textDecoration|line-through/);
 });
 
 test("native table multi-select tracks selected task ids and count",()=>{
@@ -122,6 +123,7 @@ test("native selection bar offers assignment notification completion and deletio
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_label"\)/);
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_notification"\)/);
   assert.match(source,/dropdownItem\("complete",t\("bulk\.complete"\)/);
+  assert.match(source,/dropdownItem\("active",t\(activate\?"menu\.activate":"menu\.deactivate"\)/);
   assert.match(source,/dropdownItem\("delete",t\("bulk\.delete"\)/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*assignee_id/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*label_ids/);
@@ -133,6 +135,7 @@ test("native selection bar offers assignment notification completion and deletio
   assert.match(source,/bulkAssignPerson\(assigneeId\)\{await this\.runBulkAction\(task=>this\.ws\(/);
   assert.match(source,/bulkAssignLabel\(labelId,action="add"\)\{await this\.runBulkAction\(task=>this\.ws\(/);
   assert.match(source,/bulkAssignNotification\(target,action="add"\)\{await this\.runBulkAction/);
+  assert.match(source,/bulkSetActive\(active\)[\s\S]*type:"tasks\/task\/update",task_id:task\.task_id,active/);
   assert.match(source,/notification_persistent:action==="add"/);
   assert.match(source,/notification_target:\{device_id:/);
 });
@@ -270,6 +273,8 @@ test("task action menu stops pointer and click propagation",()=>{
   const actionMenu=readFileSync(new URL("../../custom_components/tasks/frontend/action-menu.js",import.meta.url),"utf8");
   assert.match(source,/return createActionMenu\(/);
   assert.match(source,/edit:\(\)=>this\.taskEditor\(task\)/);
+  assert.match(source,/active:task\.active!==false/);
+  assert.match(source,/active:task\.active===false/);
   assert.match(source,/remove:\(\)=>this\.deleteTask\(task\)/);
   assert.match(actionMenu,/createElement\("ha-dropdown"\)/);
   assert.match(actionMenu,/createElement\("ha-dropdown-item"\)/);

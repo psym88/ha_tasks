@@ -46,7 +46,8 @@ class ProblemSensorScheduler:
     def _is_active_problem(self, task: dict[str, Any]) -> bool:
         entity_id = task.get("problem_sensor")
         return (
-            task.get("schedule_type") == "sensor"
+            task.get("active", True)
+            and task.get("schedule_type") == "sensor"
             and bool(entity_id)
             and self._hass.states.is_state(entity_id, STATE_ON)
         )
@@ -64,7 +65,8 @@ class ProblemSensorScheduler:
         entity_id = event.data.get("entity_id")
         for task in self._store.tasks:
             if (
-                task.get("schedule_type") == "sensor"
+                task.get("active", True)
+                and task.get("schedule_type") == "sensor"
                 and task.get("problem_sensor") == entity_id
             ):
                 self._hass.async_create_task(

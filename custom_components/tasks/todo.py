@@ -66,8 +66,11 @@ class TasksTodoList(TodoListEntity):
                 (
                     task
                     for task in self._store.tasks
-                    if task.get("schedule_type") != "sensor"
-                    or task.get("task_due")
+                    if task.get("active", True)
+                    and (
+                        task.get("schedule_type") != "sensor"
+                        or task.get("task_due")
+                    )
                 ),
                 key=lambda task: (
                     task.get("task_due") is None,

@@ -196,6 +196,8 @@
     "settings.progress_skipped_many": "{count} Tasks übersprungen ({names})",
     "form.required": "Bitte Pflichtfelder ausfüllen.",
     "menu.edit": "Bearbeiten",
+    "menu.activate": "Aktivieren",
+    "menu.deactivate": "Deaktivieren",
     "menu.delete": "Löschen",
     "attachment.close": "Schließen",
     "card.add": "Task hinzufügen",

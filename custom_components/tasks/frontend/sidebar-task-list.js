@@ -99,7 +99,7 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attac
       task,
       icon:task.task_icon||"mdi:clipboard-check-outline",
       name:task.task_name||"",
-      due_ts:dueTimestamp(task.task_due),
+      due_ts:dueTimestamp(task.active===false?null:task.task_due),
       recurrence:translate(`task.${task.schedule_type==="fixed"?"fixed":task.schedule_type==="sensor"?"problem":"sliding"}`),
       rhythm:task.schedule_type==="sensor"?"–":translate(`task.${schedule_unit}`),
       assignee:userNames.get(assigneeId)||translate("task.unassigned"),
@@ -126,7 +126,8 @@ function textCell(value,title) {
 
 function taskIconCell(row) {
   const icon=document.createElement("ha-icon");
-  icon.setAttribute("icon",row.icon);
+  icon.setAttribute("icon",row.task.active===false?"mdi:pause-circle":row.icon);
+  if(row.task.active===false)icon.style.color="var(--error-color)";
   return icon;
 }
 
@@ -186,7 +187,7 @@ export const withTaskList = Base => class extends Base {
     const available={
       icon:{title:"",label:t("task.icon"),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell(row)},
       name:{title:t("table.task"),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"},
-      due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.date(row.task.task_due," - "):"–")},
+      due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
       nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true},
       files:{title:t("task.files"),sortable:true,filterable:false},
     };
@@ -197,6 +198,8 @@ export const withTaskList = Base => class extends Base {
   taskActionButton(task){
     return createActionMenu({
       label:t("task.actions"),
+      active:task.active!==false,
+      toggleActive:()=>this.ws({type:"tasks/task/update",task_id:task.task_id,active:task.active===false}),
       edit:()=>this.taskEditor(task),
       remove:()=>this.deleteTask(task),
     });
@@ -207,12 +210,13 @@ export const withTaskList = Base => class extends Base {
   async bulkAssignPerson(assigneeId){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,assignee_id:assigneeId==="__unassigned__"?null:assigneeId}));}
   async bulkAssignLabel(labelId,action="add"){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,label_ids:action==="remove"?(task.label_ids||[]).filter(id=>id!==labelId):[...new Set([...(task.label_ids||[]),labelId])]}));}
   async bulkAssignNotification(target,action="add"){await this.runBulkAction(task=>{if(target==="panel")return this.ws({type:"tasks/task/update",task_id:task.task_id,notification_persistent:action==="add"});const ids=task.notification_target?.device_id||[];return this.ws({type:"tasks/task/update",task_id:task.task_id,notification_target:{device_id:action==="remove"?ids.filter(id=>id!==target):[...new Set([...ids,target])]}});});}
+  async bulkSetActive(active){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,active}));}
   async bulkComplete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.complete_title"),t("bulk.complete_confirm",{count:tasks.length}),t("task.completed"),"brand"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/complete",task_id:task.task_id,notes:null}));}
   async bulkDelete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.delete_title"),t("bulk.delete_confirm",{count:tasks.length}),t("common.delete"),"danger"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/delete",task_id:task.task_id}),true);}
   personItems(slot=""){return [["__unassigned__",t("task.unassigned"),"mdi:account-off-outline"],...this.users.map(user=>[user.id,user.name,"mdi:account"])].map(([value,label,icon])=>dropdownItem(`person_${value}`,label,icon,slot));}
   labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,"",null,slot),checkbox=document.createElement("ha-checkbox"),display=document.createElement("ha-label");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;display.color=label.color;display.description=label.description||undefined;display.textContent=label.name;if(label.icon){const icon=document.createElement("ha-icon");icon.slot="icon";icon.setAttribute("icon",label.icon);display.prepend(icon);}item.append(checkbox,display);return item;});}
   notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
-  handleBulkMenu(value,item){if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
+  handleBulkMenu(value,item){if(value==="active")void this.bulkSetActive(item.dataset.active==="true");else if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
   selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
   observeTaskTableWidth(wrapper){
     requestAnimationFrame(()=>{const table=wrapper.shadowRoot?.querySelector("ha-data-table");if(!table){if(wrapper.isConnected)this.observeTaskTableWidth(wrapper);return;}this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=new ResizeObserver(()=>{table.style.removeProperty("--table-row-width");table.requestUpdate?.();});this.taskTableResizeObserver.observe(table);});
@@ -220,13 +224,13 @@ export const withTaskList = Base => class extends Base {
   disconnectTaskTableResize(){this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=null;}
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
-    const complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");remove.setAttribute("variant","danger");
-    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),complete,remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
+    const activate=this.selectedTasks().every(task=>task.active===false),active=dropdownItem("active",t(activate?"menu.activate":"menu.deactivate"),activate?"mdi:play-circle-outline":"mdi:pause-circle-outline"),complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");active.dataset.active=String(activate);remove.setAttribute("variant","danger");
+    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),active,complete,remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
     wrapper.append(
       bulkDropdown(t("bulk.assign_person"),this.personItems(),(value,item)=>this.handleBulkMenu(value,item)),
       bulkDropdown(t("bulk.assign_label"),this.labelItems(),(value,item)=>this.handleBulkMenu(value,item)),
       bulkDropdown(t("bulk.assign_notification"),this.notificationItems(),(value,item)=>this.handleBulkMenu(value,item)),
-      overflowDropdown(t("bulk.actions"),[complete,remove],(value,item)=>this.handleBulkMenu(value,item)),
+      overflowDropdown(t("bulk.actions"),[active,complete,remove],(value,item)=>this.handleBulkMenu(value,item)),
     );
   }
   render(){

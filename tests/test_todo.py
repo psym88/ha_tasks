@@ -94,6 +94,14 @@ def test_todo_preserves_an_exact_due_datetime():
     assert item.due == due
 
 
+def test_inactive_task_is_hidden_from_native_todo_list():
+    inactive = task(active=False)
+    items = entity(SimpleNamespace(tasks=[inactive])).todo_items
+
+    assert inactive["task_due"] == "2026-07-24T08:00:00+00:00"
+    assert items == []
+
+
 def test_todo_list_uses_shared_device_and_counts_open_tasks():
     todo = entity(SimpleNamespace(tasks=[task(), task(task_id="task-2")]))
 

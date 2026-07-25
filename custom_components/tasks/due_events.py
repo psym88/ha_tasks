@@ -71,7 +71,8 @@ class TaskDueEventScheduler:
         future = [
             due
             for task in self._store.tasks
-            if task.get("task_due")
+            if task.get("active", True)
+            and task.get("task_due")
             and (due := parse_aware_datetime(task["task_due"])) > now
         ]
         if future:
@@ -92,7 +93,7 @@ class TaskDueEventScheduler:
         """Fire each task due at the scheduled time and plan the next one."""
         self._cancel_timer = None
         for task in self._store.tasks:
-            if not task.get("task_due"):
+            if not task.get("active", True) or not task.get("task_due"):
                 continue
             due = parse_aware_datetime(task["task_due"])
             if target <= due <= fired_at:

@@ -196,6 +196,8 @@
     "settings.progress_skipped_many": "{count} tasks skipped ({names})",
     "form.required": "Please fill in all required fields.",
     "menu.edit": "Edit",
+    "menu.activate": "Activate",
+    "menu.deactivate": "Deactivate",
     "menu.delete": "Delete",
     "attachment.close": "Close",
     "card.add": "Add task",

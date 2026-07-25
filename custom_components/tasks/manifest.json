@@ -7,5 +7,5 @@
   "dependencies": ["file_upload", "mobile_app", "persistent_notification", "tag"],
   "issue_tracker": "https://github.com/psym88/ha_tasks/issues",
   "iot_class": "local_push",
-  "version": "20260725.12"
+  "version": "20260725.13"
 }

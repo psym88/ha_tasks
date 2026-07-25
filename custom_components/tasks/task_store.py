@@ -32,6 +32,7 @@ _TASK_FIELDS = (
     "task_name",
     "task_icon",
     "task_description",
+    "active",
     "assignee_id",
     "nfc_tag_id",
     "notification_target",
@@ -319,6 +320,7 @@ class TasksStore:
                     )
                 },
                 "task_name": self._required_name(payload.get("task_name")),
+                "active": bool(payload.get("active", True)),
                 "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
                 "nfc_tag_id": nfc_tag_id,
                 "notification_target": self._notification_target(
@@ -350,6 +352,8 @@ class TasksStore:
             values = {key: payload[key] for key in _TASK_FIELDS if key in payload}
             if "task_name" in values:
                 values["task_name"] = self._required_name(values["task_name"])
+            if "active" in values:
+                values["active"] = bool(values["active"])
             if "label_ids" in payload:
                 values["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
             if "nfc_tag_id" in values:
@@ -553,7 +557,11 @@ class TasksStore:
 
     @staticmethod
     def is_due(task: dict[str, Any], now: datetime) -> bool:
-        return bool(task.get("task_due")) and parse_aware_datetime(task["task_due"]) <= now
+        return (
+            task.get("active", True)
+            and bool(task.get("task_due"))
+            and parse_aware_datetime(task["task_due"]) <= now
+        )
 
     async def async_trigger_problem_task(
         self, task_id: str, triggered_at: str
@@ -561,7 +569,11 @@ class TasksStore:
         """Make one waiting sensor task due exactly once."""
         async with self._lock:
             task = self._find("tasks", task_id)
-            if task.get("schedule_type") != "sensor" or task.get("task_due"):
+            if (
+                not task.get("active", True)
+                or task.get("schedule_type") != "sensor"
+                or task.get("task_due")
+            ):
                 return None
             task["task_due"] = normalize_utc_datetime(triggered_at)
             await self._save()

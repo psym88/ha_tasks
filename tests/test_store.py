@@ -60,6 +60,25 @@ def test_new_sliding_task_starts_due_after_its_first_interval():
         )
 
         assert created["task_due"] == "2026-08-08T10:15:00+00:00"
+        assert created["active"] is True
+
+    asyncio.run(run())
+
+
+def test_active_state_does_not_change_the_stored_due():
+    async def run():
+        store = _store(_weekly_task())
+        due = store.tasks[0]["task_due"]
+
+        inactive = await store.async_update_task("task", {"active": False})
+        assert inactive["active"] is False
+        assert inactive["task_due"] == due
+        assert not store.is_due(inactive, date(2026, 7, 30))
+
+        active = await store.async_update_task("task", {"active": True})
+        assert active["active"] is True
+        assert active["task_due"] == due
+        assert store.is_due(active, date(2026, 7, 30))
 
     asyncio.run(run())
 
@@ -298,5 +317,25 @@ def test_problem_trigger_sets_due_once_until_task_is_completed():
             "task", "2026-07-26T08:00:00+00:00"
         )
         assert retriggered["task_due"] == "2026-07-26T08:00:00+00:00"
+
+    asyncio.run(run())
+
+
+def test_inactive_problem_task_does_not_trigger():
+    async def run():
+        task = {
+            "task_id": "task",
+            "task_name": "Check heat pump",
+            "active": False,
+            "schedule_type": "sensor",
+            "problem_sensor": "binary_sensor.heat_pump_problem",
+            "task_due": None,
+        }
+        store = _store(task)
+
+        assert await store.async_trigger_problem_task(
+            "task", "2026-07-25T10:00:00+00:00"
+        ) is None
+        assert task["task_due"] is None
 
     asyncio.run(run())

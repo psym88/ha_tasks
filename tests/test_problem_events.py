@@ -121,6 +121,34 @@ def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
     asyncio.run(run())
 
 
+def test_problem_sensor_ignores_inactive_task(monkeypatch):
+    async def run():
+        task = {
+            "task_id": "pump",
+            "task_name": "Check pump",
+            "active": False,
+            "schedule_type": "sensor",
+            "problem_sensor": "binary_sensor.pump_problem",
+            "task_due": None,
+        }
+        store = ProblemStore(task)
+        hass = SimpleNamespace(
+            bus=SimpleNamespace(async_listen=lambda *_args: lambda: None),
+            states=SimpleNamespace(is_state=lambda *_args: True),
+        )
+        scheduler = ProblemSensorScheduler(hass, store)
+        monkeypatch.setattr(
+            "custom_components.tasks.problem_events.fire_task_due",
+            lambda *_args: None,
+        )
+
+        await scheduler.async_start()
+
+        assert store.triggered == []
+
+    asyncio.run(run())
+
+
 def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypatch):
     async def run():
         fired = []
