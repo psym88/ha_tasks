@@ -23,7 +23,28 @@ from .due_events import (
     task_due_with_date,
 )
 from .recurrence import occurrences, validate_schedule
-from .task_fields import SCHEDULE_FIELD_NAMES, normalize_task_fields
+
+_SCHEDULE_FIELDS = (
+    "schedule_start_date",
+    "schedule_type",
+    "schedule_unit",
+    "schedule_interval",
+    "schedule_weekdays",
+    "schedule_day",
+    "schedule_month",
+)
+_TASK_FIELDS = (
+    "task_name",
+    "task_icon",
+    "task_description",
+    "assignee_id",
+    "nfc_tag_id",
+    "notification_target",
+    "notification_persistent",
+    "notification_critical",
+    "notification_route",
+    "task_due",
+)
 
 def get_store(hass: HomeAssistant):
     """Return the loaded singleton store."""
@@ -215,6 +236,25 @@ class TasksStore:
     async def _save(self) -> None:
         await self._store.async_save(self._data)
 
+    @staticmethod
+    def _required_name(value: Any) -> str:
+        name = str(value or "").strip()
+        if not name:
+            raise ValueError("name_required")
+        return name
+
+    @staticmethod
+    def _notification_target(value: Any) -> dict[str, list[str]]:
+        device_ids = list(dict.fromkeys((value or {}).get("device_id", [])))
+        return {"device_id": device_ids} if device_ids else {}
+
+    @staticmethod
+    def _notification_route(value: Any) -> str | None:
+        route = str(value or "").strip()
+        if route and (not route.startswith("/") or route.startswith("//")):
+            raise ValueError("invalid_notification_route")
+        return route or None
+
     async def async_add_task(self, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
         task_due = normalize_task_due(
             str(
@@ -229,13 +269,33 @@ class TasksStore:
             else parsed_due
         )
         async with self._lock:
-            values = normalize_task_fields(payload, include_defaults=True)
-            nfc_tag_id = self._normalize_nfc_tag_id(values["nfc_tag_id"])
+            nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
             task = _normalize_schedule({
                 "task_id": uuid4().hex,
-                **values,
-                **{key: payload.get(key) for key in SCHEDULE_FIELD_NAMES},
+                **{
+                    key: payload.get(key)
+                    for key in (
+                        "task_icon",
+                        "task_description",
+                        "assignee_id",
+                        *_SCHEDULE_FIELDS,
+                    )
+                },
+                "task_name": self._required_name(payload.get("task_name")),
+                "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
                 "nfc_tag_id": nfc_tag_id,
+                "notification_target": self._notification_target(
+                    payload.get("notification_target")
+                ),
+                "notification_persistent": bool(
+                    payload.get("notification_persistent", False)
+                ),
+                "notification_critical": bool(
+                    payload.get("notification_critical", False)
+                ),
+                "notification_route": self._notification_route(
+                    payload.get("notification_route")
+                ),
                 "task_due": task_due,
                 "schedule_anchor_date": due_date.isoformat(),
             })
@@ -246,14 +306,29 @@ class TasksStore:
     async def async_update_task(self, task_id: str, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
-            values = normalize_task_fields(payload)
+            values = {key: payload[key] for key in _TASK_FIELDS if key in payload}
+            if "task_name" in values:
+                values["task_name"] = self._required_name(values["task_name"])
+            if "label_ids" in payload:
+                values["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
             if "nfc_tag_id" in values:
                 values["nfc_tag_id"] = self._normalize_nfc_tag_id(
                     values["nfc_tag_id"], task_id
                 )
+            if "notification_target" in values:
+                values["notification_target"] = self._notification_target(
+                    values["notification_target"]
+                )
+            for key in ("notification_persistent", "notification_critical"):
+                if key in values:
+                    values[key] = bool(values[key])
+            if "notification_route" in values:
+                values["notification_route"] = self._notification_route(
+                    values["notification_route"]
+                )
             old_schedule = _schedule_signature(task)
             schedule_update = any(
-                key in payload for key in SCHEDULE_FIELD_NAMES
+                key in payload for key in _SCHEDULE_FIELDS
             )
             normalized_schedule = None
             if schedule_update:
@@ -261,7 +336,7 @@ class TasksStore:
                     **task,
                     **{
                         key: payload[key]
-                        for key in SCHEDULE_FIELD_NAMES
+                        for key in _SCHEDULE_FIELDS
                         if key in payload
                     },
                 }
@@ -269,7 +344,7 @@ class TasksStore:
                 normalized_schedule = _normalize_schedule(merged_schedule)
             task.update(values)
             if normalized_schedule is not None:
-                for key in SCHEDULE_FIELD_NAMES:
+                for key in _SCHEDULE_FIELDS:
                     task[key] = normalized_schedule[key]
             schedule_changed = _schedule_signature(task) != old_schedule
             if schedule_changed:

@@ -13,6 +13,7 @@ from homeassistant.components import websocket_api
 from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
@@ -21,12 +22,47 @@ from .attachment_api import _parse_archive
 from .due_events import task_due_date, task_due_with_date
 from .recurrence import occurrences, validate_schedule
 from .task_events import async_fire_tasks_event
-from .task_fields import SCHEDULE_FIELDS, api_task_fields
 from .task_store import get_store
 
 TEXT = vol.Any(str, None)
-TASK_CREATE_FIELDS = api_task_fields()
-TASK_UPDATE_FIELDS = api_task_fields(update=True)
+SCHEDULE_FIELDS = {
+    vol.Required("schedule_type"): vol.In(("fixed", "sliding")),
+    vol.Required("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
+    vol.Required("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    vol.Optional("schedule_weekdays", default=[]): [
+        vol.All(vol.Coerce(int), vol.Range(min=0, max=6))
+    ],
+    vol.Optional("schedule_day"): vol.Any(
+        vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None
+    ),
+    vol.Optional("schedule_month"): vol.Any(
+        vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
+    ),
+    vol.Optional("schedule_start_date"): TEXT,
+}
+TASK_CREATE_FIELDS = {
+    vol.Required("task_name"): str,
+    vol.Optional("task_icon"): TEXT,
+    vol.Optional("task_description"): TEXT,
+    vol.Optional("assignee_id"): TEXT,
+    vol.Optional("label_ids"): [str],
+    vol.Optional("nfc_tag_id"): TEXT,
+    vol.Optional("notification_target"): vol.Schema(
+        {vol.Optional("device_id"): [str]},
+        extra=vol.PREVENT_EXTRA,
+    ),
+    vol.Optional("notification_persistent"): cv.boolean,
+    vol.Optional("notification_critical"): cv.boolean,
+    vol.Optional("notification_route"): vol.Any(
+        None, vol.All(str, vol.Length(max=2048))
+    ),
+    vol.Optional("task_due"): str,
+    **SCHEDULE_FIELDS,
+}
+TASK_UPDATE_FIELDS = {
+    vol.Optional(key.schema): validator
+    for key, validator in TASK_CREATE_FIELDS.items()
+}
 PREVIEW_FIELDS = {
     vol.Optional("task_due"): str,
     vol.Optional("schedule_anchor_date"): str,
