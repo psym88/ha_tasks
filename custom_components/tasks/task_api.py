@@ -1,6 +1,6 @@
 """Authenticated Tasks WebSocket API."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 from functools import wraps
 from itertools import islice
 import json
@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
 from .attachment_api import _parse_archive_with_report
-from .due_events import task_due_date, task_due_with_date
+from .due_events import normalize_task_due, parse_task_due
 from .recurrence import occurrences
 from .task_events import async_fire_tasks_event
 from .task_store import get_store
@@ -152,7 +152,7 @@ def updated(
 @require_store
 async def ws_list(hass, connection, msg, store):
     result = store.snapshot()
-    result["today"] = dt_util.now().date().isoformat()
+    result["now"] = dt_util.utcnow().isoformat()
     result["users"] = [
         {"id": user.id, "name": user.name or user.id}
         for user in await hass.auth.async_get_users()
@@ -168,8 +168,7 @@ async def ws_list(hass, connection, msg, store):
 @websocket_api.async_response
 @require_store
 async def ws_task_create(hass, connection, msg, store):
-    today = dt_util.now().date()
-    result = await store.async_add_task(msg, today)
+    result = await store.async_add_task(msg, dt_util.utcnow())
     connection.send_result(msg["id"], result)
     updated(
         hass, connection, msg, "created", "task", result["task_id"],
@@ -188,8 +187,9 @@ async def ws_task_create(hass, connection, msg, store):
 @require_store
 async def ws_task_update(hass, connection, msg, store):
     previous = store.task(msg["task_id"])
-    today = dt_util.now().date()
-    result = await store.async_update_task(msg["task_id"], msg, today)
+    result = await store.async_update_task(
+        msg["task_id"], msg, dt_util.utcnow()
+    )
     connection.send_result(msg["id"], result)
     updated(
         hass, connection, msg, "updated", "task", msg["task_id"],
@@ -222,17 +222,16 @@ async def ws_task_delete(hass, connection, msg, store):
 async def ws_task_preview_next_due(hass, connection, msg, store):
     """Preview recurrence using the authoritative backend scheduler."""
     if msg.get("task_due"):
-        current = task_due_date(msg)
+        current = parse_task_due(msg["task_due"])
         task_dues = [
             current,
             *islice(occurrences(msg, current), PREVIEW_COUNT - 1),
         ]
-        serialized = [task_due_with_date(msg, due) for due in task_dues]
     else:
         task_dues = list(
-            islice(occurrences(msg, dt_util.now().date()), PREVIEW_COUNT)
+            islice(occurrences(msg, dt_util.utcnow()), PREVIEW_COUNT)
         )
-        serialized = [due.isoformat() for due in task_dues]
+    serialized = [normalize_task_due(due.isoformat()) for due in task_dues]
     connection.send_result(
         msg["id"],
         {"task_dues": serialized},
@@ -243,7 +242,7 @@ async def ws_task_preview_next_due(hass, connection, msg, store):
     {
         vol.Required("type"): "tasks/task/complete",
         vol.Required("task_id"): str,
-        vol.Optional("completion_date"): str,
+        vol.Optional("completed_at"): str,
         vol.Optional("notes"): TEXT,
     }
 )
@@ -253,7 +252,7 @@ async def ws_task_complete(hass, connection, msg, store):
     user = connection.user
     result = await store.async_complete_task(
         msg["task_id"],
-        msg.get("completion_date", dt_util.now().date().isoformat()),
+        msg.get("completed_at", dt_util.utcnow().isoformat()),
         user.id if user else None,
         user.name if user else "system",
         msg.get("notes"),

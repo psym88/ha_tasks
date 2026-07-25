@@ -81,11 +81,8 @@ export class TasksSidebarFilterCategory extends HTMLElement {
 if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGORY_TAG,TasksSidebarFilterCategory);
 
 export function dueTimestamp(value) {
-  const text=String(value||""),match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if(text.includes("T")){const timestamp=Date.parse(text);return Number.isNaN(timestamp)?NO_DUE_TIMESTAMP:timestamp;}
-  if(!match)return NO_DUE_TIMESTAMP;
-  const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]),date=new Date(year,month-1,day);
-  return date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day?date.getTime():NO_DUE_TIMESTAMP;
+  const timestamp=Date.parse(value);
+  return Number.isNaN(timestamp)?NO_DUE_TIMESTAMP:timestamp;
 }
 
 export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
@@ -189,7 +186,7 @@ export const withTaskList = Base => class extends Base {
     const available={
       icon:{title:"",label:t("task.icon"),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell(row)},
       name:{title:t("table.task"),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"},
-      due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.relativeDate(row.task.task_due):"–",row.task.task_due?this.date(row.task.task_due):"")},
+      due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.date(row.task.task_due," - "):"–")},
       nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true},
       files:{title:t("task.files"),sortable:true,filterable:false},
     };

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -17,8 +17,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .due_events import (
     normalize_task_due,
-    task_due_datetime,
-    task_due_with_date,
+    parse_task_due,
 )
 from .recurrence import occurrences, validate_trigger
 
@@ -286,18 +285,19 @@ class TasksStore:
             raise ValueError("invalid_notification_route")
         return route or None
 
-    async def async_add_task(self, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
+    async def async_add_task(
+        self, payload: dict[str, Any], now: datetime | None = None
+    ) -> dict[str, Any]:
         validate_trigger(payload)
         sensor_schedule = payload.get("schedule_type") == "sensor"
+        created_at = now or dt_util.utcnow()
         task_due = (
             None
             if sensor_schedule
             else normalize_task_due(
                 str(
                     payload.get("task_due")
-                    or next(
-                        occurrences(payload, today or dt_util.now().date())
-                    ).isoformat()
+                    or next(occurrences(payload, created_at)).isoformat()
                 )
             )
         )
@@ -335,7 +335,12 @@ class TasksStore:
             await self._save()
             return task
 
-    async def async_update_task(self, task_id: str, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
+    async def async_update_task(
+        self,
+        task_id: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
             values = {key: payload[key] for key in _TASK_FIELDS if key in payload}
@@ -383,18 +388,25 @@ class TasksStore:
                 if task.get("schedule_type") == "sensor":
                     task["task_due"] = None
                 else:
+                    boundary = dt_util.as_local(now or dt_util.utcnow())
+                    if task.get("task_due") and old_schedule[0] != "sensor":
+                        previous_due = dt_util.as_local(
+                            parse_task_due(task["task_due"])
+                        )
+                        boundary = boundary.replace(
+                            hour=previous_due.hour,
+                            minute=previous_due.minute,
+                            second=previous_due.second,
+                            microsecond=previous_due.microsecond,
+                            fold=0,
+                        )
                     schedule = {
                         key: value
                         for key, value in task.items()
                         if key != "task_due"
                     }
-                    due = next(
-                        occurrences(schedule, today or dt_util.now().date())
-                    )
-                    task["task_due"] = (
-                        task_due_with_date(task, due)
-                        if task.get("task_due") and old_schedule[0] != "sensor"
-                        else due.isoformat()
+                    task["task_due"] = normalize_task_due(
+                        next(occurrences(schedule, boundary)).isoformat()
                     )
             elif "task_due" in payload and payload["task_due"] is not None:
                 task["task_due"] = normalize_task_due(str(payload["task_due"]))
@@ -415,7 +427,7 @@ class TasksStore:
     async def async_complete_task(
         self,
         task_id: str,
-        completion_date: str,
+        completed_at: str,
         user_id: str | None,
         user_name: str,
         notes: str | None = None,
@@ -426,14 +438,14 @@ class TasksStore:
             if task.get("schedule_type") == "sensor":
                 task_due_after = None
             else:
-                next_date = next(
-                    occurrences(task, date.fromisoformat(completion_date))
+                task_due_after = normalize_task_due(
+                    next(
+                        occurrences(task, parse_task_due(completed_at))
+                    ).isoformat()
                 )
-                task_due_after = task_due_with_date(task, next_date)
             record = {
                 "history_entry_id": uuid4().hex,
-                "completion_date": completion_date,
-                "recorded_at": _now(),
+                "completed_at": normalize_task_due(completed_at),
                 "user_id": user_id,
                 "user_name": user_name,
                 "notes": str(notes or "").strip() or None,
@@ -447,7 +459,11 @@ class TasksStore:
 
     def history(self, task_id: str) -> list[dict[str, Any]]:
         self._find("tasks", task_id)
-        return sorted(self._data["history"].get(task_id, []), key=lambda x: x["recorded_at"], reverse=True)
+        return sorted(
+            self._data["history"].get(task_id, []),
+            key=lambda x: x["completed_at"],
+            reverse=True,
+        )
 
     async def async_delete_history(self, task_id: str, history_entry_id: str) -> dict[str, Any]:
         async with self._lock:
@@ -468,20 +484,21 @@ class TasksStore:
                 ]
                 await self._save()
                 return task
-            chronological = sorted(entries, key=lambda entry: entry["recorded_at"])
+            chronological = sorted(
+                entries, key=lambda entry: entry["completed_at"]
+            )
             original_due = chronological[0]["task_due_before"]
             remaining = [entry for entry in chronological if entry["history_entry_id"] != history_entry_id]
             replay_task = {**task, "task_due": original_due}
             for entry in remaining:
                 entry["task_due_before"] = replay_task["task_due"]
-                entry["task_due_after"] = task_due_with_date(
-                    replay_task,
+                entry["task_due_after"] = normalize_task_due(
                     next(
                         occurrences(
                             replay_task,
-                            date.fromisoformat(entry["completion_date"]),
+                            parse_task_due(entry["completed_at"]),
                         )
-                    ),
+                    ).isoformat()
                 )
                 replay_task["task_due"] = entry["task_due_after"]
             self._data["history"][task_id] = remaining
@@ -533,7 +550,7 @@ class TasksStore:
 
     @staticmethod
     def is_due(task: dict[str, Any], now: datetime) -> bool:
-        return bool(task.get("task_due")) and task_due_datetime(task) <= now
+        return bool(task.get("task_due")) and parse_task_due(task["task_due"]) <= now
 
     async def async_trigger_problem_task(
         self, task_id: str, triggered_at: str

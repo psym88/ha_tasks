@@ -42,7 +42,6 @@ class TasksTodoList(TodoListEntity):
     _attr_device_info = TASKS_DEVICE_INFO
     _attr_supported_features = (
         TodoListEntityFeature.UPDATE_TODO_ITEM
-        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
         | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
     )
 
@@ -112,7 +111,7 @@ class TasksTodoList(TodoListEntity):
             )
             task = await self._store.async_complete_task(
                 task_id,
-                dt_util.now().date().isoformat(),
+                dt_util.utcnow().isoformat(),
                 user_id,
                 user.name if user and user.name else "system",
                 "tasks.history.completed_via_todo",
@@ -123,6 +122,6 @@ class TasksTodoList(TodoListEntity):
         task = await self._store.async_update_task(
             task_id,
             {"task_name": item.summary},
-            dt_util.now().date(),
+            dt_util.utcnow(),
         )
         self._notify("updated", task)

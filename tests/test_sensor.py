@@ -7,14 +7,14 @@ from unittest.mock import patch
 from custom_components.tasks.sensor import TasksDueSensor
 
 
-def test_tasks_due_counts_today_and_older():
+def test_tasks_due_counts_reached_datetimes():
     store = SimpleNamespace(
         tasks=[
-            {"task_due": "2026-07-22"},
-            {"task_due": "2026-07-23"},
-            {"task_due": "2026-07-24"},
+            {"task_due": "2026-07-22T12:00:00+00:00"},
+            {"task_due": "2026-07-23T12:00:00+00:00"},
+            {"task_due": "2026-07-24T12:00:00+00:00"},
         ],
-        is_due=lambda task, now: task["task_due"] <= now.date().isoformat(),
+        is_due=lambda task, now: task["task_due"] <= now.isoformat(),
     )
 
     with patch(

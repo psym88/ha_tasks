@@ -1,7 +1,7 @@
 """NFC tag assignment and completion tests."""
 
 import asyncio
-from datetime import date
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -32,7 +32,7 @@ def _task(task_id="task-1", tag_id=None):
         "task_id": task_id,
         "task_name": task_id,
         "nfc_tag_id": tag_id,
-        "task_due": "2026-07-22",
+        "task_due": "2026-07-22T10:15:00+00:00",
         "schedule_type": "sliding",
         "schedule_unit": "daily",
         "schedule_interval": 1,
@@ -48,7 +48,9 @@ def test_tag_id_is_trimmed_and_unique():
             "schedule_unit": "daily",
             "schedule_interval": 1,
         }
-        created = await store.async_add_task(payload, date(2026, 7, 22))
+        created = await store.async_add_task(
+            payload, datetime(2026, 7, 22, 10, 15, tzinfo=timezone.utc)
+        )
         assert created["nfc_tag_id"] == "tag-2"
         with pytest.raises(ValueError, match="nfc_tag_already_assigned"):
             await store.async_update_task(created["task_id"], {"nfc_tag_id": "existing"})
@@ -61,7 +63,7 @@ def test_task_labels_are_stored_and_updated_without_duplicates():
         store = _store([])
         created = await store.async_add_task(
             {**_task("new"), "label_ids": ["chores", "upstairs", "chores"]},
-            date(2026, 7, 22),
+            datetime(2026, 7, 22, 10, 15, tzinfo=timezone.utc),
         )
         assert created["label_ids"] == ["chores", "upstairs"]
         updated = await store.async_update_task(

@@ -171,7 +171,7 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         pending.clear()
 
         await store.async_complete_task(
-            "pump", "2026-07-25", "user-1", "Marco"
+            "pump", "2026-07-25T10:00:00+00:00", "user-1", "Marco"
         )
         change("on", "on", first)
         change("on", "off", first)

@@ -16,7 +16,7 @@ def _task(**values):
     return {
         "task_id": "task",
         "task_name": "Replace water filter",
-        "task_due": "2026-07-25",
+        "task_due": "2026-07-25T10:15:00+00:00",
         "notification_target": {},
         "notification_persistent": False,
         "notification_critical": False,

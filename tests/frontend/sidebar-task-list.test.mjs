@@ -19,7 +19,7 @@ const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tas
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
 test("task rows flatten every grouping dimension and resolve ids to names",()=>{
-  const tasks=[{task_id:"laundry",task_name:"Laundry",task_icon:"mdi:washing-machine",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer",notification_target:{device_id:["phone","deleted-phone"]},notification_persistent:true}];
+  const tasks=[{task_id:"laundry",task_name:"Laundry",task_icon:"mdi:washing-machine",task_due:"2026-07-24T10:15:00Z",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer",notification_target:{device_id:["phone","deleted-phone"]},notification_persistent:true}];
   const original=structuredClone(tasks);
   const attachments=[{attachment_id:"a",task_id:"laundry"},{attachment_id:"b",task_id:"laundry"},{attachment_id:"c",task_id:"other"}];
   const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],devices:[{id:"phone",name_by_user:"Alex's phone"}],attachments,translate:key=>key});
@@ -54,10 +54,14 @@ test("missing assignments receive localized searchable values",()=>{
   assert.equal(row.files,0);
 });
 
-test("due timestamps validate calendar dates and represent missing dates as the maximum",()=>{
-  assert.equal(dueTimestamp("2026-07-22"),new Date(2026,6,22).getTime());
-  assert.equal(dueTimestamp("2026-02-30"),NO_DUE_TIMESTAMP);
+test("due timestamps sort parsed datetimes and represent missing values as the maximum",()=>{
+  assert.equal(dueTimestamp("2026-07-22T10:15:00Z"),Date.parse("2026-07-22T10:15:00Z"));
   assert.equal(dueTimestamp(""),NO_DUE_TIMESTAMP);
+});
+
+test("due table keeps numeric sorting separate from localized date-time display",()=>{
+  assert.match(source,/due_ts:dueTimestamp\(task\.task_due\)/);
+  assert.match(source,/this\.date\(row\.task\.task_due," - "\)/);
 });
 
 test("sensor tasks use the problem trigger label without a rhythm",()=>{

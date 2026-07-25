@@ -1,7 +1,7 @@
 """Tests for the Home Assistant-native task list."""
 
 import asyncio
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock
 
@@ -18,7 +18,7 @@ def task(**values):
     return {
         "task_id": "task-1",
         "task_name": "Clean kitchen",
-        "task_due": "2026-07-24",
+        "task_due": "2026-07-24T08:00:00+00:00",
         **values,
     }
 
@@ -34,8 +34,8 @@ def entity(store):
 def test_tasks_are_native_todo_items_sorted_by_task_due():
     store = SimpleNamespace(
         tasks=[
-            task(task_id="later", task_name="Later", task_due="2026-07-25"),
-            task(task_id="first", task_name="First", task_due="2026-07-24"),
+            task(task_id="later", task_name="Later", task_due="2026-07-25T08:00:00+00:00"),
+            task(task_id="first", task_name="First", task_due="2026-07-24T08:00:00+00:00"),
         ]
     )
 
@@ -45,7 +45,7 @@ def test_tasks_are_native_todo_items_sorted_by_task_due():
     assert items[0] == TodoItem(
         uid="first",
         summary="First",
-        due=date(2026, 7, 24),
+        due=datetime(2026, 7, 24, 8, tzinfo=timezone.utc),
         status=TodoItemStatus.NEEDS_ACTION,
     )
 
@@ -54,7 +54,7 @@ def test_waiting_sensor_task_is_hidden_from_native_todo_list():
     items = entity(
         SimpleNamespace(
             tasks=[
-                task(task_id="dated", task_due="2026-07-25"),
+                task(task_id="dated", task_due="2026-07-25T08:00:00+00:00"),
                 task(
                     task_id="sensor",
                     task_due=None,
@@ -106,13 +106,13 @@ def test_todo_list_uses_shared_device_and_counts_open_tasks():
     assert not todo.supported_features & TodoListEntityFeature.CREATE_TODO_ITEM
     assert todo.supported_features & TodoListEntityFeature.UPDATE_TODO_ITEM
     assert not todo.supported_features & TodoListEntityFeature.DELETE_TODO_ITEM
-    assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    assert not todo.supported_features & TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
     assert todo.supported_features & TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
     assert not todo.supported_features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
 
 
 def test_completing_item_uses_tasks_completion_flow():
-    completed = task(task_due="2026-08-24")
+    completed = task(task_due="2026-08-24T08:00:00+00:00")
     store = SimpleNamespace(
         tasks=[task()],
         async_complete_task=AsyncMock(return_value=completed),
@@ -125,7 +125,7 @@ def test_completing_item_uses_tasks_completion_flow():
                 uid="task-1",
                 summary="Clean kitchen",
                 status=TodoItemStatus.COMPLETED,
-                due=date(2026, 7, 24),
+                due=datetime(2026, 7, 24, 8, tzinfo=timezone.utc),
             )
         )
     )
@@ -154,7 +154,7 @@ def test_editing_item_only_updates_title():
                 summary="Kitchen",
                 description=None,
                 status=TodoItemStatus.NEEDS_ACTION,
-                due=date(2026, 7, 30),
+                due=datetime(2026, 7, 30, 8, tzinfo=timezone.utc),
             )
         )
     )

@@ -31,8 +31,8 @@ export function normalizeCardConfig(config={}) {
 
 function addDays(iso,days){const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||"");if(!match)return null;const value=new Date(Date.UTC(+match[1],+match[2]-1,+match[3]+days));return value.toISOString().slice(0,10);}
 
-export function filterDashboardTasks(tasks,config,today,timeZone,currentUserId){
-  const cfg=normalizeCardConfig(config),limit=cfg.due_days===null?null:addDays(today,cfg.due_days);
+export function filterDashboardTasks(tasks,config,now,timeZone,currentUserId){
+  const cfg=normalizeCardConfig(config),today=dueDateKey(now,timeZone),limit=cfg.due_days===null?null:addDays(today,cfg.due_days);
   return tasks.filter(task=>{
     if(limit&&(!task.task_due||dueDateKey(task.task_due,timeZone)>limit))return false;
     if(cfg.assignee_ids.length){const assignee=task.assignee_id||UNASSIGNED,selected=cfg.assignee_ids.includes(assignee)||(cfg.assignee_ids.includes(CURRENT_USER)&&Boolean(currentUserId)&&assignee===currentUserId);if(!selected)return false;}
@@ -43,11 +43,11 @@ export function filterDashboardTasks(tasks,config,today,timeZone,currentUserId){
 export function sortDashboardTasks(tasks,locale="en"){
   return [...tasks].sort((a,b)=>{
     if(Boolean(a.task_due)!==Boolean(b.task_due))return a.task_due?-1:1;
-    return (a.task_due||"").localeCompare(b.task_due||"")||(a.task_name||"").localeCompare(b.task_name||"",locale);
+    return (Date.parse(a.task_due)-Date.parse(b.task_due))||(a.task_name||"").localeCompare(b.task_name||"",locale);
   });
 }
 
-export function dueStatus(taskDue,today,timeZone){const dueDate=dueDateKey(taskDue,timeZone);return !dueDate?"":dueDate<today?"overdue":dueDate===today?"today":"future";}
+export function dueStatus(taskDue,now,timeZone){const dueDate=dueDateKey(taskDue,timeZone),today=dueDateKey(now,timeZone);return !dueDate?"":dueDate<today?"overdue":dueDate===today?"today":"future";}
 export function dashboardTaskRowHtml(task,showActionMenu,relativeDate,status,assigneeName="",tagName="",labelNames=[],secondaryInfo=SECONDARY_INFO){const values={due:relativeDate?`<span class="due-date">${esc(relativeDate)}</span>`:"",assignee:esc(assigneeName),nfc_tag:esc(tagName),labels:esc(labelNames.join(", "))},metadata=secondaryInfo.map(key=>values[key]).filter(Boolean).join(" • ");return `<ha-list-item-button class="task-row ${esc(status)}" data-task="${esc(task.task_id)}"><ha-icon class="task-icon" slot="start" icon="${esc(task.task_icon||"mdi:clipboard-check-outline")}"></ha-icon><span slot="headline">${esc(task.task_name)}</span>${metadata?`<span slot="supporting-text">${metadata}</span>`:""}${showActionMenu?'<span class="row-action-slot" slot="end"></span>':""}</ha-list-item-button>`;}
 export function dashboardCardBodyHtml(rows,showAddTask){return `<ha-card><ha-list-base aria-label="Tasks">${rows||`<ha-list-item-base><ha-icon slot="start" icon="mdi:clipboard-check-outline"></ha-icon><span slot="headline">${t("card.empty")}</span></ha-list-item-base>`}${showAddTask?`<ha-list-item-button class="add-task"><ha-icon slot="start" icon="mdi:plus"></ha-icon><span slot="headline">${t("card.add")}</span></ha-list-item-button>`:""}</ha-list-base></ha-card>`;}
 const editorGroup=(name,titleName,field)=>({type:"grid",name,flatten:true,column_min_width:"100%",schema:[{type:"constant",name:titleName},field]});
@@ -77,11 +77,11 @@ export class TasksCard extends TasksBase {
   static async getConfigElement(){return document.createElement("tasks-card-editor");}
   setConfig(config){this.config=normalizeCardConfig(config);if(this.loaded)this.render();}
   getCardSize(){return Math.max(1,Math.min(8,this.visibleTasks().length+1));}
-  visibleTasks(){return sortDashboardTasks(filterDashboardTasks(this.tasks||[],this.config||DEFAULT_CARD_CONFIG,this.today,this.timeZone(),this._hass?.user?.id),this.locale());}
+  visibleTasks(){return sortDashboardTasks(filterDashboardTasks(this.tasks||[],this.config||DEFAULT_CARD_CONFIG,this.now,this.timeZone(),this._hass?.user?.id),this.locale());}
   render(){
     if(!this.shadowRoot.querySelector(".card-root"))this.shadowRoot.innerHTML='<style>.task-row.today .task-icon,.task-row.today .due-date{color:var(--warning-color)}.task-row.overdue .task-icon,.task-row.overdue .due-date{color:var(--error-color)}.task-row.future .task-icon,.task-row.future .due-date{color:var(--success-color)}</style><div class="card-root"></div>';
     const root=this.shadowRoot.querySelector(".card-root"),tasks=this.visibleTasks(),config=normalizeCardConfig(this.config);
-    root.innerHTML=dashboardCardBodyHtml(tasks.map(task=>dashboardTaskRowHtml(task,config.show_action_menu,this.relativeDate(task.task_due),dueStatus(task.task_due,this.today,this.timeZone()),this.users.find(user=>user.id===task.assignee_id)?.name||"",this.tagName(task),this.labelNames(task),config.secondary_info)).join(""),config.show_add_task);
+    root.innerHTML=dashboardCardBodyHtml(tasks.map(task=>dashboardTaskRowHtml(task,config.show_action_menu,this.relativeDate(task.task_due),dueStatus(task.task_due,this.now,this.timeZone()),this.users.find(user=>user.id===task.assignee_id)?.name||"",this.tagName(task),this.labelNames(task),config.secondary_info)).join(""),config.show_add_task);
     root.querySelectorAll("[data-task]").forEach(row=>{const task=this.tasks.find(item=>item.task_id===row.dataset.task);row.onclick=()=>this.taskViewer(task);const slot=row.querySelector(".row-action-slot");if(slot){const menu=createActionMenu({label:t("task.actions"),edit:()=>this.taskEditor(task),remove:()=>this.deleteTask(task)});menu.slot="end";slot.replaceWith(menu);}});
     const add=root.querySelector(".add-task");if(add)add.onclick=()=>{add.blur();this.taskEditor(null);};
   }

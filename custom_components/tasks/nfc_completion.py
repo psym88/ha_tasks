@@ -25,7 +25,7 @@ async def async_handle_tag_scanned(
     user = await hass.auth.async_get_user(user_id) if user_id else None
     await store.async_complete_task(
         task["task_id"],
-        dt_util.now().date().isoformat(),
+        dt_util.utcnow().isoformat(),
         user.id if user else None,
         user.name if user and user.name else "NFC tag",
         NFC_COMPLETION_NOTE,

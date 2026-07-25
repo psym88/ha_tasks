@@ -1,11 +1,15 @@
 """Tests for task persistence normalization."""
 
 import asyncio
-from datetime import date
+from datetime import datetime, timezone
 
 import pytest
 
 from custom_components.tasks.task_store import TasksStore
+
+
+def date(year, month, day):
+    return datetime(year, month, day, 10, 15, tzinfo=timezone.utc)
 
 
 def _store(task):
@@ -28,7 +32,7 @@ def _weekly_task():
         "assignee_id": None,
         "label_ids": [],
         "nfc_tag_id": None,
-        "task_due": "2026-07-29",
+        "task_due": "2026-07-29T10:15:00+00:00",
         "schedule_type": "fixed",
         "schedule_unit": "weekly",
         "schedule_interval": 1,
@@ -55,7 +59,7 @@ def test_new_sliding_task_starts_due_after_its_first_interval():
             date(2026, 7, 25),
         )
 
-        assert created["task_due"] == "2026-08-08"
+        assert created["task_due"] == "2026-08-08T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -110,7 +114,7 @@ def test_task_icon_is_updated_without_affecting_schedule():
         )
 
         assert updated["task_icon"] == "mdi:washing-machine"
-        assert updated["task_due"] == "2026-07-29"
+        assert updated["task_due"] == "2026-07-29T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -137,7 +141,7 @@ def test_notification_settings_are_normalized_without_affecting_schedule():
         assert updated["notification_persistent"] is True
         assert updated["notification_critical"] is True
         assert updated["notification_route"] == "/lovelace/maintenance"
-        assert updated["task_due"] == "2026-07-29"
+        assert updated["task_due"] == "2026-07-29T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -249,7 +253,7 @@ def test_problem_trigger_sets_due_once_until_task_is_completed():
         assert duplicate is None
 
         completed = await store.async_complete_task(
-            "task", "2026-07-25", "user-1", "Marco"
+            "task", "2026-07-25T10:15:00+00:00", "user-1", "Marco"
         )
         assert completed["task_due"] is None
         assert store.history("task")[0]["task_due_after"] is None

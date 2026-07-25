@@ -4,8 +4,8 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** stores its description, user and Home Assistant label assignments, nullable native date-or-datetime `task_due` value, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
-- Fixed schedules stay anchored to configured calendar rules. Completion-based schedules advance from the completion date.
+- A **task** stores its description, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. New schedules use their creation time as the initial local wall-time anchor. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
+- Fixed schedules stay anchored to configured calendar rules and their local wall time. Completion-based schedules advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
 - A problem-sensor task has no due value while waiting. An `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile sensors that are already on.
 - Before version 1.0, stored-schema changes need no compatibility migration.
 
@@ -21,8 +21,8 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 - `task_store.py`: persistence, serialized mutations, and task normalization
 - `archive_converter.py`: sequential upgrades from older archive manifests to the current format
-- `recurrence.py`: trigger validation and recurring due-date calculations
-- `due_events.py`: shared date/datetime parsing and the single due-event timer
+- `recurrence.py`: trigger validation and recurring local datetime calculations
+- `due_events.py`: shared UTC datetime parsing and the single due-event timer
 - `problem_events.py`: binary problem-sensor transitions and startup reconciliation
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
 - `task_api.py`: authenticated task and metadata API

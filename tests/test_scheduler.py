@@ -1,7 +1,8 @@
 """Scheduler unit tests."""
 
-from datetime import date
+from datetime import datetime, timezone
 from itertools import islice
+from zoneinfo import ZoneInfo
 
 from custom_components.tasks.recurrence import (
     add_interval,
@@ -10,9 +11,14 @@ from custom_components.tasks.recurrence import (
 )
 
 
+def date(year, month, day):
+    """Return the shared aware datetime used by recurrence tests."""
+    return datetime(year, month, day, 14, 37, tzinfo=timezone.utc)
+
+
 def task(**values):
     return {
-        "task_due": "2026-07-20",
+        "task_due": "2026-07-20T14:37:00+00:00",
         "schedule_type": "fixed",
         "schedule_unit": "daily",
         "schedule_interval": 1,
@@ -44,9 +50,36 @@ def test_sliding_intervals():
     ) == [date(2026, 8, 4)]
 
 
+def test_daily_interval_preserves_local_wall_time_across_dst():
+    local_zone = ZoneInfo("Europe/Zurich")
+
+    assert add_interval(
+        datetime(2026, 3, 28, 14, 37, tzinfo=local_zone), 1, "day"
+    ) == datetime(2026, 3, 29, 14, 37, tzinfo=local_zone)
+    assert add_interval(
+        datetime(2026, 10, 24, 14, 37, tzinfo=local_zone), 1, "day"
+    ) == datetime(2026, 10, 25, 14, 37, tzinfo=local_zone)
+
+
+def test_monthly_interval_preserves_local_wall_time_across_dst():
+    local_zone = ZoneInfo("Europe/Zurich")
+
+    assert add_interval(
+        datetime(2026, 3, 21, 8, 0, tzinfo=local_zone), 1, "month"
+    ) == datetime(2026, 4, 21, 8, 0, tzinfo=local_zone)
+
+
+def test_imaginary_dst_time_moves_to_next_valid_local_time():
+    local_zone = ZoneInfo("Europe/Zurich")
+
+    assert add_interval(
+        datetime(2026, 3, 28, 2, 30, tzinfo=local_zone), 1, "day"
+    ) == datetime(2026, 3, 29, 3, 30, tzinfo=local_zone)
+
+
 def test_sliding_monthly_uses_completion_day():
     value = task(
-        task_due="2026-01-31",
+        task_due="2026-01-31T14:37:00+00:00",
         schedule_type="sliding",
         schedule_unit="monthly",
     )
@@ -92,22 +125,22 @@ def test_fixed_daily_skips_overdue_occurrences():
 def test_completing_fixed_schedule_early_keeps_upcoming_occurrence():
     cases = (
         task(
-            task_due="2026-07-21",
+            task_due="2026-07-21T14:37:00+00:00",
             schedule_unit="daily",
             schedule_interval=3,
         ),
         task(
-            task_due="2026-07-22",
+            task_due="2026-07-22T14:37:00+00:00",
             schedule_unit="weekly",
             schedule_weekdays=[2],
         ),
         task(
-            task_due="2026-07-31",
+            task_due="2026-07-31T14:37:00+00:00",
             schedule_unit="monthly",
             schedule_day=31,
         ),
         task(
-            task_due="2026-12-25",
+            task_due="2026-12-25T14:37:00+00:00",
             schedule_unit="yearly",
             schedule_month=12,
             schedule_day=25,
@@ -116,7 +149,7 @@ def test_completing_fixed_schedule_early_keeps_upcoming_occurrence():
 
     for value in cases:
         assert sequence(value, date(2026, 7, 20)) == [
-            date.fromisoformat(value["task_due"])
+            datetime.fromisoformat(value["task_due"])
         ]
 
 
@@ -141,15 +174,15 @@ def test_every_other_week():
 
 def test_month_anchor_and_last_day():
     value = task(
-        task_due="2026-01-31",
+        task_due="2026-01-31T14:37:00+00:00",
         schedule_unit="monthly",
         schedule_day=31,
     )
     assert sequence(value, date(2026, 1, 31)) == [date(2026, 2, 28)]
-    value["task_due"] = "2026-02-28"
+    value["task_due"] = "2026-02-28T14:37:00+00:00"
     assert sequence(value, date(2026, 2, 28)) == [date(2026, 3, 31)]
     value["schedule_day"] = "last"
-    value["task_due"] = "2026-03-31"
+    value["task_due"] = "2026-03-31T14:37:00+00:00"
     assert sequence(value, date(2026, 3, 31)) == [date(2026, 4, 30)]
 
 
@@ -192,7 +225,7 @@ def test_initial_fixed_weekly_due_starts_on_first_selected_weekday():
 
 
 def test_initial_fixed_due_is_always_in_the_future():
-    today = date(2026, 7, 23)
+    now = date(2026, 7, 23)
     schedules = (
         (schedule(schedule_interval=3), date(2026, 7, 26)),
         (
@@ -222,7 +255,7 @@ def test_initial_fixed_due_is_always_in_the_future():
         ),
     )
     for value, expected in schedules:
-        assert sequence(value, today) == [expected]
+        assert sequence(value, now) == [expected]
 
 
 def test_fixed_yearly_schedule_and_leap_day_clamping():
@@ -251,7 +284,7 @@ def test_fixed_yearly_schedule_and_leap_day_clamping():
     ]
 
 
-def test_sliding_yearly_uses_completion_date():
+def test_sliding_yearly_uses_completion_datetime():
     value = task(
         schedule_type="sliding",
         schedule_unit="yearly",

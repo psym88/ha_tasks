@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
@@ -14,44 +14,17 @@ from .notifications import async_notify_task_due, has_due_notification
 from .task_events import async_fire_tasks_event
 
 
-def parse_task_due(value: str) -> date | datetime:
-    """Parse a native Home Assistant date or datetime value."""
-    if "T" not in value:
-        return date.fromisoformat(value)
+def parse_task_due(value: str) -> datetime:
+    """Parse a timezone-aware task due datetime."""
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        raise ValueError("task_due_timezone_required")
     return parsed
 
 
 def normalize_task_due(value: str) -> str:
-    """Return a canonical native date or timezone-aware datetime string."""
-    parsed = parse_task_due(value)
-    return parsed.isoformat()
-
-
-def task_due_datetime(task: dict[str, Any]) -> datetime:
-    """Return a task's due value as an aware datetime."""
-    due = parse_task_due(task["task_due"])
-    if isinstance(due, datetime):
-        return due
-    return dt_util.start_of_local_day(due)
-
-
-def task_due_date(task: dict[str, Any]) -> date:
-    """Return the local calendar date of a task's due value."""
-    due = parse_task_due(task["task_due"])
-    if isinstance(due, datetime):
-        return dt_util.as_local(due).date()
-    return due
-
-
-def task_due_with_date(task: dict[str, Any], value: date) -> str:
-    """Move a due value to another date while preserving an optional time."""
-    due = parse_task_due(task["task_due"])
-    if isinstance(due, datetime):
-        return due.replace(year=value.year, month=value.month, day=value.day).isoformat()
-    return value.isoformat()
+    """Return a canonical UTC task due datetime string."""
+    return dt_util.as_utc(parse_task_due(value)).isoformat()
 
 
 @callback
@@ -112,7 +85,7 @@ class TaskDueEventScheduler:
             due
             for task in self._store.tasks
             if task.get("task_due")
-            and (due := task_due_datetime(task)) > now
+            and (due := parse_task_due(task["task_due"])) > now
         ]
         if future:
             target = min(future)
@@ -134,7 +107,7 @@ class TaskDueEventScheduler:
         for task in self._store.tasks:
             if not task.get("task_due"):
                 continue
-            due = task_due_datetime(task)
+            due = parse_task_due(task["task_due"])
             if target <= due <= fired_at:
                 fire_task_due(self._hass, task)
         self.reschedule()
