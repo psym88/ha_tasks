@@ -25,6 +25,7 @@ _SCHEDULE_FIELDS = (
     "schedule_weekdays",
     "schedule_day",
     "schedule_month",
+    "schedule_time",
     "problem_sensor",
 )
 _TASK_FIELDS = (
@@ -60,6 +61,8 @@ def _schedule_signature(task: dict[str, Any]) -> tuple[Any, ...]:
         return (mode, task.get("problem_sensor"))
     schedule_unit = task.get("schedule_unit")
     values: list[Any] = [mode, schedule_unit, int(task.get("schedule_interval") or 1)]
+    if mode == "fixed":
+        values.append(task.get("schedule_time"))
     if mode == "fixed" and schedule_unit == "weekly":
         values.append(tuple(sorted(int(day) for day in task.get("schedule_weekdays") or [])))
     elif mode == "fixed" and schedule_unit == "monthly":
@@ -80,11 +83,17 @@ def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
                 "schedule_weekdays": [],
                 "schedule_day": None,
                 "schedule_month": None,
+                "schedule_time": None,
                 "problem_sensor": str(task.get("problem_sensor") or "").strip(),
             }
         )
         return normalized
     normalized["problem_sensor"] = None
+    normalized["schedule_time"] = (
+        task.get("schedule_time")
+        if task.get("schedule_type") == "fixed"
+        else None
+    )
     normalized["schedule_weekdays"] = (
         list(task.get("schedule_weekdays") or [])
         if task.get("schedule_type") == "fixed"

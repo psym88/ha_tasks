@@ -122,6 +122,22 @@ def test_fixed_daily_skips_overdue_occurrences():
     ]
 
 
+def test_initial_fixed_schedule_uses_selected_time():
+    value = schedule(schedule_time="08:15")
+
+    assert sequence(value, date(2026, 7, 20)) == [
+        datetime(2026, 7, 21, 8, 15, tzinfo=timezone.utc)
+    ]
+    assert sequence(
+        value,
+        datetime(2026, 7, 20, 7, 0, tzinfo=timezone.utc),
+    ) == [datetime(2026, 7, 20, 8, 15, tzinfo=timezone.utc)]
+
+
+def test_existing_fixed_schedule_without_selected_time_keeps_due_time():
+    assert sequence(task(), date(2026, 7, 20)) == [date(2026, 7, 21)]
+
+
 def test_completing_fixed_schedule_early_keeps_upcoming_occurrence():
     cases = (
         task(

@@ -111,6 +111,7 @@
     "task.month": "Month",
     "task.year": "Year",
     "task.on_day": "On day",
+    "task.time": "Time",
     "task.last_day": "Last day",
     "task.interval_decrease": "Decrease schedule_interval",
     "task.interval_increase": "Increase schedule_interval",

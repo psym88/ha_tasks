@@ -38,6 +38,7 @@ RECURRENCE_FIELDS = {
     vol.Optional("schedule_month"): vol.Any(
         vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
     ),
+    vol.Optional("schedule_time"): vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
 }
 SCHEDULE_FIELDS = {
     vol.Required("schedule_type"): vol.In(("fixed", "sliding", "sensor")),
@@ -52,6 +53,7 @@ SCHEDULE_FIELDS = {
     vol.Optional("schedule_month"): vol.Any(
         vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
     ),
+    vol.Optional("schedule_time"): vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     vol.Optional("problem_sensor"): TEXT,
 }
 TASK_CREATE_FIELDS = {

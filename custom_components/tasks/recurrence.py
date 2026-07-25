@@ -59,6 +59,16 @@ def _with_date(value: datetime, year: int, month: int, day: int) -> datetime:
     return _resolve_local(value.replace(year=year, month=month, day=day))
 
 
+def _with_schedule_time(task: dict[str, Any], value: datetime) -> datetime:
+    """Apply an optional fixed wall-clock time to a local datetime."""
+    if not (schedule_time := task.get("schedule_time")):
+        return value
+    hour, minute = (int(part) for part in schedule_time.split(":"))
+    return _resolve_local(
+        value.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    )
+
+
 def add_interval(value: datetime, schedule_interval: int, unit: str) -> datetime:
     """Advance a local datetime by one recurrence interval."""
     if unit == "day":
@@ -165,7 +175,11 @@ def occurrences(
         if task.get("task_due")
         else None
     )
-    anchor = current_due
+    anchor = (
+        _with_schedule_time(task, current_due or boundary)
+        if task.get("schedule_type") == "fixed"
+        else current_due
+    )
 
     validate_schedule(task)
     schedule_interval = max(1, int(task.get("schedule_interval") or 1))
@@ -180,9 +194,10 @@ def occurrences(
                 _INTERVAL_UNITS[schedule_unit],
             )
         else:
+            assert anchor is not None
             due = _fixed_due_on_or_after(
                 task,
-                boundary,
+                anchor,
                 boundary + timedelta(microseconds=1),
             )
         anchor = due

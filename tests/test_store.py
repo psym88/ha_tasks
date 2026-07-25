@@ -87,6 +87,42 @@ def test_schedule_update_discards_inactive_values():
     asyncio.run(run())
 
 
+def test_fixed_schedule_time_is_stored_and_recalculates_due():
+    async def run():
+        store = _store(_weekly_task())
+
+        updated = await store.async_update_task(
+            "task", {"schedule_time": "08:30"}, date(2026, 7, 24)
+        )
+
+        assert updated["schedule_time"] == "08:30"
+        assert updated["task_due"] == "2026-07-29T08:30:00+00:00"
+
+    asyncio.run(run())
+
+
+def test_sliding_schedule_discards_fixed_time():
+    async def run():
+        task = _weekly_task()
+        task["schedule_time"] = "08:30"
+        store = _store(task)
+
+        updated = await store.async_update_task(
+            "task",
+            {
+                "schedule_type": "sliding",
+                "schedule_unit": "weekly",
+                "schedule_interval": 1,
+                "schedule_time": None,
+            },
+            date(2026, 7, 24),
+        )
+
+        assert updated["schedule_time"] is None
+
+    asyncio.run(run())
+
+
 def test_partial_schedule_update_merges_before_normalizing():
     async def run():
         task = _weekly_task()

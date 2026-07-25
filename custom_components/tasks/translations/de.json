@@ -111,6 +111,7 @@
     "task.month": "Monat",
     "task.year": "Jahr",
     "task.on_day": "Am Tag",
+    "task.time": "Uhrzeit",
     "task.last_day": "Letzter Tag",
     "task.interval_decrease": "Intervall verringern",
     "task.interval_increase": "Intervall erhöhen",
