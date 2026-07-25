@@ -1,7 +1,7 @@
 # Repository Instructions
 
 - Write GitHub release notes in English. GitHub Releases are the only changelog; do not add a repository changelog.
-- Keep versions aligned in `manifest.json`, `const.py`, and `frontend/panel.js`.
+- Keep the release version only in `manifest.json`; runtime frontend URLs must derive from it.
 - Keep `README.md` user-focused; update it only for installation or usage changes. Document only stable contracts and component boundaries in `ARCHITECTURE.md`, never styling tweaks or release history.
 - Add focused tests for recurrence and problem-sensor trigger changes, and for important regressions.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
@@ -34,7 +34,7 @@ Keep the subject imperative, concise, and without a trailing period.
 - When promoting a pre-release to latest, reuse its existing version, tag, and title.
 - Do not add tag suffixes such as `-pre`, `-beta`, or `-rc`. Pre-release state is represented only by GitHub's **pre-release** flag.
 - CalVer does not encode compatibility. Mark breaking changes explicitly in the release notes.
-- Keep the version identical in `manifest.json`, `const.py`, and `frontend/panel.js`.
+- Keep the release version only in `manifest.json`; do not duplicate it in Python or JavaScript.
 - Create every tag from the tested `dev` commit that contains the same version.
 - Never move, overwrite, delete, or reuse a published tag. If a published pre-release is defective, fix the problem and publish a new version.
 
@@ -65,7 +65,7 @@ Map changes consistently:
 ## Pre-release workflow
 
 1. Update `dev` from `origin/dev`.
-2. Choose the next version and update all version files.
+2. Choose the next version and update `manifest.json`.
 3. Run the complete backend and frontend test suites.
 4. Commit and push the tested `dev` state.
 5. Create the immutable `YYYYMMDD.REVISION` tag on that exact commit.

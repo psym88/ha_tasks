@@ -51,8 +51,8 @@ def test_only_sidepanel_requires_admin():
 
 def test_dashboard_module_is_registered_and_removed_with_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
-    assert "frontend.add_extra_js_url(hass, CARD_JS_URL)" in source
-    assert "frontend.remove_extra_js_url(hass, CARD_JS_URL)" in source
+    assert "frontend.add_extra_js_url(hass, card_js_url)" in source
+    assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
 
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():
@@ -70,7 +70,8 @@ def test_native_tag_integration_is_loaded_as_a_dependency():
 
 def test_frontend_and_consolidated_translations_are_registered_as_static_paths():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
-    assert "StaticPathConfig(FRONTEND_URL, str(frontend_dir), False)" in source
+    assert "StaticPathConfig(frontend_url, str(frontend_dir), False)" in source
+    assert 'base_url = f"{FRONTEND_URL}/{version}"' in source
     assert "StaticPathConfig(ENGLISH_TRANSLATIONS_URL, str(english_translations), False)" in source
     assert "StaticPathConfig(TRANSLATIONS_URL, str(translations_dir), False)" in source
     component=ROOT / "custom_components/tasks"

@@ -19,13 +19,17 @@ def test_brand_icons_match_home_assistant_requirements() -> None:
             assert image.getpixel((0, 0))[3] == 0
 
 
-def test_versions_stay_aligned() -> None:
-    """Backend and frontend cache versions match the manifest release."""
+def test_manifest_is_the_only_release_version_source() -> None:
+    """Frontend cache URLs derive their release version from the manifest."""
     version = json.loads((INTEGRATION_DIR / "manifest.json").read_text())["version"]
-    assert f'PANEL_VERSION = "{version}"' in (INTEGRATION_DIR / "const.py").read_text()
-    assert f'VERSION = "{version}"' in (
-        INTEGRATION_DIR / "frontend/panel.js"
-    ).read_text()
+    sources = [
+        *INTEGRATION_DIR.glob("*.py"),
+        *INTEGRATION_DIR.joinpath("frontend").glob("*.js"),
+    ]
+    assert all(version not in path.read_text(encoding="utf-8") for path in sources)
+    assert "async_get_integration(hass, DOMAIN)" in (
+        INTEGRATION_DIR / "__init__.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_integration_uses_tasks_as_its_domain() -> None:

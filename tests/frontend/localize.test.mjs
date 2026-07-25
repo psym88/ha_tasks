@@ -32,6 +32,16 @@ test("missing language catalogs retain the English fallback",async()=>{
   await setLanguage("en");
 });
 
+test("frontend derives display and translation versions from its static path",()=>{
+  const root=new URL("../../custom_components/tasks/frontend/",import.meta.url);
+  const controller=readFileSync(new URL("controller.js",root),"utf8");
+  const localize=readFileSync(new URL("localize.js",root),"utf8");
+  assert.match(controller,/import\.meta\.url/);
+  assert.match(controller,/tasks_frontend/);
+  assert.match(localize,/import\.meta\.url[\s\S]*VERSION_QUERY/);
+  assert.match(localize,/tasks_strings\.json[\s\S]*VERSION_QUERY/);
+});
+
 test("frontend source contains no embedded German UI copy",()=>{
   const root=new URL("../../custom_components/tasks/frontend/",import.meta.url);
   const files=readdirSync(root,{recursive:true}).filter(name=>name.endsWith(".js"));

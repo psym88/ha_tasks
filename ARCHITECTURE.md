@@ -64,5 +64,5 @@ WebSocket and HTTP endpoints require an authenticated Home Assistant user. All s
 
 - Backend tests: `pytest`
 - Frontend tests: `node --test tests/frontend/*.test.mjs`
-- Release versions must match in `manifest.json`, `const.py`, and `frontend/panel.js`.
+- `manifest.json` is the sole release-version source. The integration derives a versioned frontend URL prefix from it so every ES module and translation request changes together without enabling long-lived static cache headers.
 - Development releases are tagged from `dev` and published as GitHub pre-releases.

@@ -9,6 +9,7 @@ import { showSettingsPopup } from "./popup-settings.js";
 export function dueDateKey(value,timeZone){const text=String(value||""),match=/^(\d{4})-(\d{2})-(\d{2})/.exec(text);if(!match)return "";if(!text.includes("T"))return match[0];const date=new Date(text);if(Number.isNaN(date.getTime()))return match[0];const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",...(timeZone?{timeZone}:{})}).formatToParts(date).filter(part=>part.type!=="literal").map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`;}
 
 export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(HTMLElement))) {
+  static version=decodeURIComponent(new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1]||"");
   constructor(){ super(); this.attachShadow({mode:"open"}); this.tasks=[]; this.attachments=[]; this.users=[]; this.tags=[]; this.labels=[]; this.devices=[]; this.today=""; this.signedFiles=new Map(); this.loading=false; this.reloadPending=false; this.eventUnsubscribe=null; this.eventSubscriptionToken=0; }
   connectedCallback(){this.subscribeEvents();}
   disconnectedCallback(){this.unsubscribeEvents();this.disconnectTaskTableResize();}

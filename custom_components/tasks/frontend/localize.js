@@ -1,4 +1,6 @@
 const CATALOG_URL="/tasks_translations";
+const version=new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1];
+const VERSION_QUERY=version?`?v=${encodeURIComponent(decodeURIComponent(version))}`:"";
 const KEYS={addTask:"common.add_task",fixed:"task.fixed",sliding:"task.sliding",daily:"task.daily",weekly:"task.weekly",monthly:"task.monthly",yearly:"task.yearly",save:"common.save",files:"task.files",history:"task.history",noFiles:"task.no_files",noHistory:"task.no_history"};
 
 let messages={};
@@ -12,7 +14,7 @@ function interpolate(value,variables){
 
 async function loadCatalog(code){
   if(!loaded.has(code)){
-    const url=code==="en"?"/tasks_strings.json":`${CATALOG_URL}/${code}.json`;
+    const url=`${code==="en"?"/tasks_strings.json":`${CATALOG_URL}/${code}.json`}${VERSION_QUERY}`;
     loaded.set(code,fetch(url).then(response=>response.ok?response.json():{}).then(catalog=>catalog.frontend||{}).catch(()=>({})));
   }
   return loaded.get(code);
