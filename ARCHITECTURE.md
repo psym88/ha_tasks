@@ -5,23 +5,25 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 ## Data model
 
 - A **task** stores its description, user and Home Assistant label assignments, nullable native date-or-datetime `task_due` value, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
-- Calendar recurrence stays anchored to configured dates. Completion-based recurrence advances from the completion date.
+- Fixed schedules stay anchored to configured calendar rules. Completion-based schedules advance from the completion date.
+- A problem-sensor task has no due value while waiting. An `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile sensors that are already on.
 - Before version 1.0, stored-schema changes need no compatibility migration.
 
 ## Home Assistant platforms
 
-- Tasks are items of one push-only `todo.tasks` entity. Standard item fields map to the task ID, name, description, due value, and open/completed status.
-- `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts its visible incomplete items, not only due items. Waiting problem-sensor tasks are excluded from the native to-do list until they trigger.
+- Scheduled tasks and triggered problem-sensor tasks are items of one push-only `todo.tasks` entity; waiting problem-sensor tasks are excluded. Items expose the task ID, name, due value, and open status. Native mutations can rename or complete an item. Due changes are accepted for Home Assistant dialog compatibility but ignored, while creation and deletion remain integration-owned operations.
+- `sensor.tasks_due` remains a separate summary because a to-do entity's native state counts its visible incomplete items, not only due items.
 - Todo and due sensor entities share one Tasks service device.
-- A single timer tracks the nearest future `task_due`, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
+- A single timer tracks the nearest future scheduled `task_due`, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
+- A separate problem-sensor scheduler listens for binary-sensor state transitions. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
 
 ## Backend
 
-- `task_store.py`: persistence and serialized mutations
-- `task_fields.py`: shared task-field validation, defaults, and normalization
+- `task_store.py`: persistence, serialized mutations, and task normalization
 - `archive_converter.py`: sequential upgrades from older archive manifests to the current format
-- `recurrence.py`: recurrence calculations
+- `recurrence.py`: trigger validation and recurring due-date calculations
 - `due_events.py`: shared date/datetime parsing and the single due-event timer
+- `problem_events.py`: binary problem-sensor transitions and startup reconciliation
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
 - `task_api.py`: authenticated task and metadata API
 - `attachment_api.py`: authenticated attachments and ZIP import/export

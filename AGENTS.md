@@ -3,7 +3,7 @@
 - Write GitHub release notes in English. GitHub Releases are the only changelog; do not add a repository changelog.
 - Keep versions aligned in `manifest.json`, `const.py`, and `frontend/panel.js`.
 - Keep `README.md` user-focused; update it only for installation or usage changes. Document only stable contracts and component boundaries in `ARCHITECTURE.md`, never styling tweaks or release history.
-- Add focused tests for recurrence changes and important regressions.
+- Add focused tests for recurrence and problem-sensor trigger changes, and for important regressions.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
 
 ## Commit convention

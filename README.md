@@ -7,7 +7,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 ## Features
 
 - Daily, weekly, monthly, and yearly recurring tasks
-- Calendar-based schedules or intervals after completion
+- Fixed schedules, intervals after completion, and binary problem-sensor triggers
 - Preview of the actual upcoming due dates calculated from each schedule
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
@@ -39,7 +39,7 @@ Removing the integration does not delete exported backups. Tasks data in `<confi
 
 Administrators can open **Tasks** in the sidebar. Use **+ Add task** to create a task. Select a task to view and complete it; use its three-dot menu to edit or delete it.
 
-The task table shows Label directly after Task and supports search, sorting, grouping by labels, recurrence, or assignee, and independent filters for those same dimensions.
+The task table shows Label directly after Task and supports search, sorting, grouping by labels, trigger, or assignee, and independent filters for those same dimensions.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-list-dark.png">
@@ -75,9 +75,11 @@ Open **Settings** above the task list and expand **Backup**. Export creates a ZI
 
 ## Home Assistant entities
 
-All tasks are exposed as items of the native `todo.tasks` entity. Home Assistant can create, edit, complete, and delete these items using its standard to-do dashboard, actions, and triggers. Item `uid`, `summary`, `description`, and `due` map to the integration's `task_id`, `task_name`, `task_description`, and `task_due`. `task_due` accepts a native ISO date for an all-day task or an ISO datetime for an exact due time. Recurrence, user and label assignments, NFC tags, attachments, and completion history remain in the Tasks store.
+Scheduled tasks and triggered problem-sensor tasks are exposed as items of the native `todo.tasks` entity. Waiting problem-sensor tasks remain hidden until their sensor turns on. Home Assistant's standard to-do interface can rename and complete visible items; creating and deleting Tasks remains available through the Tasks panel and dashboard card.
 
-The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` is Home Assistant's standard count of its currently visible incomplete items; problem-sensor tasks remain hidden there until their sensor triggers. The to-do and due sensor entities belong to the shared **Tasks** device.
+Item `uid`, `summary`, and `due` map to the integration's `task_id`, `task_name`, and `task_due`. The due field remains visible in Home Assistant's completion dialog, but changes submitted through the native to-do interface are ignored because Tasks calculates the effective due value from its configured trigger. Descriptions, trigger settings, user and label assignments, NFC tags, notifications, attachments, and completion history remain in the Tasks store.
+
+The `sensor.tasks_due` entity counts tasks whose due date or due time has been reached. The state of `todo.tasks` is Home Assistant's standard count of its currently visible incomplete items. The to-do and due sensor entities belong to the shared **Tasks** device.
 
 Example badge for [Navbar Card](https://github.com/joseluis9595/lovelace-navbar-card):
 
