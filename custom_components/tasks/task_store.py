@@ -23,17 +23,7 @@ from .due_events import (
     task_due_with_date,
 )
 from .recurrence import occurrences, validate_schedule
-
-_SCHEDULE_FIELDS = (
-    "schedule_start_date",
-    "schedule_type",
-    "schedule_unit",
-    "schedule_interval",
-    "schedule_weekdays",
-    "schedule_day",
-    "schedule_month",
-)
-
+from .task_fields import SCHEDULE_FIELD_NAMES, normalize_task_fields
 
 def get_store(hass: HomeAssistant):
     """Return the loaded singleton store."""
@@ -95,7 +85,9 @@ class TasksStore:
         self._upload_dir = upload_dir
         self._lock = asyncio.Lock()
         self._data: dict[str, Any] = {
-            "tasks": [], "history": {}, "attachments": []
+            "tasks": [],
+            "history": {},
+            "attachments": [],
         }
 
     async def async_load(self) -> None:
@@ -103,7 +95,10 @@ class TasksStore:
             self._data = {key: stored.get(key, default) for key, default in self._data.items()}
 
     def snapshot(self) -> dict[str, Any]:
-        return {key: list(self._data[key]) for key in ("tasks", "attachments")}
+        return {
+            "tasks": list(self._data["tasks"]),
+            "attachments": list(self._data["attachments"]),
+        }
 
     async def async_export_archive(self) -> tuple[dict[str, Any], dict[str, bytes]]:
         """Return a consistent copy of all persisted data and attachment content."""
@@ -202,13 +197,6 @@ class TasksStore:
             raise ValueError(f"unknown_{kind[:-1]}")
         return item
 
-    @staticmethod
-    def _required_name(value: Any) -> str:
-        name = str(value or "").strip()
-        if not name:
-            raise ValueError("name_required")
-        return name
-
     def _normalize_nfc_tag_id(
         self, value: Any, exclude_task_id: str | None = None
     ) -> str | None:
@@ -241,13 +229,12 @@ class TasksStore:
             else parsed_due
         )
         async with self._lock:
-            name = self._required_name(payload.get("task_name"))
-            nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
+            values = normalize_task_fields(payload, include_defaults=True)
+            nfc_tag_id = self._normalize_nfc_tag_id(values["nfc_tag_id"])
             task = _normalize_schedule({
                 "task_id": uuid4().hex,
-                **{k: payload.get(k) for k in ("task_name", "task_icon", "task_description", "assignee_id", *_SCHEDULE_FIELDS)},
-                "task_name": name,
-                "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
+                **values,
+                **{key: payload.get(key) for key in SCHEDULE_FIELD_NAMES},
                 "nfc_tag_id": nfc_tag_id,
                 "task_due": task_due,
                 "schedule_anchor_date": due_date.isoformat(),
@@ -259,32 +246,30 @@ class TasksStore:
     async def async_update_task(self, task_id: str, payload: dict[str, Any], today: date | None = None) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
-            if "task_name" in payload:
-                payload = {**payload, "task_name": self._required_name(payload["task_name"])}
-            if "nfc_tag_id" in payload:
-                payload = {
-                    **payload,
-                    "nfc_tag_id": self._normalize_nfc_tag_id(
-                        payload["nfc_tag_id"], task_id
-                    ),
-                }
+            values = normalize_task_fields(payload)
+            if "nfc_tag_id" in values:
+                values["nfc_tag_id"] = self._normalize_nfc_tag_id(
+                    values["nfc_tag_id"], task_id
+                )
             old_schedule = _schedule_signature(task)
-            schedule_update = any(key in payload for key in _SCHEDULE_FIELDS)
+            schedule_update = any(
+                key in payload for key in SCHEDULE_FIELD_NAMES
+            )
             normalized_schedule = None
             if schedule_update:
                 merged_schedule = {
                     **task,
-                    **{key: payload[key] for key in _SCHEDULE_FIELDS if key in payload},
+                    **{
+                        key: payload[key]
+                        for key in SCHEDULE_FIELD_NAMES
+                        if key in payload
+                    },
                 }
                 validate_schedule(merged_schedule)
                 normalized_schedule = _normalize_schedule(merged_schedule)
-            if "label_ids" in payload:
-                task["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
-            for key in ("task_name", "task_icon", "task_description", "assignee_id", "nfc_tag_id", "task_due"):
-                if key in payload:
-                    task[key] = payload[key]
+            task.update(values)
             if normalized_schedule is not None:
-                for key in _SCHEDULE_FIELDS:
+                for key in SCHEDULE_FIELD_NAMES:
                     task[key] = normalized_schedule[key]
             schedule_changed = _schedule_signature(task) != old_schedule
             if schedule_changed:

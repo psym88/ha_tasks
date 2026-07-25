@@ -13,17 +13,17 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_GROUP_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
 test("task rows flatten every grouping dimension and resolve ids to names",()=>{
-  const tasks=[{task_id:"laundry",task_name:"Laundry",task_icon:"mdi:washing-machine",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer"}];
+  const tasks=[{task_id:"laundry",task_name:"Laundry",task_icon:"mdi:washing-machine",task_due:"2026-07-24",schedule_type:"fixed",schedule_unit:"weekly",assignee_id:"alex",label_ids:["upstairs","deleted","chores"],nfc_tag_id:"washer",notification_target:{device_id:["phone","deleted-phone"]},notification_persistent:true}];
   const original=structuredClone(tasks);
   const attachments=[{attachment_id:"a",task_id:"laundry"},{attachment_id:"b",task_id:"laundry"},{attachment_id:"c",task_id:"other"}];
-  const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],attachments,translate:key=>key});
-  assert.deepEqual({id:row.id,icon:row.icon,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",icon:"mdi:washing-machine",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],nfc_tag:"Washer",files:2});
+  const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],devices:[{id:"phone",name_by_user:"Alex's phone"}],attachments,translate:key=>key});
+  assert.deepEqual({id:row.id,icon:row.icon,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,notifications:row.notifications,notification_names:row.notification_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",icon:"mdi:washing-machine",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],notifications:"Alex's phone, task.notification_panel_target",notification_names:["Alex's phone","task.notification_panel_target"],nfc_tag:"Washer",files:2});
   assert.equal(row.task,tasks[0]);
   assert.deepEqual(tasks,original);
 });
@@ -33,6 +33,8 @@ test("deleted Home Assistant labels are excluded from task projections",()=>{
   const [row]=taskTableRows([{task_id:"task",task_name:"Task",label_ids:["deleted"]}],{labels:[],translate:key=>`translated:${key}`});
   assert.equal(row.labels,"translated:task.no_labels");
   assert.deepEqual(row.label_names,[]);
+  assert.equal(row.notifications,"translated:task.no_notification_targets");
+  assert.deepEqual(row.notification_names,[]);
 });
 
 test("deleted Home Assistant users and NFC tags become unassigned",()=>{
@@ -60,14 +62,15 @@ test("due timestamps validate calendar dates and represent missing dates as the 
 
 test("native pane filters combine dimensions and allow multiple values within one dimension",()=>{
   const rows=[
-    {id:"1",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Chores","Upstairs"],recurrence:"Fixed",rhythm:"Weekly"},
-    {id:"2",assignee:"Alex",labels:"Garden",label_names:["Garden"],recurrence:"Sliding",rhythm:"Monthly"},
-    {id:"3",assignee:"Sam",labels:"Chores",label_names:["Chores"],recurrence:"Fixed",rhythm:"Daily"},
+    {id:"1",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Chores","Upstairs"],notifications:"Phone, Panel",notification_names:["Phone","Panel"],recurrence:"Fixed",rhythm:"Weekly"},
+    {id:"2",assignee:"Alex",labels:"Garden",label_names:["Garden"],notifications:"Tablet",notification_names:["Tablet"],recurrence:"Sliding",rhythm:"Monthly"},
+    {id:"3",assignee:"Sam",labels:"Chores",label_names:["Chores"],notifications:"Phone",notification_names:["Phone"],recurrence:"Fixed",rhythm:"Daily"},
   ];
   assert.deepEqual(filterTaskTableRows(rows,{assignee:["Alex"]}).map(row=>row.id),["1","2"]);
   assert.deepEqual(filterTaskTableRows(rows,{rhythm:["Weekly","Daily"]}).map(row=>row.id),["1","3"]);
   assert.deepEqual(filterTaskTableRows(rows,{recurrence:["Fixed"]}).map(row=>row.id),["1","3"]);
   assert.deepEqual(filterTaskTableRows(rows,{labels:["Chores"]}).map(row=>row.id),["1","3"]);
+  assert.deepEqual(filterTaskTableRows(rows,{notifications:["Panel"]}).map(row=>row.id),["1"]);
   assert.equal(filterTaskTableRows(rows,{}).length,3);
 });
 
@@ -94,13 +97,15 @@ test("native table multi-select tracks selected task ids and count",()=>{
   assert.match(source,/wrapper\.selected=\(this\.selectedTaskIds\|\|\[\]\)\.length/);
 });
 
-test("native selection bar offers assignment completion and deletion bulk actions",()=>{
+test("native selection bar offers assignment notification completion and deletion bulk actions",()=>{
   assert.match(source,/dropdown\.slot="selection-bar"/);
   assert.match(source,/bulkDropdown\(t\("bulk\.assign_person"\)/);
   assert.match(source,/bulkDropdown\(t\("bulk\.assign_label"\)/);
+  assert.match(source,/bulkDropdown\(t\("bulk\.assign_notification"\)/);
   assert.match(source,/overflowDropdown\(t\("bulk\.actions"\)/);
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_person"\)/);
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_label"\)/);
+  assert.match(source,/selectionSubmenu\(t\("bulk\.assign_notification"\)/);
   assert.match(source,/dropdownItem\("complete",t\("bulk\.complete"\)/);
   assert.match(source,/dropdownItem\("delete",t\("bulk\.delete"\)/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*assignee_id/);
@@ -112,12 +117,15 @@ test("native selection bar offers assignment completion and deletion bulk action
   assert.match(source,/task\/delete"[^}]+task_id:task\.task_id\}\),true\)/);
   assert.match(source,/bulkAssignPerson\(assigneeId\)\{await this\.runBulkAction\(task=>this\.ws\(/);
   assert.match(source,/bulkAssignLabel\(labelId,action="add"\)\{await this\.runBulkAction\(task=>this\.ws\(/);
+  assert.match(source,/bulkAssignNotification\(target,action="add"\)\{await this\.runBulkAction/);
+  assert.match(source,/notification_persistent:action==="add"/);
+  assert.match(source,/notification_target:\{device_id:/);
 });
 
 test("labels stay in their visible native table column",()=>{
   assert.doesNotMatch(source,/extraTemplate:row=>this\.taskLabels|taskLabels\(task\)|className="task-labels"/);
-  assert.match(source,/labels:\{title:t\("table\.label"\),\.\.\.groupable\}/);
-  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["recurrence","rhythm"]);
+  assert.equal(TASK_TABLE_DIMENSIONS.labels.title,"table.label");
+  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
 });
 
 test("bulk action chips use the same compact shape as native config dashboards",()=>{
@@ -133,15 +141,17 @@ test("panel title uses Home Assistant's compact native title margin",()=>{
 });
 
 test("table starts with the requested visible columns in order",()=>{
-  assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["name","due_ts","assignee","nfc_tag","files","labels","actions","recurrence","rhythm"]);
-  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["recurrence","rhythm"]);
+  assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"]);
+  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
   assert.match(source,/wrapper\.columnOrder=Array\.isArray\(view\.columnOrder\)/);
   assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
-  assert.match(source,/recurrence:\{title:t\("table\.recurrence"\),defaultHidden:true,\.\.\.groupable\}/);
-  assert.match(source,/rhythm:\{title:t\("table\.rhythm"\),defaultHidden:true,\.\.\.groupable\}/);
-  assert.match(source,/labels:\{title:t\("table\.label"\),\.\.\.groupable\}/);
-  assert.ok(source.indexOf('files:{title:t("task.files")')<source.indexOf('recurrence:{title:t("table.recurrence")'));
-  assert.ok(source.indexOf('rhythm:{title:t("table.rhythm")')<source.indexOf('actions:{title:""'));
+  assert.equal(TASK_TABLE_DIMENSIONS.recurrence.defaultHidden,true);
+  assert.equal(TASK_TABLE_DIMENSIONS.rhythm.defaultHidden,true);
+  assert.equal(TASK_TABLE_DIMENSIONS.notifications.title,"table.notifications");
+  assert.equal(TASK_TABLE_DIMENSIONS.notifications.defaultHidden,true);
+  assert.equal(TASK_TABLE_DIMENSIONS.labels.defaultHidden,true);
+  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
+  assert.match(source,/Object\.fromEntries\(DEFAULT_TASK_COLUMN_ORDER\.map/);
 });
 
 test("custom table view survives reloads using the same storage split as Home Assistant",()=>{
@@ -163,7 +173,7 @@ test("custom table view survives reloads using the same storage split as Home As
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
-    columnOrder:["name","assignee","actions"],
+    columnOrder:DEFAULT_TASK_COLUMN_ORDER,
     hiddenColumns:["files","labels"],
   });
   assert.match(source,/wrapper\.addEventListener\("columns-changed"/);
@@ -173,16 +183,17 @@ test("custom table view survives reloads using the same storage split as Home As
   assert.match(source,/wrapper\.addEventListener\("search-changed"/);
 });
 
-test("only the requested dimensions can group the native table",()=>{
-  assert.deepEqual(TASK_GROUP_COLUMNS,["labels","recurrence","rhythm","assignee"]);
-  for(const column of TASK_GROUP_COLUMNS)assert.match(source,new RegExp(`${column}:\\{title:[^}]+\\.\\.\\.groupable`));
+test("declarative dimensions can group the native table",()=>{
+  assert.deepEqual(TASK_GROUP_COLUMNS,["assignee","labels","notifications","recurrence","rhythm"]);
+  assert.deepEqual(TASK_GROUP_COLUMNS,Object.keys(TASK_TABLE_DIMENSIONS));
+  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
   assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true\}/);
   assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);
   assert.doesNotMatch(source,/tableGrouping|table\.groupColumn=/);
 });
 
-test("native filter pane exposes label assignee recurrence and rhythm filters",()=>{
-  assert.deepEqual(TASK_FILTER_COLUMNS,["labels","assignee","recurrence","rhythm"]);
+test("native filter pane exposes every declarative dimension",()=>{
+  assert.deepEqual(TASK_FILTER_COLUMNS,["assignee","labels","notifications","recurrence","rhythm"]);
   assert.match(source,/filterPane\.className="filters"/);
   assert.match(source,/filterPane\.slot="filter-pane"/);
   assert.match(source,/for\(const column of TASK_FILTER_COLUMNS\)/);
@@ -220,7 +231,7 @@ test("all filters follow Home Assistant category rows",()=>{
 test("search remains delegated to the native table while its value is persisted",()=>{
   assert.match(source,/name:\{title:[^}]+filterable:true/);
   assert.match(source,/const groupable=\{sortable:true,filterable:true,groupable:true\}/);
-  for(const column of TASK_GROUP_COLUMNS)assert.match(source,new RegExp(`${column}:\\{title:[^}]+\\.\\.\\.groupable`));
+  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
   assert.doesNotMatch(source,/tableSearch|filterTaskRows|syncNativeTableFilter/);
   assert.match(source,/wrapper\.addEventListener\("search-changed"/);
   assert.doesNotMatch(source,/wrapper\.addEventListener\("value-changed"/);

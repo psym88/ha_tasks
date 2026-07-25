@@ -91,3 +91,61 @@ def test_task_icon_is_updated_without_affecting_schedule():
         assert updated["task_due"] == "2026-07-29"
 
     asyncio.run(run())
+
+
+def test_notification_settings_are_normalized_without_affecting_schedule():
+    async def run():
+        store = _store(_weekly_task())
+        updated = await store.async_update_task(
+            "task",
+            {
+                "notification_target": {
+                    "device_id": ["phone", "phone", "tablet"]
+                },
+                "notification_persistent": True,
+                "notification_critical": True,
+                "notification_route": " /lovelace/maintenance ",
+            },
+            date(2026, 7, 24),
+        )
+
+        assert updated["notification_target"] == {
+            "device_id": ["phone", "tablet"]
+        }
+        assert updated["notification_persistent"] is True
+        assert updated["notification_critical"] is True
+        assert updated["notification_route"] == "/lovelace/maintenance"
+        assert updated["task_due"] == "2026-07-29"
+
+    asyncio.run(run())
+
+
+def test_task_notification_route_rejects_absolute_urls():
+    async def run():
+        store = _store(_weekly_task())
+
+        try:
+            await store.async_update_task(
+                "task",
+                {"notification_route": "https://example.com"},
+                date(2026, 7, 24),
+            )
+        except ValueError as err:
+            assert str(err) == "invalid_notification_route"
+        else:
+            raise AssertionError("absolute notification URL was accepted")
+
+    asyncio.run(run())
+
+
+def test_empty_task_notification_route_is_stored_as_none():
+    async def run():
+        store = _store(_weekly_task())
+
+        updated = await store.async_update_task(
+            "task", {"notification_route": ""}, date(2026, 7, 24)
+        )
+
+        assert updated["notification_route"] is None
+
+    asyncio.run(run())

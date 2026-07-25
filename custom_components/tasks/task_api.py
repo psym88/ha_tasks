@@ -21,32 +21,15 @@ from .attachment_api import _parse_archive
 from .due_events import task_due_date, task_due_with_date
 from .recurrence import occurrences, validate_schedule
 from .task_events import async_fire_tasks_event
+from .task_fields import SCHEDULE_FIELDS, api_task_fields
 from .task_store import get_store
 
 TEXT = vol.Any(str, None)
-SCHEDULE_FIELDS = {
-    vol.Required("schedule_type"): vol.In(("fixed", "sliding")),
-    vol.Required("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
-    vol.Required("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-    vol.Optional("schedule_weekdays", default=[]): [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))],
-    vol.Optional("schedule_day"): vol.Any(vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None),
-    vol.Optional("schedule_month"): vol.Any(vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None),
-}
-TASK_FIELDS = {
-    vol.Required("task_name"): str,
-    vol.Optional("task_icon"): TEXT,
-    vol.Optional("task_description"): TEXT,
-    vol.Optional("assignee_id"): TEXT,
-    vol.Optional("label_ids"): [str],
-    vol.Optional("nfc_tag_id"): TEXT,
-    vol.Optional("schedule_start_date"): TEXT,
-    vol.Optional("task_due"): str,
-    **SCHEDULE_FIELDS,
-}
+TASK_CREATE_FIELDS = api_task_fields()
+TASK_UPDATE_FIELDS = api_task_fields(update=True)
 PREVIEW_FIELDS = {
     vol.Optional("task_due"): str,
     vol.Optional("schedule_anchor_date"): str,
-    vol.Optional("schedule_start_date"): TEXT,
     **SCHEDULE_FIELDS,
 }
 PREVIEW_COUNT = 24
@@ -138,7 +121,9 @@ async def ws_list(hass, connection, msg, store):
     connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): "tasks/task/create", **TASK_FIELDS})
+@websocket_api.websocket_command(
+    {vol.Required("type"): "tasks/task/create", **TASK_CREATE_FIELDS}
+)
 @websocket_api.async_response
 @require_store
 async def ws_task_create(hass, connection, msg, store):
@@ -152,7 +137,13 @@ async def ws_task_create(hass, connection, msg, store):
     )
 
 
-@websocket_api.websocket_command({vol.Required("type"): "tasks/task/update", vol.Required("task_id"): str, **{vol.Optional(k.schema): v for k, v in TASK_FIELDS.items()}})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "tasks/task/update",
+        vol.Required("task_id"): str,
+        **TASK_UPDATE_FIELDS,
+    }
+)
 @websocket_api.async_response
 @require_store
 async def ws_task_update(hass, connection, msg, store):

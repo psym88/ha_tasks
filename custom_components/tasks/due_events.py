@@ -10,6 +10,7 @@ from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
 from .const import EVENT_TASKS
+from .notifications import async_notify_task_due, has_due_notification
 from .task_events import async_fire_tasks_event
 
 
@@ -125,4 +126,8 @@ class TaskDueEventScheduler:
                     resource_name=task["task_name"],
                     task_due=task["task_due"],
                 )
+                if has_due_notification(task):
+                    self._hass.async_create_task(
+                        async_notify_task_due(self._hass, task)
+                    )
         self.reschedule()

@@ -6,10 +6,17 @@ export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(i
 
 export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
-export const DEFAULT_TASK_COLUMN_ORDER = ["name","due_ts","assignee","nfc_tag","files","labels","actions","recurrence","rhythm"];
-export const DEFAULT_HIDDEN_TASK_COLUMNS = ["recurrence","rhythm"];
-export const TASK_GROUP_COLUMNS = ["labels","recurrence","rhythm","assignee"];
-export const TASK_FILTER_COLUMNS = ["labels","assignee","recurrence","rhythm"];
+export const DEFAULT_TASK_COLUMN_ORDER = ["name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"];
+export const DEFAULT_HIDDEN_TASK_COLUMNS = ["labels","notifications","recurrence","rhythm"];
+export const TASK_TABLE_DIMENSIONS = {
+  assignee:{title:"table.assignee",icon:"mdi:account"},
+  labels:{title:"table.label",icon:"mdi:label-outline",values:"label_names",defaultHidden:true},
+  notifications:{title:"table.notifications",icon:"mdi:bell-outline",values:"notification_names",defaultHidden:true},
+  recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",defaultHidden:true},
+  rhythm:{title:"table.rhythm",icon:"mdi:repeat",defaultHidden:true},
+};
+export const TASK_GROUP_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
+export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 export const TASK_TABLE_STORAGE_KEYS = {
   search:"tasks-sidebar-table-search",
@@ -41,13 +48,15 @@ export function storeTaskTableValue(storage,key,value) {
 
 export function loadTaskTableView(localStorage,sessionStorage) {
   const filters=storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.filters,{});
+  const storedOrder=storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.columnOrder,DEFAULT_TASK_COLUMN_ORDER),columnOrder=Array.isArray(storedOrder)?storedOrder.filter(column=>DEFAULT_TASK_COLUMN_ORDER.includes(column)):[...DEFAULT_TASK_COLUMN_ORDER];
+  for(const column of DEFAULT_TASK_COLUMN_ORDER)if(!columnOrder.includes(column)){const next=DEFAULT_TASK_COLUMN_ORDER.slice(DEFAULT_TASK_COLUMN_ORDER.indexOf(column)+1).find(candidate=>columnOrder.includes(candidate)),index=next?columnOrder.indexOf(next):columnOrder.length;columnOrder.splice(index,0,column);}
   return {
     search:String(storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.search,"")||""),
     filters:filters&&typeof filters==="object"&&!Array.isArray(filters)?filters:{},
     sorting:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.sorting,INITIAL_TASK_SORTING),
     grouping:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.grouping,undefined),
     collapsed:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.collapsed,undefined),
-    columnOrder:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.columnOrder,DEFAULT_TASK_COLUMN_ORDER),
+    columnOrder,
     hiddenColumns:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.hiddenColumns,DEFAULT_HIDDEN_TASK_COLUMNS),
   };
 }
@@ -79,14 +88,15 @@ export function dueTimestamp(value) {
   return date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day?date.getTime():NO_DUE_TIMESTAMP;
 }
 
-export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],translate=t}={}) {
+export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
   const userNames=new Map(users.map(user=>[user.id,user.name]));
   const tagNames=new Map(tags.map(tag=>[tag.id,tag.name]));
   const labelNames=new Map(labels.map(label=>[label.label_id,label.name]));
+  const deviceNames=new Map(devices.map(device=>[device.id,device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id]));
   const fileCounts=new Map();
   for(const file of attachments)fileCounts.set(file.task_id,(fileCounts.get(file.task_id)||0)+1);
   return tasks.map(task=>{
-    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",assigneeId=knownReferenceId(task.assignee_id,users),tagId=knownReferenceId(task.nfc_tag_id,tags),resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id));
+    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",assigneeId=knownReferenceId(task.assignee_id,users),tagId=knownReferenceId(task.nfc_tag_id,tags),resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id)),resolvedDevices=[...new Set((task.notification_target?.device_id||[]).map(id=>deviceNames.get(id)).filter(Boolean))],notificationNames=[...(task.notification_persistent?[translate("task.notification_panel_target")]:[]),...resolvedDevices].sort((a,b)=>a.localeCompare(b,locale));
     return {
       id:task.task_id,
       task,
@@ -98,6 +108,8 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
       assignee:userNames.get(assigneeId)||translate("task.unassigned"),
       labels:[...resolvedLabels].sort((a,b)=>a.localeCompare(b)).join(", ")||translate("task.no_labels"),
       label_names:resolvedLabels,
+      notifications:notificationNames.join(", ")||translate("task.no_notification_targets"),
+      notification_names:notificationNames,
       nfc_tag:tagNames.get(tagId)||translate("task.no_nfc_tag"),
       files:fileCounts.get(task.task_id)||0,
     };
@@ -105,7 +117,7 @@ export function taskTableRows(tasks,{users=[],tags=[],labels=[],attachments=[],t
 }
 
 export function filterTaskTableRows(rows,filters={}) {
-  return rows.filter(row=>TASK_FILTER_COLUMNS.every(column=>!filters[column]?.length||(column==="labels"?filters.labels.some(label=>row.label_names.includes(label)):filters[column].includes(row[column]))));
+  return rows.filter(row=>TASK_FILTER_COLUMNS.every(column=>{const selected=filters[column]||[],values=TASK_TABLE_DIMENSIONS[column].values?row[TASK_TABLE_DIMENSIONS[column].values]:[row[column]];return !selected.length||selected.some(value=>values.includes(value));}));
 }
 
 function textCell(value,title) {
@@ -170,23 +182,22 @@ export const withTaskList = Base => class extends Base {
     this.taskTableView={...this.restoreTaskTableView(),[kind]:value};
   }
   tagName(task){const id=knownReferenceId(task?.nfc_tag_id,this.tags);return id?this.tags.find(tag=>tag.id===id)?.name||"":"";}
-  tableRows(){return taskTableRows(this.tasks,{users:this.users,tags:this.tags,labels:this.labels,attachments:this.attachments,translate:t});}
-  filterLabel(schema){return {labels:t("task.labels"),assignee:t("table.assignee"),recurrence:t("table.recurrence"),rhythm:t("table.rhythm")}[schema.name]||schema.name;}
-  filterItems(rows,column){return [...new Set(rows.flatMap(row=>column==="labels"?row.label_names:row[column]))].map(value=>({value,label:value}));}
+  mobileDevices(){return this.devices.filter(device=>device.identifiers?.some(identifier=>identifier?.[0]==="mobile_app"));}
+  tableRows(){return taskTableRows(this.tasks,{users:this.users,tags:this.tags,labels:this.labels,devices:this.mobileDevices(),attachments:this.attachments,translate:t,locale:this.locale()});}
+  filterLabel(schema){return t(TASK_TABLE_DIMENSIONS[schema.name]?.title)||schema.name;}
+  filterItems(rows,column){const values=TASK_TABLE_DIMENSIONS[column].values;return [...new Set(rows.flatMap(row=>values?row[values]:row[column]))].map(value=>({value,label:value}));}
   activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
     const groupable={sortable:true,filterable:true,groupable:true};
-    return {
+    const available={
       name:{title:t("table.task"),main:true,sortable:true,filterable:true,flex:3,template:row=>taskNameCell(row)},
       due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.task_due?this.relativeDate(row.task.task_due):"–",row.task.task_due?this.date(row.task.task_due):"")},
-      assignee:{title:t("table.assignee"),...groupable},
-      labels:{title:t("table.label"),...groupable},
       nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true},
       files:{title:t("task.files"),sortable:true,filterable:false},
-      recurrence:{title:t("table.recurrence"),defaultHidden:true,...groupable},
-      rhythm:{title:t("table.rhythm"),defaultHidden:true,...groupable},
-      actions:{title:"",label:t("task.actions"),type:"overflow-menu",moveable:false,hideable:false,showNarrow:true,template:row=>this.taskActionButton(row.task)},
     };
+    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),defaultHidden:Boolean(definition.defaultHidden),...groupable};
+    available.actions={title:"",label:t("task.actions"),type:"overflow-menu",moveable:false,hideable:false,showNarrow:true,template:row=>this.taskActionButton(row.task)};
+    return Object.fromEntries(DEFAULT_TASK_COLUMN_ORDER.map(name=>[name,available[name]]));
   }
   taskActionButton(task){
     return createActionMenu({
@@ -200,11 +211,13 @@ export const withTaskList = Base => class extends Base {
   async runBulkAction(action,clear=false){for(const task of this.selectedTasks())await action(task);if(clear)this.clearTaskSelection();}
   async bulkAssignPerson(assigneeId){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,assignee_id:assigneeId==="__unassigned__"?null:assigneeId}));}
   async bulkAssignLabel(labelId,action="add"){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,label_ids:action==="remove"?(task.label_ids||[]).filter(id=>id!==labelId):[...new Set([...(task.label_ids||[]),labelId])]}));}
+  async bulkAssignNotification(target,action="add"){await this.runBulkAction(task=>{if(target==="panel")return this.ws({type:"tasks/task/update",task_id:task.task_id,notification_persistent:action==="add"});const ids=task.notification_target?.device_id||[];return this.ws({type:"tasks/task/update",task_id:task.task_id,notification_target:{device_id:action==="remove"?ids.filter(id=>id!==target):[...new Set([...ids,target])]}});});}
   async bulkComplete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.complete_title"),t("bulk.complete_confirm",{count:tasks.length}),t("task.completed"),"brand"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/complete",task_id:task.task_id,notes:null}));}
   async bulkDelete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.delete_title"),t("bulk.delete_confirm",{count:tasks.length}),t("common.delete"),"danger"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/delete",task_id:task.task_id}),true);}
   personItems(slot=""){return [["__unassigned__",t("task.unassigned"),"mdi:account-off-outline"],...this.users.map(user=>[user.id,user.name,"mdi:account"])].map(([value,label,icon])=>dropdownItem(`person_${value}`,label,icon,slot));}
   labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,"",null,slot),checkbox=document.createElement("ha-checkbox"),display=document.createElement("ha-label");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;display.color=label.color;display.description=label.description||undefined;display.textContent=label.name;if(label.icon){const icon=document.createElement("ha-icon");icon.slot="icon";icon.setAttribute("icon",label.icon);display.prepend(icon);}item.append(checkbox,display);return item;});}
-  handleBulkMenu(value,item){if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(value==="person_menu"||value==="label_menu")return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);}
+  notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
+  handleBulkMenu(value,item){if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
   selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
   observeTaskTableWidth(wrapper){
     requestAnimationFrame(()=>{const table=wrapper.shadowRoot?.querySelector("ha-data-table");if(!table){if(wrapper.isConnected)this.observeTaskTableWidth(wrapper);return;}this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=new ResizeObserver(()=>{table.style.removeProperty("--table-row-width");table.requestUpdate?.();});this.taskTableResizeObserver.observe(table);});
@@ -213,10 +226,11 @@ export const withTaskList = Base => class extends Base {
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
     const complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");remove.setAttribute("variant","danger");
-    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),document.createElement("wa-divider"),complete,remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
+    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),complete,remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
     wrapper.append(
       bulkDropdown(t("bulk.assign_person"),this.personItems(),(value,item)=>this.handleBulkMenu(value,item)),
       bulkDropdown(t("bulk.assign_label"),this.labelItems(),(value,item)=>this.handleBulkMenu(value,item)),
+      bulkDropdown(t("bulk.assign_notification"),this.notificationItems(),(value,item)=>this.handleBulkMenu(value,item)),
       overflowDropdown(t("bulk.actions"),[complete,remove],(value,item)=>this.handleBulkMenu(value,item)),
     );
   }
@@ -274,7 +288,7 @@ export const withTaskList = Base => class extends Base {
     const settings=wrapper.querySelector('[slot="toolbar-icon"]'),fab=wrapper.querySelector('[slot="fab"]'),rows=this.tableRows();
     if(settings){settings.label=t("settings.title");settings.title=t("settings.title");settings.setAttribute("aria-label",t("settings.title"));}
     if(fab){for(const node of [...fab.childNodes])if(node.nodeType===3)node.remove();fab.append(document.createTextNode(t("common.add_task")));}
-    wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon={labels:"mdi:label-outline",assignee:"mdi:account",recurrence:"mdi:calendar-sync",rhythm:"mdi:repeat"}[column];filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
+    wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon=TASK_TABLE_DIMENSIONS[column].icon;filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
     wrapper.hass=this._hass;
     wrapper.route=this.route;
     wrapper.tabs=[{name:"Tasks",path:""}];

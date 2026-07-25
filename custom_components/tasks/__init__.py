@@ -8,7 +8,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from . import attachment_api, nfc_completion, task_api
+from . import attachment_api, nfc_completion, notifications, task_api
 from .const import CARD_JS_URL, DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_JS_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
 from .due_events import TaskDueEventScheduler
 from .task_store import TasksStore
@@ -44,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     due_scheduler.start()
     entry.async_on_unload(due_scheduler.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, store))
+    entry.async_on_unload(notifications.async_setup_listener(hass))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     frontend.add_extra_js_url(hass, CARD_JS_URL)
     await panel_custom.async_register_panel(hass, webcomponent_name="tasks-panel", frontend_url_path=PANEL_URL.removeprefix("/"), module_url=PANEL_JS_URL, sidebar_title=PANEL_TITLE, sidebar_icon="mdi:clipboard-check-outline", require_admin=True, config={})

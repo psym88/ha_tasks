@@ -4,7 +4,7 @@
   "codeowners": ["@psym88"],
   "config_flow": true,
   "documentation": "https://github.com/psym88/ha_tasks",
-  "dependencies": ["file_upload", "tag"],
+  "dependencies": ["file_upload", "mobile_app", "persistent_notification", "tag"],
   "issue_tracker": "https://github.com/psym88/ha_tasks/issues",
   "iot_class": "local_push",
   "version": "20260725.1"

@@ -4,7 +4,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** stores its description, user and Home Assistant label assignments, native date-or-datetime `task_due` value, optional start boundary, optional NFC tag, recurrence rule, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
+- A **task** stores its description, user and Home Assistant label assignments, native date-or-datetime `task_due` value, optional start boundary, optional NFC tag, recurrence rule, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
 - Calendar recurrence stays anchored to configured dates. Completion-based recurrence advances from the completion date.
 - Before version 1.0, stored-schema changes need no compatibility migration.
 
@@ -18,9 +18,11 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 ## Backend
 
 - `task_store.py`: persistence and serialized mutations
+- `task_fields.py`: shared task-field validation, defaults, and normalization
 - `archive_converter.py`: sequential upgrades from older archive manifests to the current format
 - `recurrence.py`: recurrence calculations
 - `due_events.py`: shared date/datetime parsing and the single due-event timer
+- `notifications.py`: Mobile App and persistent panel notifications for due tasks
 - `task_api.py`: authenticated task and metadata API
 - `attachment_api.py`: authenticated attachments and ZIP import/export
 - `todo.py`: native task-list entity and standard item mutations
@@ -41,10 +43,10 @@ The frontend is split into native ES modules under `custom_components/tasks/fron
 - `sidebar-task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
 - `popup-task-editor.js`: task editor workflow and reusable file and history sections
 - `popup-*.js`: Home Assistant adaptive-dialog hosts for task viewing, attachment previews, confirmations, and settings
-- `styles.js` and `action-menu.js`: shared UI contracts and primitives
+- `action-menu.js`: shared native action-menu construction
 - `localize.js`: frontend localization and safe text rendering
 
-The sidebar panel maps backend tasks to flat rows and delegates its toolbar, search, sorting, grouping, and table rendering to Home Assistant's internal `hass-tabs-subpage-data-table` and `ha-data-table` components. Filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
+The sidebar panel maps backend tasks to flat rows and delegates its toolbar, search, sorting, grouping, and table rendering to Home Assistant's internal `hass-tabs-subpage-data-table` and `ha-data-table` components. A shared dimension registry defines groupable and filterable columns; filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
 
 The sidebar panel and dashboard card share the same controller and task viewer/editor workflows. Popups use Home Assistant's composed `show-dialog` contract and `ha-adaptive-dialog`; shared file and history sections are produced by `popup-task-editor.js`. Attachments are signed anchors whose click handler opens the integration's preview popup through the same native dialog contract.
 
