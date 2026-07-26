@@ -1,19 +1,22 @@
 import { t } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
+import "./tasks-data-table.js";
+import { SETTINGS_CONTENT_TAG } from "./popup-settings.js";
 import {
   DEFAULT_HIDDEN_TASK_COLUMNS,
   DEFAULT_TASK_COLUMN_ORDER,
   INITIAL_TASK_SORTING,
-  NO_DUE_TIMESTAMP,
   TASK_TABLE_LOCAL_STORAGE_KEY,
   TASK_TABLE_SESSION_STORAGE_KEY,
-  createTaskTableModel,
-  deviceName,
-  dueTimestamp,
   loadTaskTableView,
   storeTaskTableView,
-  toHaTaskTableRows,
-} from "./task-table-model.js";
+} from "./task-table-view.js";
+import {
+  NO_DUE_TIMESTAMP,
+  createTaskTableRows,
+  deviceName,
+  dueTimestamp,
+} from "./task-table-rows.js";
 
 export {
   DEFAULT_HIDDEN_TASK_COLUMNS,
@@ -32,10 +35,10 @@ export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(i
 
 export const TASK_TABLE_DIMENSIONS = {
   assignee:{title:"table.assignee",icon:"mdi:account",values:"assignee_id"},
-  labels:{title:"table.label",icon:"mdi:label-outline",values:"label_ids",defaultHidden:true},
-  notifications:{title:"table.notifications",icon:"mdi:bell-outline",values:"notification_ids",defaultHidden:true},
-  recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",values:"recurrence_id",defaultHidden:true},
-  rhythm:{title:"table.rhythm",icon:"mdi:repeat",values:"rhythm_id",defaultHidden:true},
+  labels:{title:"table.label",icon:"mdi:label-outline",values:"label_ids"},
+  notifications:{title:"table.notifications",icon:"mdi:bell-outline",values:"notification_ids"},
+  recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",values:"recurrence_id"},
+  rhythm:{title:"table.rhythm",icon:"mdi:repeat",values:"rhythm_id"},
 };
 export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
@@ -52,7 +55,6 @@ export class TasksSidebarFilterCategory extends HTMLElement {
     if(!this.shadowRoot)return;
     this.shadowRoot.innerHTML=`<style>:host{display:block;border-bottom:1px solid var(--divider-color)}.header{display:flex;align-items:center}.badge{display:inline-block;box-sizing:border-box;min-width:16px;margin-inline-start:8px;padding:0 2px;border-radius:var(--ha-border-radius-circle);background:var(--primary-color);color:var(--text-primary-color);font-size:var(--ha-font-size-xs);font-weight:var(--ha-font-weight-normal);line-height:var(--ha-line-height-normal);text-align:center}ha-list{padding-block:var(--ha-space-2);--mdc-list-item-meta-size:auto;--mdc-list-side-padding-right:var(--ha-space-1);--mdc-list-side-padding-left:var(--ha-space-4);--ha-icon-button-size:36px}ha-list-item{--mdc-list-item-graphic-margin:var(--ha-space-4)}ha-dropdown-item{font-size:var(--ha-font-size-m)}</style><ha-expansion-panel left-chevron><div slot="header" class="header">${this.label}${this._value.length?`<span class="badge">${this._value.length}</span>`:""}</div><ha-list activatable></ha-list></ha-expansion-panel>`;
     const panel=this.shadowRoot.querySelector("ha-expansion-panel"),list=this.shadowRoot.querySelector("ha-list");panel.expanded=this.expanded;panel.addEventListener("expanded-changed",event=>{this.expanded=Boolean(event.detail?.expanded);});
-    const all=document.createElement("ha-list-item");all.textContent=t("filter.show_all");all.selected=!this._value.length;all.activated=!this._value.length;all.addEventListener("click",()=>this.select(null));list.append(all);
     for(const option of this._items){const item=document.createElement("ha-list-item"),icon=document.createElement("ha-icon");item.value=option.value;item.selected=this._value.includes(option.value);item.activated=item.selected;item.graphic="icon";icon.slot="graphic";icon.setAttribute("icon",this.icon);item.append(icon,document.createTextNode(option.label));item.addEventListener("click",()=>this.select(option.value));list.append(item);}
   }
 }
@@ -60,7 +62,7 @@ export class TasksSidebarFilterCategory extends HTMLElement {
 if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGORY_TAG,TasksSidebarFilterCategory);
 
 export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
-  return toHaTaskTableRows(createTaskTableModel(tasks,{users,tags,labels,devices,attachments,translate,locale}),{translate});
+  return createTaskTableRows(tasks,{users,tags,labels,devices,attachments,translate,locale});
 }
 
 export function filterTaskTableRows(rows,filters={}) {
@@ -81,6 +83,14 @@ function taskIconCell(row) {
   return icon;
 }
 
+function taskNameCell(row) {
+  const cell=document.createElement("div"),name=document.createElement("span");
+  cell.className="task-name-cell";
+  name.textContent=row.name;
+  cell.append(name);
+  return cell;
+}
+
 function dropdownItem(value,label,icon,slot="") {
   const item=document.createElement("ha-dropdown-item");
   item.value=value;
@@ -90,27 +100,25 @@ function dropdownItem(value,label,icon,slot="") {
   return item;
 }
 
-function bulkDropdown(label,items,action) {
-  const dropdown=document.createElement("ha-dropdown"),trigger=document.createElement("ha-assist-chip"),chevron=document.createElement("ha-icon");
+function overflowDropdown(label,items,action) {
+  const dropdown=document.createElement("ha-dropdown"),trigger=document.createElement("ha-assist-chip"),icon=document.createElement("ha-icon");
   dropdown.slot="selection-bar";
   trigger.slot="trigger";
   trigger.label=label;
-  chevron.slot="trailing-icon";
-  chevron.setAttribute("icon","mdi:menu-down");
-  trigger.append(chevron);
+  icon.slot="trailing-icon";
+  icon.setAttribute("icon","mdi:menu-down");
+  trigger.append(icon);
   dropdown.append(trigger,...items);
-  dropdown.addEventListener("wa-select",event=>{const item=event.detail?.item,value=item?.value;if(value!==undefined)void action(value,item);});
-  return dropdown;
-}
-
-function overflowDropdown(label,items,action,narrow=false) {
-  const dropdown=document.createElement("ha-dropdown"),trigger=narrow?document.createElement("ha-assist-chip"):document.createElement("ha-icon-button"),icon=document.createElement("ha-icon");
-  dropdown.slot="selection-bar";
-  trigger.slot="trigger";
-  trigger.label=label;
-  if(narrow){icon.slot="trailing-icon";icon.setAttribute("icon","mdi:menu-down");trigger.append(icon);}else{trigger.title=label;trigger.setAttribute("aria-label",label);icon.setAttribute("icon","mdi:dots-vertical");trigger.append(icon);}
-  dropdown.append(trigger,...items);
-  dropdown.addEventListener("wa-select",event=>{const item=event.detail?.item,value=item?.value;if(value!==undefined)void action(value,item);});
+  dropdown.addEventListener("wa-select",event=>{
+    const item=event.detail?.item,value=item?.value;
+    if(value===undefined)return;
+    void action(value,item);
+    if(value.startsWith("person_")||value.startsWith("label_")||value.startsWith("notification_")){
+      event.preventDefault();
+      const checkbox=item.querySelector("ha-checkbox");
+      if(checkbox){const checked=item.dataset.action!=="remove";checkbox.checked=checked;checkbox.indeterminate=false;item.dataset.action=checked?"remove":"add";}
+    }
+  });
   return dropdown;
 }
 
@@ -136,16 +144,16 @@ export const withTaskList = Base => class extends Base {
   }
   activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
-    const groupable={sortable:true,filterable:true,groupable:true};
+    const groupable={sortable:true,groupable:true};
     const available={
-      icon:{title:"",label:t("task.icon"),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell(row)},
-      name:{title:t("table.task"),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"},
-      due_ts:{title:t("task.due"),sortable:true,filterable:false,minWidth:"140px",template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
-      nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true,minWidth:"120px"},
-      files:{title:t("task.files"),sortable:true,filterable:false,minWidth:"72px"},
+      icon:{title:"",hideable:false,template:row=>taskIconCell(row)},
+      name:{title:t("table.task"),sortable:true,template:row=>taskNameCell(row)},
+      due_ts:{title:t("task.due"),sortable:true,template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
+      nfc_tag:{title:t("task.nfc_tag_id"),sortable:true},
+      files:{title:t("task.files"),sortable:true},
     };
-    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),defaultHidden:Boolean(definition.defaultHidden),...(name==="assignee"?{minWidth:"120px"}:{}),...groupable};
-    available.actions={title:"",label:t("task.actions"),type:"overflow-menu",moveable:false,hideable:false,showNarrow:true,template:row=>this.taskActionButton(row.task)};
+    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),...groupable};
+    available.actions={title:"",hideable:false,template:row=>this.taskActionButton(row.task)};
     return Object.fromEntries(DEFAULT_TASK_COLUMN_ORDER.map(name=>[name,available[name]]));
   }
   taskActionButton(task){
@@ -158,7 +166,7 @@ export const withTaskList = Base => class extends Base {
     });
   }
   selectedTasks(){const ids=new Set(this.selectedTaskIds||[]);return this.tasks.filter(task=>ids.has(task.task_id));}
-  clearTaskSelection(){const wrapper=this.shadowRoot.querySelector("hass-tabs-subpage-data-table");wrapper?.clearSelection();this.selectedTaskIds=[];if(wrapper)wrapper.selected=0;}
+  clearTaskSelection(){const wrapper=this.shadowRoot.querySelector("tasks-data-table");wrapper?.clearSelection();this.selectedTaskIds=[];if(wrapper)wrapper.selected=0;}
   async runBulkAction(action,clear=false){for(const task of this.selectedTasks())await action(task);if(clear)this.clearTaskSelection();}
   async bulkAssignPerson(assigneeId){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,assignee_id:assigneeId==="__unassigned__"?null:assigneeId}));}
   async bulkAssignLabel(labelId,action="add"){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,label_ids:action==="remove"?(task.label_ids||[]).filter(id=>id!==labelId):[...new Set([...(task.label_ids||[]),labelId])]}));}
@@ -167,46 +175,39 @@ export const withTaskList = Base => class extends Base {
   async bulkComplete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.complete_title"),t("bulk.complete_confirm",{count:tasks.length}),t("task.completed"),"brand"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/complete",task_id:task.task_id,notes:null}));}
   async bulkDelete(){const tasks=this.selectedTasks();if(!tasks.length||!await this.confirmAction(t("bulk.delete_title"),t("bulk.delete_confirm",{count:tasks.length}),t("common.delete"),"danger"))return;await this.runBulkAction(task=>this.ws({type:"tasks/task/delete",task_id:task.task_id}),true);}
   personItems(slot=""){return [["__unassigned__",t("task.unassigned"),"mdi:account-off-outline"],...this.users.map(user=>[user.id,user.name,"mdi:account"])].map(([value,label,icon])=>dropdownItem(`person_${value}`,label,icon,slot));}
-  labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,"",null,slot),checkbox=document.createElement("ha-checkbox"),display=document.createElement("ha-label");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;display.color=label.color;display.description=label.description||undefined;display.textContent=label.name;if(label.icon){const icon=document.createElement("ha-icon");icon.slot="icon";icon.setAttribute("icon",label.icon);display.prepend(icon);}item.append(checkbox,display);return item;});}
-  notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,deviceName(device)])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
+  labelItems(slot=""){const tasks=this.selectedTasks();return this.labels.map(label=>{const selected=tasks.length>0&&tasks.every(task=>(task.label_ids||[]).includes(label.label_id)),partial=!selected&&tasks.some(task=>(task.label_ids||[]).includes(label.label_id)),item=dropdownItem(`label_${label.label_id}`,label.name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;checkbox.tabIndex=-1;checkbox.style.pointerEvents="none";item.prepend(checkbox);return item;});}
+  notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,deviceName(device)])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;checkbox.tabIndex=-1;checkbox.style.pointerEvents="none";item.prepend(checkbox);return item;});}
   handleBulkMenu(value,item){if(value==="active")void this.bulkSetActive(item.dataset.active==="true");else if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
-  selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
+  selectionSubmenu(label,value,items){
+    const parent=dropdownItem(value,label);
+    for(const item of items){item.slot="submenu";parent.append(item);}
+    parent.addEventListener("pointerleave",()=>parent.closeSubmenu());
+    return parent;
+  }
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
     const activate=this.selectedTasks().every(task=>task.active===false),active=dropdownItem("active",t(activate?"menu.activate":"menu.deactivate"),activate?"mdi:play-circle-outline":"mdi:pause-circle-outline"),complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");active.dataset.active=String(activate);remove.setAttribute("variant","danger");
-    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[complete,active,document.createElement("wa-divider"),this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
-    wrapper.append(
-      bulkDropdown(t("bulk.assign_person"),this.personItems(),(value,item)=>this.handleBulkMenu(value,item)),
-      bulkDropdown(t("bulk.assign_label"),this.labelItems(),(value,item)=>this.handleBulkMenu(value,item)),
-      bulkDropdown(t("bulk.assign_notification"),this.notificationItems(),(value,item)=>this.handleBulkMenu(value,item)),
-      overflowDropdown(t("bulk.actions"),[complete,active,remove],(value,item)=>this.handleBulkMenu(value,item)),
-    );
+    const dropdown=overflowDropdown(t("bulk.actions"),[complete,active,document.createElement("wa-divider"),this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),remove],(value,item)=>this.handleBulkMenu(value,item));
+    dropdown.addEventListener("wa-after-hide",()=>{if(dropdown.isConnected)this.appendBulkActions(wrapper);},{once:true});
+    wrapper.append(dropdown);
   }
   render(){
     if(!this.shadowRoot.querySelector(".app")){
       const view=this.restoreTaskTableView();
-      this.shadowRoot.innerHTML=`<style>:host{display:block;height:100%;background:var(--primary-background-color);color:var(--primary-text-color)}.app,hass-tabs-subpage-data-table{display:block;height:100%}.filters{box-sizing:border-box;width:100%}ha-assist-chip{--ha-assist-chip-container-shape:10px}</style><div class="app"></div>`;
-      const wrapper=document.createElement("hass-tabs-subpage-data-table"),settings=document.createElement("ha-icon-button"),settingsIcon=document.createElement("ha-icon"),filterPane=document.createElement("div"),fab=document.createElement("ha-button"),fabIcon=document.createElement("ha-icon");
-      wrapper.className="task-table";
-      wrapper.mainPage=true;
-      wrapper.style.width="100%";
+      this.shadowRoot.innerHTML=`<style>:host{display:block;height:100%;background:var(--primary-background-color);color:var(--primary-text-color)}.app,tasks-data-table{display:block;height:100%}.filters{box-sizing:border-box;width:100%}ha-assist-chip{--ha-assist-chip-container-shape:10px}</style><div class="app"></div>`;
+      const wrapper=document.createElement("tasks-data-table"),settings=document.createElement(SETTINGS_CONTENT_TAG),filterPane=document.createElement("div"),fab=document.createElement("ha-button"),fabIcon=document.createElement("ha-icon");
       wrapper.style.setProperty("--main-title-margin","0");
-      wrapper.setAttribute("clickable","");
-      wrapper.setAttribute("selectable","");
-      wrapper.setAttribute("has-fab","");
-      wrapper.setAttribute("has-filters","");
+      wrapper.defaultSorting=INITIAL_TASK_SORTING;
+      wrapper.defaultColumnOrder=DEFAULT_TASK_COLUMN_ORDER;
+      wrapper.defaultHiddenColumns=DEFAULT_HIDDEN_TASK_COLUMNS;
       wrapper.filter=view.search;
       wrapper.initialSorting=view.sorting;
       wrapper.initialGroupColumn=view.grouping;
       wrapper.initialCollapsedGroups=view.collapsed;
       wrapper.columnOrder=Array.isArray(view.columnOrder)?[...view.columnOrder]:[...DEFAULT_TASK_COLUMN_ORDER];
       wrapper.hiddenColumns=Array.isArray(view.hiddenColumns)?[...view.hiddenColumns]:[...DEFAULT_HIDDEN_TASK_COLUMNS];
-      settings.slot="toolbar-icon";
-      settings.label=t("settings.title");
-      settings.setAttribute("aria-label",t("settings.title"));
-      settingsIcon.setAttribute("icon","mdi:cog-outline");
-      settings.append(settingsIcon);
-      settings.addEventListener("click",event=>{event.stopPropagation();this.settings();});
+      settings.slot="settings-pane";
+      settings.controller=this;
       filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});filterPane.append(filter);}
       fab.slot="fab";
       fab.setAttribute("size","l");
@@ -230,22 +231,20 @@ export const withTaskList = Base => class extends Base {
     this.updateTaskTable();
   }
   updateTaskTable(){
-    const wrapper=this.shadowRoot.querySelector("hass-tabs-subpage-data-table");
+    const wrapper=this.shadowRoot.querySelector("tasks-data-table");
     if(!wrapper)return;
-    const settings=wrapper.querySelector('[slot="toolbar-icon"]'),fab=wrapper.querySelector('[slot="fab"]'),rows=this.tableRows();
-    if(settings){settings.label=t("settings.title");settings.title=t("settings.title");settings.setAttribute("aria-label",t("settings.title"));}
+    const settings=wrapper.querySelector('[slot="settings-pane"]'),fab=wrapper.querySelector('[slot="fab"]'),rows=this.tableRows();
+    if(settings)settings.controller=this;
     if(fab){for(const node of [...fab.childNodes])if(node.nodeType===3)node.remove();fab.append(document.createTextNode(t("common.add_task")));}
     wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon=TASK_TABLE_DIMENSIONS[column].icon;filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
     wrapper.hass=this._hass;
-    wrapper.route=this.route;
     wrapper.tabs=[{name:"Tasks",path:""}];
     wrapper.narrow=Boolean(this.narrow);
-    wrapper.isWide=Boolean(this.isWide);
+    wrapper.filters=this.activeFilterCount();
     wrapper.columns=this.tableColumns();
     wrapper.data=filterTaskTableRows(rows,this.tableFilters);
     wrapper.selected=(this.selectedTaskIds||[]).length;
-    this.appendBulkActions(wrapper);
-    wrapper.filters=this.activeFilterCount();
+    if(!wrapper.querySelector('[slot="selection-bar"]')?.open)this.appendBulkActions(wrapper);
     wrapper.noDataText=t("table.empty");
     wrapper.searchLabel=t("table.search");
   }

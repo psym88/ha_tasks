@@ -4,7 +4,6 @@ import { showTaskViewer } from "./popup-task-viewer.js";
 import { withTaskEditor } from "./popup-task-editor.js";
 import { withConfirmation } from "./popup-confirm.js";
 import { showAttachmentViewer } from "./popup-attachment-viewer.js";
-import { showSettingsPopup } from "./popup-settings.js";
 
 export function dueDateKey(value,timeZone){if(!value)return "";const date=new Date(value);if(Number.isNaN(date.getTime()))return "";const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",...(timeZone?{timeZone}:{})}).formatToParts(date).filter(part=>part.type!=="literal").map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`;}
 
@@ -30,7 +29,6 @@ export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(HTML
   async ensureTaskFileUrls(taskId){const result=await this.ws({type:"tasks/attachment/urls",task_id:taskId});for(const [id,url] of Object.entries(result.signed_files||{}))this.signedFiles.set(id,url);}
   async uploadNativeFile(file){const data=new FormData();data.append("file",file);const response=await this._hass.fetchWithAuth("/api/file_upload",{method:"POST",body:data});if(response.status===413)throw new Error(this._hass.localize("ui.common.upload_file_too_large",{name:file.name}));if(!response.ok)throw new Error(this._hass.localize("ui.common.unknown_error"));return (await response.json()).file_id;}
   async attachUploadedFile(taskId,fileId){const record=await this.ws({type:"tasks/attachment/create",task_id:taskId,file_id:fileId});if(!this.attachments.some(item=>item.attachment_id===record.attachment_id))this.attachments.push(record);return record;}
-  settings(){showSettingsPopup(this);}
   async exportArchive(){const response=await this._hass.fetchWithAuth("/api/tasks/archive");if(!response.ok)throw new Error(await response.text()||String(response.status));const blob=await response.blob(),link=document.createElement("a"),date=new Date().toISOString().slice(0,10);link.href=URL.createObjectURL(blob);link.download=`tasks-${date}.zip`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),0);}
   async importArchive(file){const response=await this._hass.fetchWithAuth("/api/tasks/archive",{method:"POST",headers:{"Content-Type":"application/zip"},body:file});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.code||this._hass.localize("ui.common.unknown_error"));return result;}
   locale(){return this._hass?.locale?.language||activeLocale()||navigator.language||"en";}

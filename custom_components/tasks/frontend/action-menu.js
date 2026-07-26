@@ -6,6 +6,7 @@ export function createActionMenu({ label, active = true, toggleActive, edit, rem
   const icon = document.createElement("ha-icon");
   const editItem = document.createElement("ha-dropdown-item");
   const activeItem = document.createElement("ha-dropdown-item");
+  const divider = document.createElement("wa-divider");
   const removeItem = document.createElement("ha-dropdown-item");
   const stop = event => event.stopPropagation();
 
@@ -18,12 +19,12 @@ export function createActionMenu({ label, active = true, toggleActive, edit, rem
   button.append(icon);
 
   editItem.value = "edit";
-  editItem.innerHTML = `<ha-icon slot="icon" icon="mdi:pencil"></ha-icon>${t("menu.edit")}`;
+  editItem.innerHTML = `<ha-icon slot="icon" icon="mdi:pencil-outline"></ha-icon>${t("menu.edit")}`;
   activeItem.value = "active";
   activeItem.innerHTML = `<ha-icon slot="icon" icon="mdi:${active?"pause-circle-outline":"play-circle-outline"}"></ha-icon>${t(active?"menu.deactivate":"menu.activate")}`;
   removeItem.value = "delete";
   removeItem.setAttribute("variant", "danger");
-  removeItem.innerHTML = `<ha-icon slot="icon" icon="mdi:delete"></ha-icon>${t("menu.delete")}`;
+  removeItem.innerHTML = `<ha-icon slot="icon" icon="mdi:delete-outline"></ha-icon>${t("menu.delete")}`;
 
   dropdown.addEventListener("pointerdown", stop);
   dropdown.addEventListener("click", stop);
@@ -34,6 +35,6 @@ export function createActionMenu({ label, active = true, toggleActive, edit, rem
     if (action === "active") toggleActive?.();
     if (action === "delete") remove();
   });
-  dropdown.append(button, editItem, activeItem, removeItem);
+  dropdown.append(button, editItem, activeItem, divider, removeItem);
   return dropdown;
 }

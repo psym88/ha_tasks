@@ -14,7 +14,8 @@ const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/l
 await ready;
 await setLanguage("en");
 const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,dueTimestamp,filterTaskTableRows,loadTaskTableView,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
-const {createTaskTableModel,storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-model.js");
+const {createTaskTableRows}=await import("../../custom_components/tasks/frontend/task-table-rows.js");
+const {storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-view.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
@@ -61,18 +62,20 @@ test("due timestamps sort parsed datetimes and represent missing values as the m
 });
 
 test("due table keeps numeric sorting separate from localized date-time display",()=>{
-  const modelSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-model.js",import.meta.url),"utf8");
-  assert.match(modelSource,/timestamp:dueTimestamp\(task\.active===false\?null:task\.task_due\)/);
+  const rowsSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-rows.js",import.meta.url),"utf8");
+  assert.match(rowsSource,/due_ts:dueTimestamp\(task\.active===false\?null:task\.task_due\)/);
   assert.match(source,/row\.task\.active!==false&&row\.task\.task_due\?this\.date\(row\.task\.task_due," - "\)/);
 });
 
-test("sensor tasks use the problem trigger label without a rhythm",()=>{
+test("sensor tasks show no rhythm and do not create an empty filter option",()=>{
   const [row]=taskTableRows(
     [{task_id:"problem",task_name:"Problem",task_due:null,schedule_type:"sensor",problem_sensor:"binary_sensor.problem"}],
     {translate:key=>`translated:${key}`},
   );
   assert.equal(row.recurrence,"translated:task.problem");
   assert.equal(row.rhythm,"–");
+  assert.equal(row.rhythm_id,"problem");
+  assert.deepEqual(row.filter_options.rhythm,[]);
 });
 
 test("native pane filters combine dimensions and allow multiple values within one dimension",()=>{
@@ -89,31 +92,36 @@ test("native pane filters combine dimensions and allow multiple values within on
   assert.equal(filterTaskTableRows(rows,{}).length,3);
 });
 
-test("panel uses the native Home Assistant data-table wrapper",()=>{
-  assert.match(source,/createElement\("hass-tabs-subpage-data-table"\)/);
+test("panel uses the framework-neutral TanStack table wrapper",()=>{
+  const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
+  assert.match(source,/import "\.\/tasks-data-table\.js"/);
+  assert.match(source,/createElement\("tasks-data-table"\)/);
   assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
   assert.match(source,/wrapper\.initialSorting=view\.sorting/);
   assert.deepEqual(INITIAL_TASK_SORTING,{column:"due_ts",direction:"asc"});
-  assert.doesNotMatch(source,/groupRow\(|wireGroup\(|placeholder-add|class="group"/);
+  assert.match(tableSource,/from "\.\/vendor\/tanstack-table-core\.mjs"/);
+  assert.match(tableSource,/getSortedRowModel|getGroupedRowModel|getFilteredRowModel/);
+  assert.match(tableSource,/groupedColumnMode:false/);
+  assert.match(tableSource,/<ha-expansion-panel left-chevron class="columns-panel"/);
+  assert.match(tableSource,/<ha-expansion-panel left-chevron class="grouping-panel"/);
+  assert.match(tableSource,/<ha-checkbox data-column=/);
+  assert.match(tableSource,/<input type="radio" name="group"/);
+  assert.doesNotMatch(tableSource,/<ha-radio-(?:group|option)|<input type="checkbox"/);
 });
 
-test("native task column replaces the stored icon for inactive tasks",()=>{
-  const modelSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-model.js",import.meta.url),"utf8");
-  assert.match(modelSource,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
+test("native icon column replaces the task icon for inactive tasks",()=>{
+  const rowsSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-rows.js",import.meta.url),"utf8");
+  assert.match(rowsSource,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
   assert.match(source,/function taskIconCell\(row\)/);
+  assert.match(source,/function taskNameCell\(row\)/);
   assert.match(source,/icon\.setAttribute\("icon",row\.task\.active===false\?"mdi:pause-circle":row\.icon\)/);
   assert.match(source,/if\(row\.task\.active===false\)icon\.style\.color="var\(--error-color\)"/);
-  assert.match(source,/icon:\{title:"",label:t\("task\.icon"\),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell\(row\)\}/);
-  assert.match(source,/name:\{title:t\("table\.task"\),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"\}/);
-  assert.match(source,/due_ts:\{[^}]+minWidth:"140px"/);
-  assert.match(source,/nfc_tag:\{[^}]+minWidth:"120px"/);
-  assert.match(source,/files:\{[^}]+minWidth:"72px"/);
-  assert.match(source,/name==="assignee"\?\{minWidth:"120px"\}/);
-  assert.doesNotMatch(source,/taskNameCell|textDecoration|line-through/);
+  assert.match(source,/icon:\{title:"",hideable:false,template:row=>taskIconCell\(row\)\}/);
+  assert.match(source,/name:\{title:t\("table\.task"\),sortable:true,template:row=>taskNameCell\(row\)\}/);
+  assert.doesNotMatch(source,/textDecoration|line-through/);
 });
 
 test("native table multi-select tracks selected task ids and count",()=>{
-  assert.match(source,/wrapper\.setAttribute\("selectable",""\)/);
   assert.match(source,/wrapper\.addEventListener\("selection-changed"/);
   assert.match(source,/this\.selectedTaskIds=event\.detail\?\.value\|\|\[\]/);
   assert.match(source,/wrapper\.selected=this\.selectedTaskIds\.length/);
@@ -122,9 +130,6 @@ test("native table multi-select tracks selected task ids and count",()=>{
 
 test("native selection bar offers assignment notification completion and deletion bulk actions",()=>{
   assert.match(source,/dropdown\.slot="selection-bar"/);
-  assert.match(source,/bulkDropdown\(t\("bulk\.assign_person"\)/);
-  assert.match(source,/bulkDropdown\(t\("bulk\.assign_label"\)/);
-  assert.match(source,/bulkDropdown\(t\("bulk\.assign_notification"\)/);
   assert.match(source,/overflowDropdown\(t\("bulk\.actions"\)/);
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_person"\)/);
   assert.match(source,/selectionSubmenu\(t\("bulk\.assign_label"\)/);
@@ -132,8 +137,14 @@ test("native selection bar offers assignment notification completion and deletio
   assert.match(source,/dropdownItem\("complete",t\("bulk\.complete"\)/);
   assert.match(source,/dropdownItem\("active",t\(activate\?"menu\.activate":"menu\.deactivate"\)/);
   assert.match(source,/dropdownItem\("delete",t\("bulk\.delete"\)/);
-  assert.match(source,/overflowDropdown\(t\("bulk\.actions"\),\[complete,active,remove\]/);
   assert.match(source,/overflowDropdown\(t\("bulk\.actions"\),\[complete,active,document\.createElement\("wa-divider"\),this\.selectionSubmenu/);
+  assert.match(source,/parent\.addEventListener\("pointerleave",\(\)=>parent\.closeSubmenu\(\)\)/);
+  assert.doesNotMatch(source,/parent\.addEventListener\("focusout"/);
+  assert.match(source,/value\.startsWith\("person_"\)\|\|value\.startsWith\("label_"\)\|\|value\.startsWith\("notification_"\)\)\{/);
+  assert.match(source,/const checkbox=item\.querySelector\("ha-checkbox"\)/);
+  assert.match(source,/checkbox\.checked=checked;checkbox\.indeterminate=false;item\.dataset\.action=checked\?"remove":"add"/);
+  assert.match(source,/if\(!wrapper\.querySelector\('\[slot="selection-bar"\]'\)\?\.open\)this\.appendBulkActions\(wrapper\)/);
+  assert.match(source,/dropdown\.addEventListener\("wa-after-hide",\(\)=>\{if\(dropdown\.isConnected\)this\.appendBulkActions\(wrapper\);\},\{once:true\}\)/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*assignee_id/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*label_ids/);
   assert.match(source,/type:"tasks\/task\/complete"/);
@@ -147,6 +158,9 @@ test("native selection bar offers assignment notification completion and deletio
   assert.match(source,/bulkSetActive\(active\)[\s\S]*type:"tasks\/task\/update",task_id:task\.task_id,active/);
   assert.match(source,/notification_persistent:action==="add"/);
   assert.match(source,/notification_target:\{device_id:/);
+  assert.match(source,/checkbox\.tabIndex=-1;checkbox\.style\.pointerEvents="none"/);
+  assert.match(source,/dropdownItem\(`label_\$\{label\.label_id\}`,label\.name,null,slot\)/);
+  assert.doesNotMatch(source,/createElement\("ha-label"\)/);
 });
 
 test("labels stay in their visible native table column",()=>{
@@ -157,13 +171,12 @@ test("labels stay in their visible native table column",()=>{
 
 test("bulk action chips use the same compact shape as native config dashboards",()=>{
   assert.match(source,/ha-assist-chip\{--ha-assist-chip-container-shape:10px\}/);
-  assert.match(source,/chevron\.slot="trailing-icon"/);
-  assert.match(source,/createElement\("ha-icon-button"\)/);
-  assert.match(source,/mdi:dots-vertical/);
+  assert.match(source,/icon\.slot="trailing-icon"/);
+  assert.match(source,/icon\.setAttribute\("icon","mdi:menu-down"\)/);
+  assert.doesNotMatch(source,/createElement\("ha-icon-button"\)/);
 });
 
 test("panel title uses Home Assistant's compact native title margin",()=>{
-  assert.match(source,/wrapper\.mainPage=true/);
   assert.match(source,/wrapper\.style\.setProperty\("--main-title-margin","0"\)/);
 });
 
@@ -172,11 +185,7 @@ test("table starts with the requested visible columns in order",()=>{
   assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
   assert.match(source,/wrapper\.columnOrder=Array\.isArray\(view\.columnOrder\)/);
   assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
-  assert.equal(TASK_TABLE_DIMENSIONS.recurrence.defaultHidden,true);
-  assert.equal(TASK_TABLE_DIMENSIONS.rhythm.defaultHidden,true);
   assert.equal(TASK_TABLE_DIMENSIONS.notifications.title,"table.notifications");
-  assert.equal(TASK_TABLE_DIMENSIONS.notifications.defaultHidden,true);
-  assert.equal(TASK_TABLE_DIMENSIONS.labels.defaultHidden,true);
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
   assert.match(source,/Object\.fromEntries\(DEFAULT_TASK_COLUMN_ORDER\.map/);
 });
@@ -217,9 +226,8 @@ test("custom table view survives reloads using the same storage split as Home As
 
 test("declarative dimensions can group the native table",()=>{
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
-  assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true,minWidth:"120px"\}/);
+  assert.match(source,/nfc_tag:\{title:[^}]+sortable:true\}/);
   assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);
-  assert.doesNotMatch(source,/tableGrouping|table\.groupColumn=/);
 });
 
 test("native filter pane exposes every declarative dimension",()=>{
@@ -231,23 +239,27 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/querySelectorAll\(FILTER_CATEGORY_TAG\)/);
   assert.match(source,/\.filters\{box-sizing:border-box;width:100%\}/);
   assert.doesNotMatch(source,/\.filters\{[^}]*margin/);
-  assert.doesNotMatch(source,/createElement\("ha-form"\)|ha-filter-states|expandedTableFilter|filterDefinitionPending/);
-  assert.match(source,/wrapper\.setAttribute\("has-filters",""\)/);
   assert.match(source,/wrapper\.filters=this\.activeFilterCount\(\)/);
   assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
 });
 
 test("table projection keeps stable ids separate from localized labels",()=>{
-  const [model]=createTaskTableModel([{task_id:"task",task_name:"Task",assignee_id:"alex",label_ids:["chores"],schedule_type:"fixed",schedule_unit:"weekly"}],{
+  const [row]=createTaskTableRows([{task_id:"task",task_name:"Task",assignee_id:"alex",label_ids:["chores"],schedule_type:"fixed",schedule_unit:"weekly"}],{
     users:[{id:"alex",name:"Alex"}],
     labels:[{label_id:"chores",name:"Chores"}],
     translate:key=>`translated:${key}`,
   });
-  assert.equal(model.assignee.id,"alex");
-  assert.equal(model.assignee.label,"Alex");
-  assert.deepEqual(model.labels,[{id:"chores",label:"Chores"}]);
-  assert.deepEqual(model.recurrence,{id:"fixed",label:"translated:task.fixed"});
+  assert.equal(row.assignee_id,"alex");
+  assert.equal(row.assignee,"Alex");
+  assert.deepEqual(row.label_ids,["chores"]);
+  assert.equal(row.labels,"Chores");
+  assert.equal(row.recurrence_id,"fixed");
+  assert.equal(row.recurrence,"translated:task.fixed");
+});
+
+test("filter badge count is set before table updates render",()=>{
+  assert.ok(source.indexOf("wrapper.filters=this.activeFilterCount()")<source.indexOf("wrapper.columns=this.tableColumns()"));
 });
 
 test("all filters follow Home Assistant category rows",()=>{
@@ -260,18 +272,15 @@ test("all filters follow Home Assistant category rows",()=>{
   assert.match(actionMenu,/dropdown\.addEventListener\("click",\s*stop\)/);
 });
 
-test("search remains delegated to the native table while its value is persisted",()=>{
-  assert.match(source,/name:\{title:[^}]+filterable:true/);
-  assert.match(source,/const groupable=\{sortable:true,filterable:true,groupable:true\}/);
+test("search remains delegated to the table while its value is persisted",()=>{
+  assert.match(source,/const groupable=\{sortable:true,groupable:true\}/);
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
-  assert.doesNotMatch(source,/tableSearch|filterTaskRows|syncNativeTableFilter/);
   assert.match(source,/wrapper\.addEventListener\("search-changed"/);
-  assert.doesNotMatch(source,/wrapper\.addEventListener\("value-changed"/);
 });
 
 test("panel keeps native settings and add-task controls",()=>{
-  assert.match(source,/settings\.slot="toolbar-icon"/);
-  assert.match(source,/this\.settings\(\)/);
+  assert.match(source,/settings\.slot="settings-pane"/);
+  assert.match(source,/settings\.controller=this/);
   assert.match(source,/fab\.slot="fab"/);
   assert.match(source,/fab\.setAttribute\("size","l"\)/);
   assert.doesNotMatch(source,/fab\.setAttribute\("variant","brand"\)/);
@@ -279,7 +288,7 @@ test("panel keeps native settings and add-task controls",()=>{
 });
 
 test("files column shows the sortable attachment count",()=>{
-  assert.match(source,/files:\{title:t\("task\.files"\),sortable:true,filterable:false,minWidth:"72px"\}/);
+  assert.match(source,/files:\{title:t\("task\.files"\),sortable:true\}/);
   assert.match(source,/attachments:this\.attachments/);
 });
 
