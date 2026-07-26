@@ -540,7 +540,7 @@ async function openTaskViewer(page) {
     const panel = walk(document);
     const task = panel.tasks.find((item) => item.task_name === taskName);
     if (!task) throw new Error(`Screenshot task not found: ${taskName}`);
-    await panel.taskViewer(task);
+    panel.taskViewer(task);
   }, targetTaskName);
   await waitForPopup(page, "tasks-popup-task-viewer");
   await page.waitForTimeout(350);
@@ -565,7 +565,7 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
       ? panel.tasks.find((item) => item.task_name === name)
       : null;
     if (name && !task) throw new Error(`Screenshot task not found: ${name}`);
-    await panel.taskEditor(task);
+    panel.taskEditor(task);
   }, taskName);
   await waitForPopup(page, "tasks-popup-task-editor");
   await page.waitForFunction(() => {
