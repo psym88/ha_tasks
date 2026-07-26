@@ -18,7 +18,7 @@ from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
-from .attachment_api import _parse_archive_with_report
+from .attachment_api import archive_error_code, _parse_archive_with_report
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .recurrence import occurrences
 from .task_events import async_fire_tasks_event
@@ -300,12 +300,11 @@ async def ws_archive_import(hass, connection, msg, store):
             _parse_uploaded_archive_with_report, hass, msg["file_id"]
         )
         import_report = await store.async_import_archive(data, files)
-    except (
-        ValueError,
-        KeyError,
-        json.JSONDecodeError,
-        zipfile.BadZipFile,
-    ) as err:
+    except ValueError as err:
+        error_code = archive_error_code(err)
+        connection.send_error(msg["id"], error_code, error_code)
+        return
+    except (KeyError, json.JSONDecodeError, zipfile.BadZipFile) as err:
         connection.send_error(msg["id"], "invalid_archive", str(err))
         return
     connection.send_result(

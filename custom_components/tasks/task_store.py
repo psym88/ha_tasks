@@ -7,6 +7,7 @@ import contextlib
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+import shutil
 from typing import Any
 from uuid import uuid4
 
@@ -174,7 +175,7 @@ class TasksStore:
         }
 
     async def async_import_archive(
-        self, data: Any, files: dict[str, bytes]
+        self, data: Any, files: dict[str, bytes | Path]
     ) -> dict[str, Any]:
         """Add new archive records without overwriting existing data."""
         imported = deepcopy(data)
@@ -241,7 +242,9 @@ class TasksStore:
                 - len(new_attachments),
             }
 
-    def _write_attachment_files(self, files: dict[str, bytes]) -> list[Path]:
+    def _write_attachment_files(
+        self, files: dict[str, bytes | Path]
+    ) -> list[Path]:
         self._upload_dir.mkdir(parents=True, exist_ok=True)
         created: list[Path] = []
         try:
@@ -249,7 +252,11 @@ class TasksStore:
                 path = self._upload_dir / file_id
                 with path.open("xb") as output:
                     created.append(path)
-                    output.write(content)
+                    if isinstance(content, Path):
+                        with content.open("rb") as source:
+                            shutil.copyfileobj(source, output)
+                    else:
+                        output.write(content)
             return created
         except Exception:
             self._remove_attachment_files(created)

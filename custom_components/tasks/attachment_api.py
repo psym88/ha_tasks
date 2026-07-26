@@ -2,6 +2,9 @@
 
 from io import BytesIO
 import json
+from pathlib import Path
+import shutil
+import tempfile
 import zipfile
 
 from aiohttp import web
@@ -11,6 +14,7 @@ import voluptuous as vol
 
 from .archive_converter import ARCHIVE_FORMAT, upgrade_archive_manifest
 from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
+from .task_events import async_fire_tasks_event
 from .task_store import get_store
 
 MAX_ARCHIVE_SIZE = 100 * 1024 * 1024
@@ -76,6 +80,56 @@ def _parse_archive_with_report(
     return manifest["data"], files, {"conversions": conversions}
 
 
+def _parse_archive_file_with_report(
+    archive_path: Path, staging_dir: Path
+) -> tuple[dict, dict[str, Path], dict[str, list[tuple[int, int]]]]:
+    """Parse an archive and stream attachments into a staging directory."""
+    conversions: list[tuple[int, int]] = []
+    files: dict[str, Path] = {}
+    with zipfile.ZipFile(archive_path) as archive:
+        names = archive.namelist()
+        if len(names) != len(set(names)) or "tasks.json" not in names or any(
+            name != "tasks.json" and not name.startswith("attachments/")
+            for name in names
+        ):
+            raise ValueError("invalid_archive")
+        try:
+            manifest = upgrade_archive_manifest(
+                json.loads(archive.read("tasks.json")), conversions
+            )
+            manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
+        except vol.Invalid as err:
+            raise ValueError("invalid_archive") from err
+        if manifest["integration"] != DOMAIN:
+            raise ValueError("invalid_archive_integration")
+        for index, item in enumerate(archive.infolist()):
+            if not item.filename.startswith("attachments/") or item.is_dir():
+                continue
+            file_id = item.filename.removeprefix("attachments/")
+            if (
+                not file_id
+                or file_id in {".", ".."}
+                or "/" in file_id
+                or "\\" in file_id
+            ):
+                raise ValueError("invalid_archive")
+            target = staging_dir / str(index)
+            with archive.open(item) as source, target.open("xb") as output:
+                shutil.copyfileobj(source, output)
+            files[file_id] = target
+    return manifest["data"], files, {"conversions": conversions}
+
+
+def archive_error_code(error: Exception) -> str:
+    """Return a safe translated error code for an archive failure."""
+    code = str(error)
+    return code if code in {
+        "archive_too_large",
+        "invalid_archive",
+        "invalid_archive_integration",
+    } else "invalid_archive"
+
+
 def async_register_views(hass: HomeAssistant) -> None:
     hass.http.register_view(DownloadView)
     hass.http.register_view(ArchiveView)
@@ -112,3 +166,32 @@ class ArchiveView(HomeAssistantView):
             content_type="application/zip",
             headers={"Content-Disposition": 'attachment; filename="tasks-backup.zip"'},
         )
+
+    async def post(self, request: web.Request) -> web.Response:
+        """Stream, validate, and import a Tasks archive."""
+        request._client_max_size = 0  # noqa: SLF001
+        hass = request.app["hass"]
+        store = get_store(hass)
+        if store is None:
+            raise web.HTTPServiceUnavailable()
+        try:
+            with tempfile.TemporaryDirectory(prefix="tasks-import-") as temp_dir:
+                temp_path = Path(temp_dir)
+                archive_path = temp_path / "archive.zip"
+                with archive_path.open("wb") as output:
+                    while chunk := await request.content.readany():
+                        await hass.async_add_executor_job(output.write, chunk)
+                data, files, archive_report = await hass.async_add_executor_job(
+                    _parse_archive_file_with_report, archive_path, temp_path
+                )
+                import_report = await store.async_import_archive(data, files)
+        except (
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+            zipfile.BadZipFile,
+        ) as err:
+            code = archive_error_code(err)
+            return self.json({"code": code}, status_code=400)
+        async_fire_tasks_event(hass, "imported", "archive")
+        return self.json({"imported": True, **archive_report, **import_report})

@@ -14,7 +14,9 @@ from custom_components.tasks.archive_converter import (
     upgrade_archive_manifest,
 )
 from custom_components.tasks.attachment_api import (
+    archive_error_code,
     _build_archive,
+    _parse_archive_file_with_report,
     _parse_archive_with_report,
 )
 from custom_components.tasks.task_store import TasksStore
@@ -33,6 +35,18 @@ class MemoryStore:
 class FailingStore:
     async def async_save(self, data):
         raise RuntimeError("save failed")
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        ("archive_too_large", "archive_too_large"),
+        ("invalid_archive_integration", "invalid_archive_integration"),
+        ("unexpected_internal_detail", "invalid_archive"),
+    ],
+)
+def test_archive_import_preserves_readable_error_codes(error, code):
+    assert archive_error_code(ValueError(error)) == code
 
 
 def archive_task(task_id: str, task_name: str) -> dict:
@@ -164,13 +178,23 @@ def test_attachment_write_failure_removes_partial_import_only(tmp_path):
     assert (store._upload_dir / "conflict").read_bytes() == b"keep"
 
 
+def test_attachment_write_streams_staged_file(tmp_path):
+    store = archive_store(tmp_path / "store")
+    staged_file = tmp_path / "staged-attachment"
+    staged_file.write_bytes(b"staged content")
+
+    store._write_attachment_files({"file-2": staged_file})
+
+    assert (store._upload_dir / "file-2").read_bytes() == b"staged content"
+
+
 @pytest.mark.parametrize("file_id", ["", ".", "..", "../file", r"..\file"])
 def test_attachment_paths_reject_unsafe_ids(tmp_path, file_id):
     with pytest.raises(ValueError, match="invalid_attachment_id"):
         archive_store(tmp_path).file_path(file_id)
 
 
-def test_archive_helpers_round_trip_and_views_offload_zip_work():
+def test_archive_helpers_round_trip_and_views_offload_zip_work(tmp_path):
     data = {
         "tasks": [archive_task("task-1", "Bins")],
         "history": {},
@@ -185,6 +209,16 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
         {"file-1": b"content"},
         {"conversions": []},
     )
+    archive_path = tmp_path / "tasks.zip"
+    staging_dir = tmp_path / "staging"
+    archive_path.write_bytes(content)
+    staging_dir.mkdir()
+    parsed, staged_files, report = _parse_archive_file_with_report(
+        archive_path, staging_dir
+    )
+    assert parsed == data
+    assert report == {"conversions": []}
+    assert staged_files["file-1"].read_bytes() == b"content"
     with zipfile.ZipFile(BytesIO(content)) as archive:
         manifest_text = archive.read("tasks.json").decode()
         manifest = json.loads(manifest_text)
@@ -210,7 +244,8 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
         if isinstance(node, ast.AsyncFunctionDef)
     }
     assert "async_add_executor_job(_build_archive" in methods["get"]
-    assert "post" not in methods
+    assert "request.content.readany()" in methods["post"]
+    assert "_parse_archive_file_with_report" in methods["post"]
 
 
 def test_archive_parser_treats_task_records_as_opaque():

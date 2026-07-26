@@ -31,11 +31,13 @@ def test_dashboard_task_commands_allow_authenticated_users():
         assert "websocket_api.require_admin" not in _decorators(function_name)
 
 
-def test_upload_uses_native_file_upload_and_file_selector():
+def test_attachments_use_native_upload_while_archives_use_streaming_endpoint():
     http_source=(ROOT / "custom_components/tasks/attachment_api.py").read_text(encoding="utf-8")
     websocket_source=(ROOT / "custom_components/tasks/task_api.py").read_text(encoding="utf-8")
     assert "UploadView" not in http_source
     assert '"/api/tasks/upload"' not in http_source
+    assert "request._client_max_size = 0" in http_source
+    assert "request.content.readany()" in http_source
     assert "process_uploaded_file" in websocket_source
     assert "FileSelector(FileSelectorConfig(accept=\"*/*\"))" in websocket_source
     assert 'result["signed_files"]' not in websocket_source

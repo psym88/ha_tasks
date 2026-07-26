@@ -32,8 +32,7 @@ export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(HTML
   async attachUploadedFile(taskId,fileId){const record=await this.ws({type:"tasks/attachment/create",task_id:taskId,file_id:fileId});if(!this.attachments.some(item=>item.attachment_id===record.attachment_id))this.attachments.push(record);return record;}
   settings(){showSettingsPopup(this);}
   async exportArchive(){const response=await this._hass.fetchWithAuth("/api/tasks/archive");if(!response.ok)throw new Error(await response.text()||String(response.status));const blob=await response.blob(),link=document.createElement("a"),date=new Date().toISOString().slice(0,10);link.href=URL.createObjectURL(blob);link.download=`tasks-${date}.zip`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),0);}
-  async importArchive(fileId){return this.ws({type:"tasks/archive/import",file_id:fileId});}
-  async discardUploadedFile(fileId){await this._hass.callApi("DELETE","file_upload",{file_id:fileId});}
+  async importArchive(file){const response=await this._hass.fetchWithAuth("/api/tasks/archive",{method:"POST",headers:{"Content-Type":"application/zip"},body:file});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.code||this._hass.localize("ui.common.unknown_error"));return result;}
   locale(){return this._hass?.locale?.language||activeLocale()||navigator.language||"en";}
   timeZone(){const setting=this._hass?.locale?.time_zone;return setting==="server"?this._hass?.config?.time_zone:setting&&setting!=="local"?setting:undefined;}
   dueDateKey(v){return dueDateKey(v,this.timeZone());}
