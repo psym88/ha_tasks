@@ -226,3 +226,4 @@ def test_mobile_notification_uses_the_configured_route():
     )
 
     assert data["url"] == "/lovelace/maintenance"
+    assert data["clickAction"] == "/lovelace/maintenance"
