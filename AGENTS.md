@@ -4,6 +4,11 @@
 - Keep the release version only in `manifest.json`; runtime frontend URLs must derive from it.
 - Keep `README.md` user-focused; update it only for installation or usage changes. Document only stable contracts and component boundaries in `ARCHITECTURE.md`, never styling tweaks or release history.
 - Add focused tests for recurrence and problem-sensor trigger changes, and for important regressions.
+- Put Python tests in `tests/` using Pytest's `test_*.py` convention and frontend tests in `tests/frontend/` as `*.test.mjs`; GitHub Actions discovers them automatically.
+- Generate documentation screenshots only through the `Documentation screenshots` workflow. It validates the documented mobile dashboard card and desktop task viewer and editor states in English, in light and dark mode, against the latest stable Home Assistant release. Review and merge its documentation PR only when the visual diff is relevant.
+- Use `.agents/skills/develop-home-assistant-integration` for Home Assistant integration work. Re-check version-sensitive behavior against current official documentation, version-matched Home Assistant Core source, and the development container instead of relying on static knowledge.
+- Treat persisted Home Assistant store data as user data: every incompatible store-schema change must increment `STORAGE_VERSION`, provide a sequential converter from the immediately preceding version, and add or update versioned migration fixtures and tests. Never remove a published migration path.
+- After integration code changes, ensure the `ha-tasks-dev` container mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
 
 ## Commit convention
@@ -49,6 +54,8 @@ Follow the Keep a Changelog convention in GitHub Release notes. Use only its six
 5. `### Fixed`
 6. `### Security`
 
+When a release contains a breaking change, place `### Changed` before every other section so the breaking information appears first. Put all breaking bullets at the top of that section, begin each one with `**Breaking:**`, and state any required user action explicitly and completely.
+
 Use `Fixed`, never `Fixes`, `Bugfixes`, or `Fixed Changes`. Use `Changed`, never `Changes`, `Improvements`, `Updates`, or `Miscellaneous`.
 Write concise user-facing bullet points in the past tense. Do not paste commit subjects, merge commits, issue noise, test-only work, or implementation details unless they materially affect users.
 
@@ -60,7 +67,7 @@ Map changes consistently:
 - deprecations → `Deprecated`
 - removals → `Removed`
 - security corrections → `Security`
-- any commit marked with `!` → `Changed`, with the bullet beginning `**Breaking:**`
+- any commit marked with `!` → `Changed`, with the bullet beginning `**Breaking:**`; place it before all non-breaking release-note content
 
 ## Pre-release workflow
 
@@ -68,9 +75,10 @@ Map changes consistently:
 2. Choose the next version and update `manifest.json`.
 3. Run the complete backend and frontend test suites.
 4. Commit and push the tested `dev` state.
-5. Create the immutable `YYYYMMDD.REVISION` tag on that exact commit.
-6. Create a GitHub release titled exactly `YYYYMMDD.REVISION`, mark it as **pre-release**, and ensure it is not **latest**.
-7. Describe only the changes since the immediately preceding published tag. Use the standard release-note headings.
+5. Run the `Documentation screenshots` workflow on that `dev` commit. If it detects relevant visual changes, review and merge its generated documentation PR, rerun the complete tests on the resulting commit, and repeat the screenshot workflow until it reports no relevant changes.
+6. Create the immutable `YYYYMMDD.REVISION` tag on that exact commit.
+7. Create a GitHub release titled exactly `YYYYMMDD.REVISION`, mark it as **pre-release**, and ensure it is not **latest**.
+8. Describe only the changes since the immediately preceding published tag. Use the standard release-note headings.
 
 ## Latest-release workflow
 

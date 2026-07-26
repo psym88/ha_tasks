@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Home Assistant Integration"
+  short_description: "Version-aware Home Assistant integration workflow"
+  default_prompt: "Use $develop-home-assistant-integration to implement and validate this Home Assistant custom-integration change against current official sources."

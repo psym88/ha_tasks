@@ -2,21 +2,33 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from functools import cache
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.translation import async_get_translations
 
 from .const import DOMAIN, EVENT_TASKS
 
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"
-TRANSLATION_CATEGORY = "frontend"
+FRONTEND_TRANSLATIONS = Path(__file__).parent / "frontend_translations"
+
+
+@cache
+def _load_translations(language: str) -> dict[str, str]:
+    """Load a frontend translation catalog, falling back to English."""
+    language = language.lower().replace("_", "-").split("-", 1)[0]
+    path = FRONTEND_TRANSLATIONS / f"{language}.json"
+    if not path.is_file():
+        path = FRONTEND_TRANSLATIONS / "en.json"
+    return json.loads(path.read_text(encoding="utf-8"))["frontend"]
 
 
 def notification_id(task_id: str) -> str:
@@ -35,18 +47,12 @@ async def _notification_content(
     task: dict[str, Any],
 ) -> tuple[str, str]:
     language = getattr(getattr(hass, "config", None), "language", "en")
-    translations = await async_get_translations(
-        hass,
-        language,
-        TRANSLATION_CATEGORY,
-        integrations={DOMAIN},
-    )
+    translations = await hass.async_add_executor_job(_load_translations, language)
     task_name = task["task_name"]
     kind = "problem" if task.get("schedule_type") == "sensor" else "due"
-    prefix = f"component.{DOMAIN}.{TRANSLATION_CATEGORY}.notification.{kind}"
     return (
-        translations[f"{prefix}_title"],
-        translations[f"{prefix}_message"].format(task_name=task_name),
+        translations[f"notification.{kind}_title"],
+        translations[f"notification.{kind}_message"].format(task_name=task_name),
     )
 
 

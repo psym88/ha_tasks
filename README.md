@@ -42,33 +42,61 @@ Administrators can open **Tasks** in the sidebar. Use **+ Add task** to create a
 
 The task table supports configurable columns, search, sorting, and independent grouping and filters for assignee, labels, notification targets, recurrence calculation, and rhythm.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-list-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/task-list-light.png">
-  <img alt="Tasks overview" src="docs/images/task-list-light.png" width="520">
-</picture>
+Task details show the due date and time, assignee, labels, attachments, completion history, and notes in one dialog.
+
+| Light | Dark |
+| --- | --- |
+| ![Task list with the task viewer open in light mode](docs/images/task-viewer-desktop-light.png) | ![Task list with the task viewer open in dark mode](docs/images/task-viewer-desktop-dark.png) |
 
 Tasks can be triggered by a fixed calendar schedule, from the last completion, or when a binary problem sensor turns on. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/schedule-preview-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/schedule-preview-light.png">
-  <img alt="Schedule editor with upcoming due-date preview" src="docs/images/schedule-preview-light.png" width="520">
-</picture>
+Select **+ Add task** to open an empty editor:
 
-Task details show the due date and time, assignee, labels, attachments, completion history, and notes in one dialog.
+| Light | Dark |
+| --- | --- |
+| ![Empty new-task editor in light mode](docs/images/task-editor-new-desktop-light.png) | ![Empty new-task editor in dark mode](docs/images/task-editor-new-desktop-dark.png) |
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/task-details-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/task-details-light.png">
-  <img alt="Task details and completion dialog" src="docs/images/task-details-light.png" width="520">
-</picture>
+The editor groups the settings for an existing task into separate expandable sections.
+
+**Schedule**
+
+| Light | Dark |
+| --- | --- |
+| ![Expanded task schedule with example data in light mode](docs/images/task-editor-planning-desktop-light.png) | ![Expanded task schedule with example data in dark mode](docs/images/task-editor-planning-desktop-dark.png) |
+
+**Assignment**
+
+| Light | Dark |
+| --- | --- |
+| ![Expanded task assignment with example data in light mode](docs/images/task-editor-assignment-desktop-light.png) | ![Expanded task assignment with example data in dark mode](docs/images/task-editor-assignment-desktop-dark.png) |
+
+**Notification**
+
+| Light | Dark |
+| --- | --- |
+| ![Expanded task notification settings with example data in light mode](docs/images/task-editor-notification-desktop-light.png) | ![Expanded task notification settings with example data in dark mode](docs/images/task-editor-notification-desktop-dark.png) |
+
+**Files**
+
+| Light | Dark |
+| --- | --- |
+| ![Expanded task files with example data in light mode](docs/images/task-editor-files-desktop-light.png) | ![Expanded task files with example data in dark mode](docs/images/task-editor-files-desktop-dark.png) |
+
+**History**
+
+| Light | Dark |
+| --- | --- |
+| ![Expanded task history with example data in light mode](docs/images/task-editor-history-desktop-light.png) | ![Expanded task history with example data in dark mode](docs/images/task-editor-history-desktop-dark.png) |
 
 To complete a task with NFC, create a tag under **Settings → Tags** and assign it in the task editor. One tag can be assigned to only one task.
 
 ### Dashboard card
 
 Add the **Tasks** card from the dashboard card picker. Its visual editor controls view/edit mode, the due-date range, and assignee filters. The assignee dropdown can dynamically target the logged-in user or selected users. Open panels and cards update immediately when Tasks emits an event.
+
+| Light | Dark |
+| --- | --- |
+| ![Tasks dashboard card on mobile in light mode](docs/images/dashboard-card-mobile-light.png) | ![Tasks dashboard card on mobile in dark mode](docs/images/dashboard-card-mobile-dark.png) |
 
 Paused tasks are hidden from the dashboard card. Resuming a task keeps its stored due value, so an overdue task can immediately appear as due again.
 

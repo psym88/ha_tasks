@@ -37,6 +37,7 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
             json.dumps(
                 {"integration": DOMAIN, "format": ARCHIVE_FORMAT, "data": data},
                 ensure_ascii=False,
+                indent=2,
             ),
         )
         for file_id, content in files.items():
@@ -73,12 +74,6 @@ def _parse_archive_with_report(
             if name.startswith("attachments/") and not name.endswith("/")
         }
     return manifest["data"], files, {"conversions": conversions}
-
-
-def _parse_archive(content: bytes) -> tuple[dict, dict[str, bytes]]:
-    """Parse an archive without returning its import report."""
-    data, files, _report = _parse_archive_with_report(content)
-    return data, files
 
 
 def async_register_views(hass: HomeAssistant) -> None:

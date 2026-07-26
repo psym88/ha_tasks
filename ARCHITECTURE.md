@@ -8,7 +8,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
 - A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
 - Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, the native to-do list, and the due-task count. Resuming performs no scheduled-due recalculation.
-- Before version 1.0, stored-schema changes need no compatibility migration.
+- Persistent store schemas use sequential migrations so upgrades preserve tasks, completion history, and attachment metadata. Store migration fixtures cover every published schema version.
 
 ## Home Assistant platforms
 
@@ -21,6 +21,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 ## Backend
 
 - `task_store.py`: persistence, serialized mutations, and task normalization
+- `store_converter.py`: sequential Home Assistant store-schema migrations
 - `archive_converter.py`: sequential upgrades from older archive manifests to the current format
 - `recurrence.py`: trigger validation and recurring local datetime calculations
 - `due_events.py`: shared UTC datetime parsing and the single due-event timer

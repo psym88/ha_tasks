@@ -1,0 +1,46 @@
+{
+  "version": 3,
+  "minor_version": 1,
+  "key": "tasks",
+  "data": {
+    "tasks": [
+      {
+        "task_id": "task-1",
+        "task_name": "Legacy task",
+        "schedule_type": "fixed",
+        "schedule_unit": "weekly",
+        "schedule_interval": 1,
+        "schedule_weekdays": [3],
+        "schedule_day": null,
+        "schedule_month": null,
+        "schedule_time": null,
+        "problem_sensor": null,
+        "task_due": "2026-07-30T00:00:00+00:00",
+        "active": true
+      }
+    ],
+    "history": {
+      "task-1": [
+        {
+          "history_entry_id": "history-1",
+          "completed_at": "2026-07-23T10:30:00+00:00",
+          "user_id": "user-1",
+          "user_name": "Marco",
+          "notes": null,
+          "task_due_before": "2026-07-23T00:00:00+00:00",
+          "task_due_after": "2026-07-30T00:00:00+00:00"
+        }
+      ]
+    },
+    "attachments": [
+      {
+        "attachment_id": "attachment-1",
+        "task_id": "task-1",
+        "filename": "manual.pdf",
+        "content_type": "application/pdf",
+        "size": 42,
+        "uploaded_at": "2026-07-20T10:00:00+00:00"
+      }
+    ]
+  }
+}
