@@ -7,14 +7,12 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - A **task** stores its description, active state, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
 - Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
 - A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
-- Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, the native to-do list, and the due-task count. Resuming performs no scheduled-due recalculation.
+- Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, and the due-task count. Resuming performs no scheduled-due recalculation.
 - Persistent store schemas use sequential migrations so upgrades preserve tasks, completion history, and attachment metadata. Store migration fixtures cover every published schema version.
 
 ## Home Assistant platforms
 
-- Active scheduled tasks and active triggered problem-sensor tasks are items of one push-only `todo.tasks` entity; paused tasks and waiting problem-sensor tasks are excluded. Items expose the task ID, name, due value, and open status. Native mutations can rename or complete an item. Due changes are accepted for Home Assistant dialog compatibility but ignored, while creation and deletion remain integration-owned operations.
-- `sensor.tasks_due` remains a separate summary of active due tasks because a to-do entity's native state counts its visible incomplete items, not only due items.
-- Todo and due sensor entities share one Tasks service device.
+- `sensor.tasks_due` is a push-only summary of active tasks whose due datetime has been reached.
 - A single timer tracks the nearest future `task_due` among active tasks, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
 - A separate problem-sensor scheduler listens for binary-sensor state transitions for active tasks. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
 
@@ -29,7 +27,6 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
 - `task_api.py`: authenticated task and metadata API
 - `attachment_api.py`: authenticated attachments and ZIP import/export
-- `todo.py`: native task-list entity and standard item mutations
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution
 - `task_events.py`: public Tasks event helper
@@ -56,7 +53,7 @@ The sidebar panel and dashboard card share the same controller and task viewer/e
 
 Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
 
-The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the to-do list and summary sensor immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
+The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the summary sensor immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
 
 ## Security and permissions
 

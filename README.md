@@ -13,7 +13,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
 - Sidebar panel and configurable dashboard card
-- A native Tasks to-do list and due-task summary sensor
+- A due-task summary sensor
 - Home Assistant events for task, history, and attachment changes
 - ZIP backup and restore
 - English and German interface
@@ -106,11 +106,7 @@ Open **Settings** above the task list and expand **Backup**. Export creates a ZI
 
 ## Home Assistant entities
 
-Active scheduled tasks and active triggered problem-sensor tasks are exposed as items of the native `todo.tasks` entity. Paused tasks and waiting problem-sensor tasks remain hidden. Home Assistant's standard to-do interface can rename and complete visible items; creating and deleting Tasks remains available through the Tasks panel and dashboard card.
-
-Item `uid`, `summary`, and `due` map to the integration's `task_id`, `task_name`, and `task_due`. The due field remains visible in Home Assistant's completion dialog, but changes submitted through the native to-do interface are ignored because Tasks calculates the effective due value from its configured trigger. Descriptions, trigger settings, user and label assignments, NFC tags, notifications, attachments, and completion history remain in the Tasks store.
-
-The `sensor.tasks_due` entity counts active tasks whose due date and time has been reached. The state of `todo.tasks` is Home Assistant's standard count of its currently visible incomplete items. The to-do and due sensor entities belong to the shared **Tasks** device.
+The `sensor.tasks_due` entity counts active tasks whose due date and time has been reached and belongs to the **Tasks** device.
 
 Example badge for [Navbar Card](https://github.com/joseluis9595/lovelace-navbar-card):
 

@@ -115,7 +115,6 @@
     "file.default_name": "File",
     "history.notes": "Notes",
     "history.completed_via_nfc": "Completed via NFC scan",
-    "history.completed_via_todo": "Completed via to-do list",
     "history.remove": "Remove history entry",
     "history.undo_remove": "Undo history entry removal",
     "history.load_failed": "History could not be loaded: {message}",

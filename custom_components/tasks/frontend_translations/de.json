@@ -115,7 +115,6 @@
     "file.default_name": "Datei",
     "history.notes": "Notizen",
     "history.completed_via_nfc": "Erledigt durch NFC Scan",
-    "history.completed_via_todo": "Erledigt durch Todo Liste",
     "history.remove": "Verlaufseintrag entfernen",
     "history.undo_remove": "Entfernen rückgängig machen",
     "history.load_failed": "Verlauf konnte nicht geladen werden: {message}",
