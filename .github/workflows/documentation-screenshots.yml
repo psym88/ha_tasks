@@ -1,0 +1,117 @@
+name: Documentation screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      open_update_pr:
+        description: Open a documentation PR when relevant visual changes are detected
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: documentation-screenshots
+  cancel-in-progress: false
+
+jobs:
+  screenshots:
+    name: Compare interface screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Prepare Home Assistant config
+        run: |
+          mkdir -p .artifacts/ha-config
+          cp tests/screenshots/configuration.yaml .artifacts/ha-config/configuration.yaml
+
+      - name: Start latest Home Assistant
+        run: |
+          docker pull ghcr.io/home-assistant/home-assistant:stable
+          docker run --detach \
+            --name ha-tasks-screenshots \
+            --publish 8123:8123 \
+            --env TZ=Europe/Zurich \
+            --volume "${{ github.workspace }}/.artifacts/ha-config:/config" \
+            --volume "${{ github.workspace }}/custom_components/tasks:/config/custom_components/tasks:ro" \
+            ghcr.io/home-assistant/home-assistant:stable
+
+      - name: Capture screenshots
+        run: pnpm screenshots
+        env:
+          HA_SCREENSHOT_BASE_URL: http://127.0.0.1:8123
+          HA_SCREENSHOT_OUTPUT: .artifacts/screenshots
+
+      - name: Compare with documentation
+        id: compare
+        run: pnpm screenshots:compare docs/images .artifacts/screenshots .artifacts/screenshot-diffs
+
+      - name: Upload screenshots and visual differences
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-screenshots
+          path: |
+            .artifacts/screenshots
+            .artifacts/screenshot-diffs
+          retention-days: 14
+
+      - name: Update screenshot baselines
+        if: steps.compare.outputs.changed == 'true' && inputs.open_update_pr
+        run: pnpm screenshots:compare docs/images .artifacts/screenshots .artifacts/screenshot-diffs --update
+
+      - name: Open documentation pull request
+        if: steps.compare.outputs.changed == 'true' && inputs.open_update_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCREENSHOT_BRANCH: automation/documentation-screenshots-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$SCREENSHOT_BRANCH"
+          git add docs/images
+          git commit --message "docs: update interface screenshots"
+          git push --set-upstream origin "$SCREENSHOT_BRANCH"
+          gh pr create \
+            --base dev \
+            --head "$SCREENSHOT_BRANCH" \
+            --title "docs: update interface screenshots" \
+            --body "Updates the generated Home Assistant interface screenshots after visual changes were detected during pre-release preparation. Review the uploaded workflow artifact and the image diff before merging."
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          if [ -f .artifacts/screenshot-diffs/report.md ]; then
+            cat .artifacts/screenshot-diffs/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Show Home Assistant logs on failure
+        if: failure()
+        run: docker logs ha-tasks-screenshots
+
+      - name: Stop Home Assistant
+        if: always()
+        run: docker rm --force ha-tasks-screenshots

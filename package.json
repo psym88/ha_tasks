@@ -1,0 +1,16 @@
+{
+  "name": "ha-tasks",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "test:frontend": "node --test \"tests/frontend/**/*.test.mjs\"",
+    "screenshots": "node tests/screenshots/capture.mjs",
+    "screenshots:compare": "node tests/screenshots/compare.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0",
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0"
+  }
+}
