@@ -690,6 +690,17 @@ async function openDashboard(page) {
 }
 
 async function capture(page, name) {
+  await page.evaluate(() => {
+    const hideNotificationManagers = (root) => {
+      for (const manager of root.querySelectorAll?.("notification-manager") || []) {
+        manager.style.setProperty("display", "none", "important");
+      }
+      for (const element of root.querySelectorAll?.("*") || []) {
+        if (element.shadowRoot) hideNotificationManagers(element.shadowRoot);
+      }
+    };
+    hideNotificationManagers(document);
+  });
   await page.screenshot({
     path: path.join(outputDir, name),
     animations: "disabled",
