@@ -193,7 +193,9 @@
     "card.show_action_menu": "Aktionsmenü",
     "card.show_add_task": "Task hinzufügen",
     "card.days": "Tage",
+    "card.all_users": "Alle",
     "card.current_user": "Angemeldeter Benutzer",
+    "card.custom_assignee_yaml_only": "Ein benutzerdefinierter Benutzerfilter kann nur im YAML-Modus bearbeitet werden.",
     "card.description": "Fällige Tasks-Aufgaben als flache Liste"
   }
 }

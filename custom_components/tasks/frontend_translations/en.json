@@ -193,7 +193,9 @@
     "card.show_action_menu": "Action menu",
     "card.show_add_task": "Add task",
     "card.days": "Days",
+    "card.all_users": "All",
     "card.current_user": "Logged-in user",
+    "card.custom_assignee_yaml_only": "A custom user filter can only be edited in YAML mode.",
     "card.description": "Due tasks as a flat list"
   }
 }
