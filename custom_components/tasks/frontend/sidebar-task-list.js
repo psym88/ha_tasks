@@ -1,64 +1,44 @@
 import { t } from "./localize.js";
 import { createActionMenu } from "./action-menu.js";
+import {
+  DEFAULT_HIDDEN_TASK_COLUMNS,
+  DEFAULT_TASK_COLUMN_ORDER,
+  INITIAL_TASK_SORTING,
+  NO_DUE_TIMESTAMP,
+  TASK_TABLE_LOCAL_STORAGE_KEY,
+  TASK_TABLE_SESSION_STORAGE_KEY,
+  createTaskTableModel,
+  deviceName,
+  dueTimestamp,
+  loadTaskTableView,
+  storeTaskTableView,
+  toHaTaskTableRows,
+} from "./task-table-model.js";
+
+export {
+  DEFAULT_HIDDEN_TASK_COLUMNS,
+  DEFAULT_TASK_COLUMN_ORDER,
+  INITIAL_TASK_SORTING,
+  NO_DUE_TIMESTAMP,
+  TASK_TABLE_LOCAL_STORAGE_KEY,
+  TASK_TABLE_SESSION_STORAGE_KEY,
+  deviceName,
+  dueTimestamp,
+  loadTaskTableView,
+};
 
 export const knownReferenceId=(id,items=[],key="id")=>id&&items.some(item=>item[key]===id)?id:null;
 export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(id,labels,"label_id"));
 
-export const NO_DUE_TIMESTAMP = Number.MAX_SAFE_INTEGER;
-export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
-export const DEFAULT_TASK_COLUMN_ORDER = ["icon","name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"];
-export const DEFAULT_HIDDEN_TASK_COLUMNS = ["labels","notifications","recurrence","rhythm"];
 export const TASK_TABLE_DIMENSIONS = {
-  assignee:{title:"table.assignee",icon:"mdi:account"},
-  labels:{title:"table.label",icon:"mdi:label-outline",values:"label_names",defaultHidden:true},
-  notifications:{title:"table.notifications",icon:"mdi:bell-outline",values:"notification_names",defaultHidden:true},
-  recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",defaultHidden:true},
-  rhythm:{title:"table.rhythm",icon:"mdi:repeat",defaultHidden:true},
+  assignee:{title:"table.assignee",icon:"mdi:account",values:"assignee_id"},
+  labels:{title:"table.label",icon:"mdi:label-outline",values:"label_ids",defaultHidden:true},
+  notifications:{title:"table.notifications",icon:"mdi:bell-outline",values:"notification_ids",defaultHidden:true},
+  recurrence:{title:"table.recurrence",icon:"mdi:calendar-sync",values:"recurrence_id",defaultHidden:true},
+  rhythm:{title:"table.rhythm",icon:"mdi:repeat",values:"rhythm_id",defaultHidden:true},
 };
 export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
-export const TASK_TABLE_STORAGE_KEYS = {
-  search:"tasks-sidebar-table-search",
-  filters:"tasks-sidebar-table-filters",
-  sorting:"tasks-sidebar-table-sort",
-  grouping:"tasks-sidebar-table-grouping",
-  collapsed:"tasks-sidebar-table-collapsed",
-  columnOrder:"tasks-sidebar-table-column-order",
-  hiddenColumns:"tasks-sidebar-table-hidden-columns",
-};
-
-function storedValue(storage,key,fallback) {
-  try {
-    const value=storage?.getItem(key);
-    return value===null||value===undefined?fallback:JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-export function storeTaskTableValue(storage,key,value) {
-  try {
-    if(value===undefined)storage?.removeItem(key);
-    else storage?.setItem(key,JSON.stringify(value));
-  } catch {
-    // Safari private browsing and locked-down WebViews can reject storage.
-  }
-}
-
-export function loadTaskTableView(localStorage,sessionStorage) {
-  const filters=storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.filters,{});
-  const storedOrder=storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.columnOrder,DEFAULT_TASK_COLUMN_ORDER),columnOrder=Array.isArray(storedOrder)?storedOrder.filter(column=>DEFAULT_TASK_COLUMN_ORDER.includes(column)):[...DEFAULT_TASK_COLUMN_ORDER];
-  for(const column of DEFAULT_TASK_COLUMN_ORDER)if(!columnOrder.includes(column)){const next=DEFAULT_TASK_COLUMN_ORDER.slice(DEFAULT_TASK_COLUMN_ORDER.indexOf(column)+1).find(candidate=>columnOrder.includes(candidate)),index=next?columnOrder.indexOf(next):columnOrder.length;columnOrder.splice(index,0,column);}
-  return {
-    search:String(storedValue(sessionStorage,TASK_TABLE_STORAGE_KEYS.search,"")||""),
-    filters:filters&&typeof filters==="object"&&!Array.isArray(filters)?filters:{},
-    sorting:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.sorting,INITIAL_TASK_SORTING),
-    grouping:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.grouping,undefined),
-    collapsed:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.collapsed,undefined),
-    columnOrder,
-    hiddenColumns:storedValue(localStorage,TASK_TABLE_STORAGE_KEYS.hiddenColumns,DEFAULT_HIDDEN_TASK_COLUMNS),
-  };
-}
 
 export class TasksSidebarFilterCategory extends HTMLElement {
   constructor(){super();this.attachShadow({mode:"open"});this._items=[];this._value=[];this.expanded=false;this.label="";this.icon="mdi:filter-variant";}
@@ -79,45 +59,12 @@ export class TasksSidebarFilterCategory extends HTMLElement {
 
 if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGORY_TAG,TasksSidebarFilterCategory);
 
-export function dueTimestamp(value) {
-  const timestamp=Date.parse(value);
-  return Number.isNaN(timestamp)?NO_DUE_TIMESTAMP:timestamp;
-}
-
-export function deviceName(device) {
-  return device.name_by_user||device.name||[device.manufacturer,device.model].filter(Boolean).join(" ")||device.id;
-}
-
 export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
-  const userNames=new Map(users.map(user=>[user.id,user.name]));
-  const tagNames=new Map(tags.map(tag=>[tag.id,tag.name]));
-  const labelNames=new Map(labels.map(label=>[label.label_id,label.name]));
-  const deviceNames=new Map(devices.map(device=>[device.id,deviceName(device)]));
-  const fileCounts=new Map();
-  for(const file of attachments)fileCounts.set(file.task_id,(fileCounts.get(file.task_id)||0)+1);
-  return tasks.map(task=>{
-    const schedule_unit=["daily","weekly","monthly","yearly"].includes(task.schedule_unit)?task.schedule_unit:"monthly",assigneeId=knownReferenceId(task.assignee_id,users),tagId=knownReferenceId(task.nfc_tag_id,tags),resolvedLabels=knownLabelIds(task.label_ids,labels).map(id=>labelNames.get(id)),resolvedDevices=[...new Set((task.notification_target?.device_id||[]).map(id=>deviceNames.get(id)).filter(Boolean))],notificationNames=[...(task.notification_persistent?[translate("task.notification_panel_target")]:[]),...resolvedDevices].sort((a,b)=>a.localeCompare(b,locale));
-    return {
-      id:task.task_id,
-      task,
-      icon:task.task_icon||"mdi:clipboard-check-outline",
-      name:task.task_name||"",
-      due_ts:dueTimestamp(task.active===false?null:task.task_due),
-      recurrence:translate(`task.${task.schedule_type==="fixed"?"fixed":task.schedule_type==="sensor"?"problem":"sliding"}`),
-      rhythm:task.schedule_type==="sensor"?"–":translate(`task.${schedule_unit}`),
-      assignee:userNames.get(assigneeId)||translate("task.unassigned"),
-      labels:[...resolvedLabels].sort((a,b)=>a.localeCompare(b)).join(", ")||translate("task.no_labels"),
-      label_names:resolvedLabels,
-      notifications:notificationNames.join(", ")||translate("task.no_notification_targets"),
-      notification_names:notificationNames,
-      nfc_tag:tagNames.get(tagId)||translate("task.no_nfc_tag"),
-      files:fileCounts.get(task.task_id)||0,
-    };
-  });
+  return toHaTaskTableRows(createTaskTableModel(tasks,{users,tags,labels,devices,attachments,translate,locale}),{translate});
 }
 
 export function filterTaskTableRows(rows,filters={}) {
-  return rows.filter(row=>TASK_FILTER_COLUMNS.every(column=>{const selected=filters[column]||[],values=TASK_TABLE_DIMENSIONS[column].values?row[TASK_TABLE_DIMENSIONS[column].values]:[row[column]];return !selected.length||selected.some(value=>values.includes(value));}));
+  return rows.filter(row=>TASK_FILTER_COLUMNS.every(column=>{const selected=filters[column]||[],value=row[TASK_TABLE_DIMENSIONS[column].values],values=Array.isArray(value)?value:[value];return !selected.length||selected.some(item=>values.includes(item));}));
 }
 
 function textCell(value,title) {
@@ -175,26 +122,29 @@ export const withTaskList = Base => class extends Base {
     return this.taskTableView;
   }
   persistTaskTableValue(kind,value){
-    const session=kind==="search"||kind==="filters";
-    storeTaskTableValue(session?globalThis.sessionStorage:globalThis.localStorage,TASK_TABLE_STORAGE_KEYS[kind],value);
     this.taskTableView={...this.restoreTaskTableView(),[kind]:value};
+    storeTaskTableView(globalThis.localStorage,globalThis.sessionStorage,this.taskTableView);
   }
   tagName(task){const id=knownReferenceId(task?.nfc_tag_id,this.tags);return id?this.tags.find(tag=>tag.id===id)?.name||"":"";}
   mobileDevices(){return this.devices.filter(device=>device.identifiers?.some(identifier=>identifier?.[0]==="mobile_app"));}
   tableRows(){return taskTableRows(this.tasks,{users:this.users,tags:this.tags,labels:this.labels,devices:this.mobileDevices(),attachments:this.attachments,translate:t,locale:this.locale()});}
   filterLabel(schema){return t(TASK_TABLE_DIMENSIONS[schema.name]?.title)||schema.name;}
-  filterItems(rows,column){const values=TASK_TABLE_DIMENSIONS[column].values;return [...new Set(rows.flatMap(row=>values?row[values]:row[column]))].map(value=>({value,label:value}));}
+  filterItems(rows,column){
+    const options=new Map();
+    for(const row of rows)for(const option of row.filter_options[column]||[])options.set(option.id||"__unassigned__",option.label);
+    return [...options].map(([value,label])=>({value,label}));
+  }
   activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
     const groupable={sortable:true,filterable:true,groupable:true};
     const available={
       icon:{title:"",label:t("task.icon"),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell(row)},
       name:{title:t("table.task"),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"},
-      due_ts:{title:t("task.due"),sortable:true,filterable:false,template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
-      nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true},
-      files:{title:t("task.files"),sortable:true,filterable:false},
+      due_ts:{title:t("task.due"),sortable:true,filterable:false,minWidth:"140px",template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
+      nfc_tag:{title:t("task.nfc_tag_id"),sortable:true,filterable:true,minWidth:"120px"},
+      files:{title:t("task.files"),sortable:true,filterable:false,minWidth:"72px"},
     };
-    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),defaultHidden:Boolean(definition.defaultHidden),...groupable};
+    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),defaultHidden:Boolean(definition.defaultHidden),...(name==="assignee"?{minWidth:"120px"}:{}),...groupable};
     available.actions={title:"",label:t("task.actions"),type:"overflow-menu",moveable:false,hideable:false,showNarrow:true,template:row=>this.taskActionButton(row.task)};
     return Object.fromEntries(DEFAULT_TASK_COLUMN_ORDER.map(name=>[name,available[name]]));
   }
@@ -221,10 +171,6 @@ export const withTaskList = Base => class extends Base {
   notificationItems(slot=""){const tasks=this.selectedTasks(),targets=[["panel",t("task.notification_panel_target")],...this.mobileDevices().map(device=>[device.id,deviceName(device)])];return targets.map(([id,name])=>{const has=task=>id==="panel"?Boolean(task.notification_persistent):(task.notification_target?.device_id||[]).includes(id),selected=tasks.length>0&&tasks.every(has),partial=!selected&&tasks.some(has),item=dropdownItem(`notification_${id}`,name,null,slot),checkbox=document.createElement("ha-checkbox");item.dataset.action=selected?"remove":"add";item.setAttribute("keep-open","");checkbox.slot="icon";checkbox.checked=selected;checkbox.indeterminate=partial;item.prepend(checkbox);return item;});}
   handleBulkMenu(value,item){if(value==="active")void this.bulkSetActive(item.dataset.active==="true");else if(value==="complete")void this.bulkComplete();else if(value==="delete")void this.bulkDelete();else if(["person_menu","label_menu","notification_menu"].includes(value))return;else if(value.startsWith("person_"))void this.bulkAssignPerson(value.slice(7));else if(value.startsWith("label_"))void this.bulkAssignLabel(value.slice(6),item.dataset.action);else if(value.startsWith("notification_"))void this.bulkAssignNotification(value.slice(13),item.dataset.action);}
   selectionSubmenu(label,value,items){const parent=dropdownItem(value,label);for(const item of items){item.slot="submenu";parent.append(item);}return parent;}
-  observeTaskTableWidth(wrapper){
-    requestAnimationFrame(()=>{const table=wrapper.shadowRoot?.querySelector("ha-data-table");if(!table){if(wrapper.isConnected)this.observeTaskTableWidth(wrapper);return;}this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=new ResizeObserver(()=>{table.style.removeProperty("--table-row-width");table.requestUpdate?.();});this.taskTableResizeObserver.observe(table);});
-  }
-  disconnectTaskTableResize(){this.taskTableResizeObserver?.disconnect();this.taskTableResizeObserver=null;}
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
     const activate=this.selectedTasks().every(task=>task.active===false),active=dropdownItem("active",t(activate?"menu.activate":"menu.deactivate"),activate?"mdi:play-circle-outline":"mdi:pause-circle-outline"),complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");active.dataset.active=String(activate);remove.setAttribute("variant","danger");
@@ -272,7 +218,6 @@ export const withTaskList = Base => class extends Base {
       wrapper.append(settings,filterPane,fab);
       this.appendBulkActions(wrapper);
       this.shadowRoot.querySelector(".app").append(wrapper);
-      this.observeTaskTableWidth(wrapper);
       wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];wrapper.selected=this.selectedTaskIds.length;this.appendBulkActions(wrapper);});
       wrapper.addEventListener("row-click",event=>{const task=this.tasks.find(item=>item.task_id===event.detail?.id);if(task)this.taskViewer(task);});
       wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});

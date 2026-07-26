@@ -12,7 +12,7 @@ export class TasksBase extends withConfirmation(withTaskEditor(withTaskList(HTML
   static version=decodeURIComponent(new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1]||"");
   constructor(){ super(); this.attachShadow({mode:"open"}); this.tasks=[]; this.attachments=[]; this.users=[]; this.tags=[]; this.labels=[]; this.devices=[]; this.now=""; this.signedFiles=new Map(); this.loading=false; this.reloadPending=false; this.eventUnsubscribe=null; this.eventSubscriptionToken=0; }
   connectedCallback(){this.subscribeEvents();}
-  disconnectedCallback(){this.unsubscribeEvents();this.disconnectTaskTableResize();}
+  disconnectedCallback(){this.unsubscribeEvents();}
   set hass(value){if(this._hass?.connection!==value?.connection)this.unsubscribeEvents();this._hass=value;this.subscribeEvents();setLanguage(value?.locale?.language).then(changed=>{if(!this.loaded){this.loaded=true;this.load();}else if(changed)this.render();});}
   async subscribeEvents(){if(this.eventUnsubscribe||!this._hass?.connection)return;const token=++this.eventSubscriptionToken,unsubscribe=await this._hass.connection.subscribeEvents(()=>this.load(),"tasks_event");if(token===this.eventSubscriptionToken)this.eventUnsubscribe=unsubscribe;else unsubscribe();}
   unsubscribeEvents(){this.eventSubscriptionToken++;this.eventUnsubscribe?.();this.eventUnsubscribe=null;}

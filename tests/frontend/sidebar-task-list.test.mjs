@@ -13,7 +13,8 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_STORAGE_KEYS,dueTimestamp,filterTaskTableRows,loadTaskTableView,storeTaskTableValue,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,dueTimestamp,filterTaskTableRows,loadTaskTableView,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {createTaskTableModel,storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-model.js");
 const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
@@ -23,7 +24,7 @@ test("task rows flatten every grouping dimension and resolve ids to names",()=>{
   const original=structuredClone(tasks);
   const attachments=[{attachment_id:"a",task_id:"laundry"},{attachment_id:"b",task_id:"laundry"},{attachment_id:"c",task_id:"other"}];
   const [row]=taskTableRows(tasks,{users:[{id:"alex",name:"Alex"}],tags:[{id:"washer",name:"Washer"}],labels:[{label_id:"upstairs",name:"Upstairs"},{label_id:"chores",name:"Chores"}],devices:[{id:"phone",name_by_user:"Alex's phone"}],attachments,translate:key=>key});
-  assert.deepEqual({id:row.id,icon:row.icon,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_names:row.label_names,notifications:row.notifications,notification_names:row.notification_names,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",icon:"mdi:washing-machine",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Upstairs","Chores"],notifications:"Alex's phone, task.notification_panel_target",notification_names:["Alex's phone","task.notification_panel_target"],nfc_tag:"Washer",files:2});
+  assert.deepEqual({id:row.id,icon:row.icon,name:row.name,recurrence:row.recurrence,rhythm:row.rhythm,assignee:row.assignee,labels:row.labels,label_ids:row.label_ids,notifications:row.notifications,notification_ids:row.notification_ids,nfc_tag:row.nfc_tag,files:row.files},{id:"laundry",icon:"mdi:washing-machine",name:"Laundry",recurrence:"task.fixed",rhythm:"task.weekly",assignee:"Alex",labels:"Chores, Upstairs",label_ids:["chores","upstairs"],notifications:"Alex's phone, task.notification_panel_target",notification_ids:["phone","panel"],nfc_tag:"Washer",files:2});
   assert.equal(row.task,tasks[0]);
   assert.deepEqual(tasks,original);
 });
@@ -32,9 +33,9 @@ test("deleted Home Assistant labels are excluded from task projections",()=>{
   assert.deepEqual(knownLabelIds(["known","deleted"],[{label_id:"known",name:"Known"}]),["known"]);
   const [row]=taskTableRows([{task_id:"task",task_name:"Task",label_ids:["deleted"]}],{labels:[],translate:key=>`translated:${key}`});
   assert.equal(row.labels,"translated:task.no_labels");
-  assert.deepEqual(row.label_names,[]);
+  assert.deepEqual(row.label_ids,[]);
   assert.equal(row.notifications,"translated:task.no_notification_targets");
-  assert.deepEqual(row.notification_names,[]);
+  assert.deepEqual(row.notification_ids,[]);
 });
 
 test("deleted Home Assistant users and NFC tags become unassigned",()=>{
@@ -49,7 +50,7 @@ test("missing assignments receive localized searchable values",()=>{
   const [row]=taskTableRows([{task_id:"task",task_name:"Task",schedule_unit:"daily"}],{translate:key=>`translated:${key}`});
   assert.equal(row.assignee,"translated:task.unassigned");
   assert.equal(row.labels,"translated:task.no_labels");
-  assert.deepEqual(row.label_names,[]);
+  assert.deepEqual(row.label_ids,[]);
   assert.equal(row.nfc_tag,"translated:task.no_nfc_tag");
   assert.equal(row.files,0);
 });
@@ -60,7 +61,8 @@ test("due timestamps sort parsed datetimes and represent missing values as the m
 });
 
 test("due table keeps numeric sorting separate from localized date-time display",()=>{
-  assert.match(source,/due_ts:dueTimestamp\(task\.active===false\?null:task\.task_due\)/);
+  const modelSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-model.js",import.meta.url),"utf8");
+  assert.match(modelSource,/timestamp:dueTimestamp\(task\.active===false\?null:task\.task_due\)/);
   assert.match(source,/row\.task\.active!==false&&row\.task\.task_due\?this\.date\(row\.task\.task_due," - "\)/);
 });
 
@@ -75,15 +77,15 @@ test("sensor tasks use the problem trigger label without a rhythm",()=>{
 
 test("native pane filters combine dimensions and allow multiple values within one dimension",()=>{
   const rows=[
-    {id:"1",assignee:"Alex",labels:"Chores, Upstairs",label_names:["Chores","Upstairs"],notifications:"Phone, Panel",notification_names:["Phone","Panel"],recurrence:"Fixed",rhythm:"Weekly"},
-    {id:"2",assignee:"Alex",labels:"Garden",label_names:["Garden"],notifications:"Tablet",notification_names:["Tablet"],recurrence:"Sliding",rhythm:"Monthly"},
-    {id:"3",assignee:"Sam",labels:"Chores",label_names:["Chores"],notifications:"Phone",notification_names:["Phone"],recurrence:"Fixed",rhythm:"Daily"},
+    {id:"1",assignee_id:"alex",label_ids:["chores","upstairs"],notification_ids:["phone","panel"],recurrence_id:"fixed",rhythm_id:"weekly"},
+    {id:"2",assignee_id:"alex",label_ids:["garden"],notification_ids:["tablet"],recurrence_id:"sliding",rhythm_id:"monthly"},
+    {id:"3",assignee_id:"sam",label_ids:["chores"],notification_ids:["phone"],recurrence_id:"fixed",rhythm_id:"daily"},
   ];
-  assert.deepEqual(filterTaskTableRows(rows,{assignee:["Alex"]}).map(row=>row.id),["1","2"]);
-  assert.deepEqual(filterTaskTableRows(rows,{rhythm:["Weekly","Daily"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{recurrence:["Fixed"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{labels:["Chores"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{notifications:["Panel"]}).map(row=>row.id),["1"]);
+  assert.deepEqual(filterTaskTableRows(rows,{assignee:["alex"]}).map(row=>row.id),["1","2"]);
+  assert.deepEqual(filterTaskTableRows(rows,{rhythm:["weekly","daily"]}).map(row=>row.id),["1","3"]);
+  assert.deepEqual(filterTaskTableRows(rows,{recurrence:["fixed"]}).map(row=>row.id),["1","3"]);
+  assert.deepEqual(filterTaskTableRows(rows,{labels:["chores"]}).map(row=>row.id),["1","3"]);
+  assert.deepEqual(filterTaskTableRows(rows,{notifications:["panel"]}).map(row=>row.id),["1"]);
   assert.equal(filterTaskTableRows(rows,{}).length,3);
 });
 
@@ -96,12 +98,17 @@ test("panel uses the native Home Assistant data-table wrapper",()=>{
 });
 
 test("native task column replaces the stored icon for inactive tasks",()=>{
-  assert.match(source,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
+  const modelSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-model.js",import.meta.url),"utf8");
+  assert.match(modelSource,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
   assert.match(source,/function taskIconCell\(row\)/);
   assert.match(source,/icon\.setAttribute\("icon",row\.task\.active===false\?"mdi:pause-circle":row\.icon\)/);
   assert.match(source,/if\(row\.task\.active===false\)icon\.style\.color="var\(--error-color\)"/);
   assert.match(source,/icon:\{title:"",label:t\("task\.icon"\),type:"icon",moveable:false,showNarrow:true,template:row=>taskIconCell\(row\)\}/);
   assert.match(source,/name:\{title:t\("table\.task"\),main:true,sortable:true,filterable:true,grows:true,flex:3,minWidth:"150px"\}/);
+  assert.match(source,/due_ts:\{[^}]+minWidth:"140px"/);
+  assert.match(source,/nfc_tag:\{[^}]+minWidth:"120px"/);
+  assert.match(source,/files:\{[^}]+minWidth:"72px"/);
+  assert.match(source,/name==="assignee"\?\{minWidth:"120px"\}/);
   assert.doesNotMatch(source,/taskNameCell|textDecoration|line-through/);
 });
 
@@ -180,22 +187,27 @@ test("custom table view survives reloads using the same storage split as Home As
     return {getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
   };
   const local=memory({}),session=memory({});
-  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.sorting,{column:"name",direction:"desc"});
-  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.grouping,"assignee");
-  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.columnOrder,["name","assignee","actions"]);
-  storeTaskTableValue(local,TASK_TABLE_STORAGE_KEYS.hiddenColumns,["files","labels"]);
-  storeTaskTableValue(session,TASK_TABLE_STORAGE_KEYS.search,"filter");
-  storeTaskTableValue(session,TASK_TABLE_STORAGE_KEYS.filters,{assignee:["Alex"]});
+  storeTaskTableView(local,session,{
+    search:"filter",
+    filters:{assignee:["alex"]},
+    sorting:{column:"name",direction:"desc"},
+    grouping:"assignee",
+    collapsed:undefined,
+    columnOrder:["name","assignee","actions"],
+    hiddenColumns:["files","labels"],
+  });
 
   assert.deepEqual(loadTaskTableView(local,session),{
     search:"filter",
-    filters:{assignee:["Alex"]},
+    filters:{assignee:["alex"]},
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
     columnOrder:DEFAULT_TASK_COLUMN_ORDER,
     hiddenColumns:["files","labels"],
   });
+  assert.ok(local.getItem(TASK_TABLE_LOCAL_STORAGE_KEY));
+  assert.ok(session.getItem(TASK_TABLE_SESSION_STORAGE_KEY));
   assert.match(source,/wrapper\.addEventListener\("columns-changed"/);
   assert.match(source,/wrapper\.addEventListener\("sorting-changed"/);
   assert.match(source,/wrapper\.addEventListener\("grouping-changed"/);
@@ -205,7 +217,7 @@ test("custom table view survives reloads using the same storage split as Home As
 
 test("declarative dimensions can group the native table",()=>{
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
-  assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true\}/);
+  assert.match(source,/nfc_tag:\{title:[^}]+sortable:true,filterable:true,minWidth:"120px"\}/);
   assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);
   assert.doesNotMatch(source,/tableGrouping|table\.groupColumn=/);
 });
@@ -226,19 +238,21 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
 });
 
-test("native table width follows every container resize",()=>{
-  assert.match(source,/wrapper\.style\.width="100%"/);
-  assert.match(source,/new ResizeObserver\(\(\)=>/);
-  assert.match(source,/taskTableResizeObserver\.observe\(table\)/);
-  assert.match(source,/querySelector\("ha-data-table"\)/);
-  assert.match(source,/removeProperty\("--table-row-width"\)/);
-  assert.match(source,/table\.requestUpdate\?\.\(\)/);
-  assert.match(source,/disconnectTaskTableResize\(\)/);
+test("table projection keeps stable ids separate from localized labels",()=>{
+  const [model]=createTaskTableModel([{task_id:"task",task_name:"Task",assignee_id:"alex",label_ids:["chores"],schedule_type:"fixed",schedule_unit:"weekly"}],{
+    users:[{id:"alex",name:"Alex"}],
+    labels:[{label_id:"chores",name:"Chores"}],
+    translate:key=>`translated:${key}`,
+  });
+  assert.equal(model.assignee.id,"alex");
+  assert.equal(model.assignee.label,"Alex");
+  assert.deepEqual(model.labels,[{id:"chores",label:"Chores"}]);
+  assert.deepEqual(model.recurrence,{id:"fixed",label:"translated:task.fixed"});
 });
 
 test("all filters follow Home Assistant category rows",()=>{
   const taskList=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
-  const filterCategory=taskList.slice(taskList.indexOf("export class TasksSidebarFilterCategory"),taskList.indexOf("export function dueTimestamp"));
+  const filterCategory=taskList.slice(taskList.indexOf("export class TasksSidebarFilterCategory"),taskList.indexOf("export function taskTableRows"));
   const actionMenu=readFileSync(new URL("../../custom_components/tasks/frontend/action-menu.js",import.meta.url),"utf8");
   assert.match(filterCategory,/createElement\("ha-list-item"\)/);
   assert.doesNotMatch(filterCategory,/createActionMenu|groupEditor|deleteGroup/);
@@ -265,7 +279,7 @@ test("panel keeps native settings and add-task controls",()=>{
 });
 
 test("files column shows the sortable attachment count",()=>{
-  assert.match(source,/files:\{title:t\("task\.files"\),sortable:true,filterable:false\}/);
+  assert.match(source,/files:\{title:t\("task\.files"\),sortable:true,filterable:false,minWidth:"72px"\}/);
   assert.match(source,/attachments:this\.attachments/);
 });
 
