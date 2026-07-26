@@ -155,5 +155,6 @@ Tasks stores task data locally in Home Assistant and attachments under `<config>
 
 - [Issues and feature requests](https://github.com/psym88/ha_tasks/issues)
 - [Release history](https://github.com/psym88/ha_tasks/releases)
+- [Maintainer development and release workflow](CONTRIBUTING.md)
 - [Architecture](ARCHITECTURE.md)
 - [MIT License](LICENSE)
