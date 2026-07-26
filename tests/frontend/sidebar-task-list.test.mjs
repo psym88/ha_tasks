@@ -125,6 +125,8 @@ test("native selection bar offers assignment notification completion and deletio
   assert.match(source,/dropdownItem\("complete",t\("bulk\.complete"\)/);
   assert.match(source,/dropdownItem\("active",t\(activate\?"menu\.activate":"menu\.deactivate"\)/);
   assert.match(source,/dropdownItem\("delete",t\("bulk\.delete"\)/);
+  assert.match(source,/overflowDropdown\(t\("bulk\.actions"\),\[complete,active,remove\]/);
+  assert.match(source,/overflowDropdown\(t\("bulk\.actions"\),\[complete,active,document\.createElement\("wa-divider"\),this\.selectionSubmenu/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*assignee_id/);
   assert.match(source,/type:"tasks\/task\/update"[\s\S]*label_ids/);
   assert.match(source,/type:"tasks\/task\/complete"/);

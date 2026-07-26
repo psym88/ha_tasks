@@ -228,12 +228,12 @@ export const withTaskList = Base => class extends Base {
   appendBulkActions(wrapper){
     wrapper.querySelectorAll('[slot="selection-bar"]').forEach(element=>element.remove());
     const activate=this.selectedTasks().every(task=>task.active===false),active=dropdownItem("active",t(activate?"menu.activate":"menu.deactivate"),activate?"mdi:play-circle-outline":"mdi:pause-circle-outline"),complete=dropdownItem("complete",t("bulk.complete"),"mdi:check-circle-outline"),remove=dropdownItem("delete",t("bulk.delete"),"mdi:delete-outline");active.dataset.active=String(activate);remove.setAttribute("variant","danger");
-    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),active,complete,remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
+    if(this.narrow){wrapper.append(overflowDropdown(t("bulk.actions"),[complete,active,document.createElement("wa-divider"),this.selectionSubmenu(t("bulk.assign_person"),"person_menu",this.personItems("submenu")),this.selectionSubmenu(t("bulk.assign_label"),"label_menu",this.labelItems("submenu")),this.selectionSubmenu(t("bulk.assign_notification"),"notification_menu",this.notificationItems("submenu")),document.createElement("wa-divider"),remove],(value,item)=>this.handleBulkMenu(value,item),true));return;}
     wrapper.append(
       bulkDropdown(t("bulk.assign_person"),this.personItems(),(value,item)=>this.handleBulkMenu(value,item)),
       bulkDropdown(t("bulk.assign_label"),this.labelItems(),(value,item)=>this.handleBulkMenu(value,item)),
       bulkDropdown(t("bulk.assign_notification"),this.notificationItems(),(value,item)=>this.handleBulkMenu(value,item)),
-      overflowDropdown(t("bulk.actions"),[active,complete,remove],(value,item)=>this.handleBulkMenu(value,item)),
+      overflowDropdown(t("bulk.actions"),[complete,active,remove],(value,item)=>this.handleBulkMenu(value,item)),
     );
   }
   render(){

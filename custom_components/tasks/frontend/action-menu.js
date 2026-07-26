@@ -34,6 +34,6 @@ export function createActionMenu({ label, active = true, toggleActive, edit, rem
     if (action === "active") toggleActive?.();
     if (action === "delete") remove();
   });
-  dropdown.append(button, activeItem, editItem, removeItem);
+  dropdown.append(button, editItem, activeItem, removeItem);
   return dropdown;
 }
