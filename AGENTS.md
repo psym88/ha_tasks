@@ -36,11 +36,11 @@ Keep the subject imperative, concise, and without a trailing period.
 - Start each UTC day at revision `1` and increment it for every additional published release on the same date. Never use revision `0`, leading zeroes, or a previously published revision.
 - The Git tag must exactly equal the version, without a `v` prefix or any other suffix.
 - The GitHub release title must exactly equal the version and tag, for example `20260724.12`. GitHub already displays the publication date separately.
-- When promoting a pre-release to latest, reuse its existing version, tag, and title.
+- A latest release is a new publication with the next unused version, tag, and title. Keep preceding pre-releases unchanged.
 - Do not add tag suffixes such as `-pre`, `-beta`, or `-rc`. Pre-release state is represented only by GitHub's **pre-release** flag.
 - CalVer does not encode compatibility. Mark breaking changes explicitly in the release notes.
 - Keep the release version only in `manifest.json`; do not duplicate it in Python or JavaScript.
-- Create every tag from the tested `dev` commit that contains the same version.
+- Create pre-release tags from the tested `dev` commit that contains the same version. Create latest-release tags from the protected `main` merge commit that contains the same version.
 - Never move, overwrite, delete, or reuse a published tag. If a published pre-release is defective, fix the problem and publish a new version.
 
 ## Release-note convention
@@ -84,10 +84,14 @@ Map changes consistently:
 
 Create a latest release only when explicitly requested.
 
-1. Select the tested pre-release to promote. Do not create a replacement tag.
-2. Integrate that exact tagged commit into `main`; `main`, the selected tag, and the release target must resolve to the same commit.
-3. Reuse the selected tag, title, and existing GitHub release. Clear the **pre-release** flag and explicitly mark it as **latest**.
-4. Replace its incremental notes with one consolidated set of release notes covering every pre-release after the previous latest release, including the promoted pre-release.
-5. If no previous latest release exists, consolidate all pre-release notes in the repository.
-6. Preserve the standard heading order, combine related bullets, and remove duplicates. The latest notes must describe the complete user-visible delta since the previous latest release, not merely the final pre-release.
-7. Verify that earlier pre-releases remain marked as pre-releases and that no tag was moved or recreated.
+1. Select the tested pre-release that will be the basis for the stable release. Keep that pre-release, its tag, and its release unchanged.
+2. Update `dev` from `origin/dev`, choose the next unused version, and update `manifest.json`.
+3. Run the complete backend and frontend test suites, commit the version change, and push `dev`.
+4. Open a pull request from `dev` to the protected `main` branch. Wait for the required `Backend`, `Frontend`, and `Validate integration` checks to pass.
+5. Merge the pull request with a normal merge commit. Do not squash or rebase it, so `dev` remains an ancestor of `main`.
+6. Create the new immutable `YYYYMMDD.REVISION` tag on the resulting `main` merge commit. `main`, the new tag, and the release target must resolve to that same commit.
+7. Create a new GitHub release with the same title as the new tag, mark it as **latest**, and do not mark it as a pre-release.
+8. Write one consolidated set of release notes covering every pre-release after the previous latest release through the new latest release. If no previous latest release exists, consolidate all pre-release notes in the repository.
+9. Preserve the standard heading order, combine related bullets, and remove duplicates. The latest notes must describe the complete user-visible delta since the previous latest release.
+10. Fast-forward `dev` to the new `main` merge commit and push it, so both branches start the next development cycle from the same commit.
+11. Verify that earlier pre-releases remain marked as pre-releases and that no tag was moved, overwritten, deleted, or reused.
