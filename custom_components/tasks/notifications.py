@@ -60,6 +60,7 @@ def _mobile_data(task: dict[str, Any]) -> dict[str, Any]:
     data: dict[str, Any] = {"tag": notification_id(task["task_id"])}
     if notification_route := task.get("notification_route"):
         data["url"] = notification_route
+        data["clickAction"] = notification_route
     if task.get("notification_critical"):
         data.update(
             {

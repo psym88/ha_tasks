@@ -47,7 +47,7 @@ def test_integration_uses_tasks_as_its_domain() -> None:
 
 
 def test_only_supported_entity_platforms_are_forwarded() -> None:
-    """The integration exposes only its to-do list and due sensor."""
+    """The integration exposes only its due sensor."""
     from custom_components.tasks.const import PLATFORMS
 
-    assert PLATFORMS == ["sensor", "todo"]
+    assert PLATFORMS == ["sensor"]

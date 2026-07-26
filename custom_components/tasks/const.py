@@ -3,7 +3,7 @@
 from homeassistant.helpers.device_registry import DeviceInfo
 
 DOMAIN = "tasks"
-PLATFORMS = ["sensor", "todo"]
+PLATFORMS = ["sensor"]
 STORAGE_KEY = DOMAIN
 STORAGE_VERSION = 3
 EVENT_TASKS = f"{DOMAIN}_event"

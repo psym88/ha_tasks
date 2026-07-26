@@ -25,7 +25,7 @@ export function t(key,variables={}){return interpolate(messages[key]??key,variab
 export const L=new Proxy({}, {get:(_,key)=>t(KEYS[key]||String(key))});
 export const esc=(value)=>String(value??"").replace(/[&<>"']/g,character=>ESCAPES[character]);
 export function errorMessage(error){const key=String(error?.code||error?.message||error||"");return messages[`error.${key}`]??error?.message??key;}
-export function historyNote(value){return value==="tasks.history.completed_via_nfc"?t("history.completed_via_nfc"):value==="tasks.history.completed_via_todo"?t("history.completed_via_todo"):value;}
+export function historyNote(value){return value==="tasks.history.completed_via_nfc"?t("history.completed_via_nfc"):value;}
 export function locale(){return language;}
 
 export async function setLanguage(value){

@@ -115,7 +115,6 @@
     "file.default_name": "Datei",
     "history.notes": "Notizen",
     "history.completed_via_nfc": "Erledigt durch NFC Scan",
-    "history.completed_via_todo": "Erledigt durch Todo Liste",
     "history.remove": "Verlaufseintrag entfernen",
     "history.undo_remove": "Entfernen rückgängig machen",
     "history.load_failed": "Verlauf konnte nicht geladen werden: {message}",
@@ -194,7 +193,9 @@
     "card.show_action_menu": "Aktionsmenü",
     "card.show_add_task": "Task hinzufügen",
     "card.days": "Tage",
+    "card.all_users": "Alle",
     "card.current_user": "Angemeldeter Benutzer",
+    "card.custom_assignee_yaml_only": "Ein benutzerdefinierter Benutzerfilter kann nur im YAML-Modus bearbeitet werden.",
     "card.description": "Fällige Tasks-Aufgaben als flache Liste"
   }
 }
