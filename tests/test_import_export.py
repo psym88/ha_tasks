@@ -186,12 +186,16 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work():
         {"conversions": []},
     )
     with zipfile.ZipFile(BytesIO(content)) as archive:
-        manifest = json.loads(archive.read("tasks.json"))
+        manifest_text = archive.read("tasks.json").decode()
+        manifest = json.loads(manifest_text)
     assert manifest == {
         "integration": "tasks",
         "format": 3,
         "data": data,
     }
+    assert manifest_text.startswith('{\n  "integration": "tasks",')
+    assert '\n    "tasks": [\n' in manifest_text
+    assert len(manifest_text.splitlines()) > 1
 
     source = Path("custom_components/tasks/attachment_api.py").read_text(encoding="utf-8")
     tree = ast.parse(source)

@@ -37,6 +37,7 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
             json.dumps(
                 {"integration": DOMAIN, "format": ARCHIVE_FORMAT, "data": data},
                 ensure_ascii=False,
+                indent=2,
             ),
         )
         for file_id, content in files.items():

@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .recurrence import occurrences, validate_trigger
+from .store_converter import upgrade_store_data
 
 _SCHEDULE_FIELDS = (
     "schedule_type",
@@ -116,12 +117,27 @@ def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+class _TasksDataStore(Store[dict[str, Any]]):
+    """Home Assistant store with Tasks schema migrations."""
+
+    async def _async_migrate_func(
+        self,
+        old_major_version: int,
+        old_minor_version: int,
+        old_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        del old_minor_version
+        return upgrade_store_data(old_major_version, old_data)
+
+
 class TasksStore:
     """Serialize mutations and persist one compact snapshot."""
 
     def __init__(self, hass: HomeAssistant, upload_dir: Path) -> None:
         self._hass = hass
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict[str, Any]] = _TasksDataStore(
+            hass, STORAGE_VERSION, STORAGE_KEY
+        )
         self._upload_dir = upload_dir
         self._lock = asyncio.Lock()
         self._data: dict[str, Any] = {

@@ -4,6 +4,8 @@
 - Keep the release version only in `manifest.json`; runtime frontend URLs must derive from it.
 - Keep `README.md` user-focused; update it only for installation or usage changes. Document only stable contracts and component boundaries in `ARCHITECTURE.md`, never styling tweaks or release history.
 - Add focused tests for recurrence and problem-sensor trigger changes, and for important regressions.
+- Treat persisted Home Assistant store data as user data: every incompatible store-schema change must increment `STORAGE_VERSION`, provide a sequential converter from the immediately preceding version, and add or update versioned migration fixtures and tests. Never remove a published migration path.
+- After integration code changes, ensure the `ha-tasks-dev` container mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
 
 ## Commit convention
