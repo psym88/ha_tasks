@@ -11,6 +11,7 @@ ROOT = Path(__file__).parents[1]
 COMPONENT = ROOT / "custom_components" / "tasks"
 FRONTEND = COMPONENT / "frontend"
 TRANSLATIONS = COMPONENT / "translations"
+FRONTEND_TRANSLATIONS = COMPONENT / "frontend_translations"
 
 LOCALIZE_ALIASES = {
     "addTask": "common.add_task",
@@ -29,7 +30,7 @@ LOCALIZE_ALIASES = {
 
 
 def _catalog(language: str) -> dict[str, str]:
-    path = COMPONENT / "strings.json" if language == "en" else TRANSLATIONS / f"{language}.json"
+    path = FRONTEND_TRANSLATIONS / f"{language}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     return data["frontend"]
 
@@ -55,6 +56,14 @@ def _backend_error_codes() -> set[str]:
 
 def test_language_catalogs_have_identical_frontend_keys() -> None:
     assert set(_catalog("de")) == set(_catalog("en"))
+
+
+def test_home_assistant_catalogs_exclude_custom_frontend_keys() -> None:
+    for language in ("de", "en"):
+        data = json.loads(
+            (TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8")
+        )
+        assert set(data) == {"config", "entity"}
 
 
 def test_all_frontend_translation_keys_exist() -> None:

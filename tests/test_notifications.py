@@ -1,15 +1,9 @@
 """Tests for task due notifications."""
 
 import asyncio
-import json
-from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from custom_components.tasks import notifications
-
-INTEGRATION_DIR = Path(__file__).parents[1] / "custom_components" / "tasks"
 
 
 def _task(**values):
@@ -25,27 +19,12 @@ def _task(**values):
 
 
 def _hass(language="de"):
-    return SimpleNamespace(config=SimpleNamespace(language=language))
+    async def async_add_executor_job(target, *args):
+        return target(*args)
 
-
-@pytest.fixture(autouse=True)
-def notification_translations(monkeypatch):
-    async def get_translations(hass, language, category, integrations):
-        assert category == "frontend"
-        assert integrations == {"tasks"}
-        path = INTEGRATION_DIR / "translations" / f"{language}.json"
-        if not path.exists():
-            path = INTEGRATION_DIR / "translations" / "en.json"
-        frontend = json.loads(path.read_text(encoding="utf-8"))["frontend"]
-        return {
-            f"component.tasks.frontend.{key}": value
-            for key, value in frontend.items()
-        }
-
-    monkeypatch.setattr(
-        notifications,
-        "async_get_translations",
-        get_translations,
+    return SimpleNamespace(
+        config=SimpleNamespace(language=language),
+        async_add_executor_job=async_add_executor_job,
     )
 
 
@@ -156,6 +135,28 @@ def test_notification_uses_home_assistant_instance_language(monkeypatch):
     asyncio.run(
         notifications.async_notify_task_due(
             _hass("en"),
+            _task(notification_persistent=True),
+        )
+    )
+
+    assert created == [
+        ("“Replace water filter” is now due.", "Task due")
+    ]
+
+
+def test_notification_falls_back_to_english(monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        notifications.persistent_notification,
+        "async_create",
+        lambda hass, message, title=None, notification_id=None: created.append(
+            (message, title)
+        ),
+    )
+
+    asyncio.run(
+        notifications.async_notify_task_due(
+            _hass("fr-CH"),
             _task(notification_persistent=True),
         )
     )

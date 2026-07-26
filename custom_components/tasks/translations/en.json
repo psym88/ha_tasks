@@ -1,8 +1,20 @@
 {
-  "frontend": {
-    "notification.due_title": "Task due",
-    "notification.due_message": "“{task_name}” is now due.",
-    "notification.problem_title": "Problem detected",
-    "notification.problem_message": "“{task_name}” needs your attention."
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Tasks",
+        "description": "Creates the local Tasks configuration."
+      }
+    },
+    "abort": {
+      "already_configured": "Tasks is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "tasks_due": {
+        "name": "Due"
+      }
+    }
   }
 }

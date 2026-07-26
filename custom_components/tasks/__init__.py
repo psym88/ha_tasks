@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
@@ -14,6 +15,8 @@ from .const import DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_TITLE, 
 from .due_events import TaskDueEventScheduler
 from .problem_events import ProblemSensorScheduler
 from .task_store import TasksStore
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 @dataclass(slots=True)
@@ -36,8 +39,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     task_api.async_register(hass)
     attachment_api.async_register_views(hass)
     frontend_dir = Path(__file__).parent / "frontend"
-    english_translations = Path(__file__).parent / "strings.json"
-    translations_dir = Path(__file__).parent / "translations"
+    translations_dir = Path(__file__).parent / "frontend_translations"
+    english_translations = translations_dir / "en.json"
     frontend_url, _, _ = await _frontend_urls(hass)
     await hass.http.async_register_static_paths([
         StaticPathConfig(frontend_url, str(frontend_dir), False),
