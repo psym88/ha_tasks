@@ -123,6 +123,7 @@
     "schedule.after_completion_many": "Findet alle {schedule_interval} {period} nach der Erledigung statt.",
     "schedule.fixed_one": "Findet {period} statt.",
     "schedule.fixed_many": "Findet alle {schedule_interval} {period} statt.",
+    "schedule.problem_sensor_description": "Findet statt, sobald der Sensor ein Problem meldet.",
     "schedule.weekly_one": "Findet jede Woche{days} statt.",
     "schedule.weekly_many": "Findet alle {schedule_interval} Wochen{days} statt.",
     "schedule.monthly_one": "Findet jeden Monat {day} statt.",

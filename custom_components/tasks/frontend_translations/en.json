@@ -123,6 +123,7 @@
     "schedule.after_completion_many": "Occurs every {schedule_interval} {period} after completion.",
     "schedule.fixed_one": "Occurs {period}.",
     "schedule.fixed_many": "Occurs every {schedule_interval} {period}.",
+    "schedule.problem_sensor_description": "Occurs as soon as the sensor reports a problem.",
     "schedule.weekly_one": "Occurs every week{days}.",
     "schedule.weekly_many": "Occurs every {schedule_interval} weeks{days}.",
     "schedule.monthly_one": "Occurs every month {day}.",
