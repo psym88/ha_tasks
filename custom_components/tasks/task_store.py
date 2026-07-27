@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 import shutil
@@ -18,22 +19,16 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .migrations import upgrade_store_data
-from .models import ProblemTrigger, TRIGGER_FIELDS, trigger_from_mapping
-from .recurrence import occurrences
-
-_TASK_FIELDS = (
-    "task_name",
-    "task_icon",
-    "task_description",
-    "active",
-    "assignee_id",
-    "nfc_tag_id",
-    "notification_target",
-    "notification_persistent",
-    "notification_critical",
-    "notification_route",
-    "task_due",
+from .models import (
+    Attachment,
+    Completion,
+    ProblemTrigger,
+    TASK_MUTABLE_FIELDS,
+    TRIGGER_FIELDS,
+    Task,
+    trigger_from_mapping,
 )
+from .recurrence import occurrences
 
 def get_store(hass: HomeAssistant):
     """Return the loaded singleton store."""
@@ -42,10 +37,6 @@ def get_store(hass: HomeAssistant):
         return None
     data = entries[0].runtime_data
     return getattr(data, "store", None)
-
-
-def _now() -> str:
-    return dt_util.utcnow().isoformat()
 
 
 class _TasksDataStore(Store[dict[str, Any]]):
@@ -226,25 +217,6 @@ class TasksStore:
     async def _save(self) -> None:
         await self._store.async_save(self._data)
 
-    @staticmethod
-    def _required_name(value: Any) -> str:
-        name = str(value or "").strip()
-        if not name:
-            raise ValueError("name_required")
-        return name
-
-    @staticmethod
-    def _notification_target(value: Any) -> dict[str, list[str]]:
-        device_ids = list(dict.fromkeys((value or {}).get("device_id", [])))
-        return {"device_id": device_ids} if device_ids else {}
-
-    @staticmethod
-    def _notification_route(value: Any) -> str | None:
-        route = str(value or "").strip()
-        if route and (not route.startswith("/") or route.startswith("//")):
-            raise ValueError("invalid_notification_route")
-        return route or None
-
     async def async_add_task(
         self, payload: dict[str, Any], now: datetime | None = None
     ) -> dict[str, Any]:
@@ -260,35 +232,18 @@ class TasksStore:
         )
         async with self._lock:
             nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
-            task = {
-                "task_id": uuid4().hex,
-                **{
-                    key: payload.get(key)
-                    for key in (
-                        "task_icon",
-                        "task_description",
-                        "assignee_id",
-                    )
-                },
-                **trigger.storage_fields(),
-                "task_name": self._required_name(payload.get("task_name")),
-                "active": bool(payload.get("active", True)),
-                "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
-                "nfc_tag_id": nfc_tag_id,
-                "notification_target": self._notification_target(
-                    payload.get("notification_target")
-                ),
-                "notification_persistent": bool(
-                    payload.get("notification_persistent", False)
-                ),
-                "notification_critical": bool(
-                    payload.get("notification_critical", False)
-                ),
-                "notification_route": self._notification_route(
-                    payload.get("notification_route")
-                ),
-                "task_due": task_due,
+            values = {
+                key: payload[key]
+                for key in TASK_MUTABLE_FIELDS
+                if key in payload
             }
+            task = Task.from_mapping({
+                **values,
+                "task_id": uuid4().hex,
+                **trigger.storage_fields(),
+                "nfc_tag_id": nfc_tag_id,
+                "task_due": task_due,
+            }).storage_fields()
             self._data["tasks"].append(task)
             await self._save()
             return task
@@ -301,59 +256,35 @@ class TasksStore:
     ) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
-            values = {key: payload[key] for key in _TASK_FIELDS if key in payload}
-            if "task_name" in values:
-                values["task_name"] = self._required_name(values["task_name"])
-            if "active" in values:
-                values["active"] = bool(values["active"])
-            if "label_ids" in payload:
-                values["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
+            current = Task.from_mapping(task)
+            values = {
+                key: payload[key]
+                for key in TASK_MUTABLE_FIELDS
+                if key in payload
+            }
             if "nfc_tag_id" in values:
                 values["nfc_tag_id"] = self._normalize_nfc_tag_id(
                     values["nfc_tag_id"], task_id
                 )
-            if "notification_target" in values:
-                values["notification_target"] = self._notification_target(
-                    values["notification_target"]
-                )
-            for key in ("notification_persistent", "notification_critical"):
-                if key in values:
-                    values[key] = bool(values[key])
-            if "notification_route" in values:
-                values["notification_route"] = self._notification_route(
-                    values["notification_route"]
-                )
-            old_trigger = trigger_from_mapping(task)
             schedule_update = any(
                 key in payload for key in TRIGGER_FIELDS
             )
-            updated_trigger = None
-            if schedule_update:
-                merged_schedule = {
-                    **task,
-                    **{
-                        key: payload[key]
-                        for key in TRIGGER_FIELDS
-                        if key in payload
-                    },
-                }
-                updated_trigger = trigger_from_mapping(merged_schedule)
-            task.update(values)
-            if updated_trigger is not None:
-                task.update(updated_trigger.storage_fields())
-            trigger = updated_trigger or old_trigger
-            schedule_changed = trigger.signature() != old_trigger.signature()
+            updated = Task.from_mapping(
+                {**current.storage_fields(), **values}
+            )
+            schedule_changed = (
+                schedule_update
+                and updated.trigger.signature() != current.trigger.signature()
+            )
             if schedule_changed:
-                if isinstance(trigger, ProblemTrigger):
-                    task["task_due"] = None
+                if isinstance(updated.trigger, ProblemTrigger):
+                    updated = replace(updated, due=None)
                 else:
                     boundary = dt_util.as_local(now or dt_util.utcnow())
-                    if task.get("task_due") and not isinstance(
-                        old_trigger, ProblemTrigger
+                    if current.due and not isinstance(
+                        current.trigger, ProblemTrigger
                     ):
-                        previous_due = dt_util.as_local(
-                            parse_aware_datetime(task["task_due"])
-                        )
+                        previous_due = dt_util.as_local(current.due)
                         boundary = boundary.replace(
                             hour=previous_due.hour,
                             minute=previous_due.minute,
@@ -361,16 +292,14 @@ class TasksStore:
                             microsecond=previous_due.microsecond,
                             fold=0,
                         )
-                    schedule = {
-                        key: value
-                        for key, value in task.items()
-                        if key != "task_due"
-                    }
-                    task["task_due"] = normalize_utc_datetime(
-                        next(occurrences(schedule, boundary))
+                    schedule = updated.storage_fields()
+                    schedule.pop("task_due")
+                    updated = replace(
+                        updated,
+                        due=next(occurrences(schedule, boundary)),
                     )
-            elif "task_due" in payload and payload["task_due"] is not None:
-                task["task_due"] = normalize_utc_datetime(payload["task_due"])
+            task.clear()
+            task.update(updated.storage_fields())
             await self._save()
             return task
 
@@ -403,7 +332,7 @@ class TasksStore:
                 task_due_after = normalize_utc_datetime(
                     next(occurrences(task, completion))
                 )
-            record = {
+            record = Completion.from_mapping({
                 "history_entry_id": uuid4().hex,
                 "completed_at": normalize_utc_datetime(completion),
                 "user_id": user_id,
@@ -411,7 +340,7 @@ class TasksStore:
                 "notes": str(notes or "").strip() or None,
                 "task_due_before": task_due_before,
                 "task_due_after": task_due_after,
-            }
+            }).storage_fields()
             task["task_due"] = task_due_after
             self._data["history"].setdefault(task_id, []).append(record)
             await self._save()
@@ -472,7 +401,14 @@ class TasksStore:
     async def async_add_attachment(self, task_id: str, filename: str, content_type: str, data: bytes) -> dict[str, Any]:
         async with self._lock:
             self._find("tasks", task_id)
-            attachment = {"attachment_id": uuid4().hex, "task_id": task_id, "filename": filename, "content_type": content_type, "size": len(data), "uploaded_at": _now()}
+            attachment = Attachment(
+                id=uuid4().hex,
+                task_id=task_id,
+                filename=filename,
+                content_type=content_type,
+                size=len(data),
+                uploaded_at=dt_util.utcnow(),
+            ).storage_fields()
             await self._hass.async_add_executor_job(self._write, attachment["attachment_id"], data)
             self._data["attachments"].append(attachment)
             await self._save()

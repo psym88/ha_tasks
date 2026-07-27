@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Literal, Mapping, TypeAlias
+
+from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 
 TRIGGER_FIELDS = (
     "schedule_type",
@@ -15,6 +19,43 @@ TRIGGER_FIELDS = (
     "schedule_month",
     "schedule_time",
     "problem_sensor",
+)
+TASK_MUTABLE_FIELDS = (
+    "task_name",
+    "task_icon",
+    "task_description",
+    "active",
+    "assignee_id",
+    "label_ids",
+    "nfc_tag_id",
+    "notification_target",
+    "notification_persistent",
+    "notification_critical",
+    "notification_route",
+    "task_due",
+    *TRIGGER_FIELDS,
+)
+_TASK_FIELDS = frozenset(("task_id", *TASK_MUTABLE_FIELDS))
+_COMPLETION_FIELDS = frozenset(
+    (
+        "history_entry_id",
+        "completed_at",
+        "user_id",
+        "user_name",
+        "notes",
+        "task_due_before",
+        "task_due_after",
+    )
+)
+_ATTACHMENT_FIELDS = frozenset(
+    (
+        "attachment_id",
+        "task_id",
+        "filename",
+        "content_type",
+        "size",
+        "uploaded_at",
+    )
 )
 
 ScheduleDay: TypeAlias = int | Literal["last"] | None
@@ -213,3 +254,222 @@ def trigger_from_mapping(data: Mapping[str, Any]) -> TaskTrigger:
         ),
         time=data.get("schedule_time"),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationSettings:
+    """Task due-notification settings."""
+
+    device_ids: tuple[str, ...] = ()
+    persistent: bool = False
+    critical: bool = False
+    route: str | None = None
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> NotificationSettings:
+        """Parse notification values from schema-3 task fields."""
+        target = data.get("notification_target") or {}
+        device_ids = tuple(dict.fromkeys(target.get("device_id", ())))
+        route = str(data.get("notification_route") or "").strip()
+        if route and (not route.startswith("/") or route.startswith("//")):
+            raise ValueError("invalid_notification_route")
+        return cls(
+            device_ids=device_ids,
+            persistent=bool(data.get("notification_persistent", False)),
+            critical=bool(data.get("notification_critical", False)),
+            route=route or None,
+        )
+
+    def storage_fields(self) -> dict[str, Any]:
+        """Serialize to the published schema-3 task fields."""
+        return {
+            "notification_target": (
+                {"device_id": list(self.device_ids)} if self.device_ids else {}
+            ),
+            "notification_persistent": self.persistent,
+            "notification_critical": self.critical,
+            "notification_route": self.route,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Task:
+    """Typed task aggregate root compatible with schema 3."""
+
+    id: str
+    name: str
+    trigger: TaskTrigger
+    due: datetime | None
+    icon: str | None = None
+    description: str | None = None
+    active: bool = True
+    assignee_id: str | None = None
+    label_ids: tuple[str, ...] = ()
+    nfc_tag_id: str | None = None
+    notifications: NotificationSettings = field(
+        default_factory=NotificationSettings
+    )
+    extra: dict[str, Any] = field(default_factory=dict, compare=False)
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> Task:
+        """Parse one API or schema-3 task record."""
+        name = str(data.get("task_name") or "").strip()
+        if not name:
+            raise ValueError("name_required")
+        task_id = str(data.get("task_id") or "").strip()
+        if not task_id:
+            raise ValueError("unknown_task")
+        due_value = data.get("task_due")
+        due = (
+            parse_aware_datetime(due_value)
+            if due_value is not None
+            else None
+        )
+        nfc_tag_id = str(data.get("nfc_tag_id") or "").strip() or None
+        return cls(
+            id=task_id,
+            name=name,
+            trigger=trigger_from_mapping(data),
+            due=due,
+            icon=data.get("task_icon"),
+            description=data.get("task_description"),
+            active=bool(data.get("active", True)),
+            assignee_id=data.get("assignee_id"),
+            label_ids=tuple(dict.fromkeys(data.get("label_ids") or ())),
+            nfc_tag_id=nfc_tag_id,
+            notifications=NotificationSettings.from_mapping(data),
+            extra=deepcopy(
+                {
+                    key: value
+                    for key, value in data.items()
+                    if key not in _TASK_FIELDS
+                }
+            ),
+        )
+
+    def storage_fields(self) -> dict[str, Any]:
+        """Serialize to the published schema-3 task representation."""
+        return {
+            **deepcopy(self.extra),
+            "task_id": self.id,
+            "task_icon": self.icon,
+            "task_description": self.description,
+            "assignee_id": self.assignee_id,
+            **self.trigger.storage_fields(),
+            "task_name": self.name,
+            "active": self.active,
+            "label_ids": list(self.label_ids),
+            "nfc_tag_id": self.nfc_tag_id,
+            **self.notifications.storage_fields(),
+            "task_due": (
+                normalize_utc_datetime(self.due) if self.due is not None else None
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Completion:
+    """One task-completion audit record."""
+
+    id: str
+    completed_at: datetime
+    user_id: str | None
+    user_name: str
+    notes: str | None = None
+    due_before: datetime | None = None
+    due_after: datetime | None = None
+    extra: dict[str, Any] = field(default_factory=dict, compare=False)
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> Completion:
+        """Parse one schema-3 completion record."""
+        return cls(
+            id=str(data["history_entry_id"]),
+            completed_at=parse_aware_datetime(data["completed_at"]),
+            user_id=data.get("user_id"),
+            user_name=str(data.get("user_name") or "system"),
+            notes=str(data.get("notes") or "").strip() or None,
+            due_before=(
+                parse_aware_datetime(data["task_due_before"])
+                if data.get("task_due_before") is not None
+                else None
+            ),
+            due_after=(
+                parse_aware_datetime(data["task_due_after"])
+                if data.get("task_due_after") is not None
+                else None
+            ),
+            extra=deepcopy(
+                {
+                    key: value
+                    for key, value in data.items()
+                    if key not in _COMPLETION_FIELDS
+                }
+            ),
+        )
+
+    def storage_fields(self) -> dict[str, Any]:
+        """Serialize to the published schema-3 history representation."""
+        return {
+            **deepcopy(self.extra),
+            "history_entry_id": self.id,
+            "completed_at": normalize_utc_datetime(self.completed_at),
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "notes": self.notes,
+            "task_due_before": (
+                normalize_utc_datetime(self.due_before)
+                if self.due_before is not None
+                else None
+            ),
+            "task_due_after": (
+                normalize_utc_datetime(self.due_after)
+                if self.due_after is not None
+                else None
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Attachment:
+    """Metadata for one task attachment."""
+
+    id: str
+    task_id: str
+    filename: str
+    content_type: str
+    size: int
+    uploaded_at: datetime
+    extra: dict[str, Any] = field(default_factory=dict, compare=False)
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> Attachment:
+        """Parse one schema-3 attachment record."""
+        return cls(
+            id=str(data["attachment_id"]),
+            task_id=str(data["task_id"]),
+            filename=str(data["filename"]),
+            content_type=str(data["content_type"]),
+            size=int(data["size"]),
+            uploaded_at=parse_aware_datetime(data["uploaded_at"]),
+            extra=deepcopy(
+                {
+                    key: value
+                    for key, value in data.items()
+                    if key not in _ATTACHMENT_FIELDS
+                }
+            ),
+        )
+
+    def storage_fields(self) -> dict[str, Any]:
+        """Serialize to the published schema-3 attachment representation."""
+        return {
+            **deepcopy(self.extra),
+            "attachment_id": self.id,
+            "task_id": self.task_id,
+            "filename": self.filename,
+            "content_type": self.content_type,
+            "size": self.size,
+            "uploaded_at": normalize_utc_datetime(self.uploaded_at),
+        }

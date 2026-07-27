@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 1 - Domain model and compatibility boundary
+- Phase: 2 - Repository and manager
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 3
@@ -186,11 +186,11 @@ not replaced the path yet.
 ### Phase 1 - Domain model
 
 - [x] Add typed trigger variants.
-- [ ] Add typed task, completion, notification and attachment value objects.
+- [x] Add typed task, completion, notification and attachment value objects.
 - [x] Add schema-3 trigger serialization and parsing tests.
 - [x] Move schedule normalization and signatures into the model.
 - [x] Use domain schedules in recurrence without changing behavior.
-- [ ] Keep all current APIs and store bytes compatible.
+- [x] Keep all current APIs and the schema-3 representation compatible.
 
 ### Phase 2 - Repository and manager
 
@@ -252,8 +252,14 @@ not replaced the path yet.
 - Replaced dictionary-based trigger normalization and signatures with typed
   fixed, after-completion, and problem-sensor variants.
 - Verified 118 backend and 121 frontend tests after the first domain slice.
+- Added typed task, notification, completion, and attachment values at the
+  schema-3 boundary while preserving unknown imported task fields.
+- Routed task creation, partial updates, completion creation, and attachment
+  creation through the typed boundary.
+- Verified all published schema-3 fixture values cross the typed boundary and
+  all 124 backend plus 121 frontend tests pass.
 
 ## Next action
 
-Add the typed schema-3 task boundary around the proven trigger variants without
-changing the current API, archives, or persisted representation.
+Extract schema-3 persistence and attachment-file operations from `TasksStore`
+into a repository without changing its public methods.
