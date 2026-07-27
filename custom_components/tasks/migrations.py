@@ -106,10 +106,27 @@ def _upgrade_store_3_to_4(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _upgrade_store_4_to_5(data: dict[str, Any]) -> dict[str, Any]:
+    """Remove retired schedule metadata that has no runtime semantics."""
+    upgraded = deepcopy(data)
+    for task in upgraded.get("tasks", []):
+        if not isinstance(task, dict):
+            continue
+        extra = task.get("extra")
+        if not isinstance(extra, dict):
+            continue
+        extra.pop("schedule_anchor_date", None)
+        extra.pop("schedule_start_date", None)
+        if not extra:
+            task.pop("extra")
+    return upgraded
+
+
 STORE_UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _upgrade_store_1_to_2,
     2: _upgrade_store_2_to_3,
     3: _upgrade_store_3_to_4,
+    4: _upgrade_store_4_to_5,
 }
 
 

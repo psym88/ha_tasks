@@ -17,35 +17,44 @@ from .datetime_utils import parse_aware_datetime
 from .manager import TaskChange, TaskManager
 
 
-class TaskDueEventScheduler:
-    """Fire one Tasks event for every task as it becomes due."""
+class TaskEngine:
+    """Run calendar due timers and binary-sensor task triggers."""
 
     def __init__(self, hass: HomeAssistant, manager: TaskManager) -> None:
         self._hass = hass
         self._manager = manager
         self._cancel_timer = None
         self._cancel_listener = None
+        self._cancel_state_listener = None
 
-    @callback
-    def start(self) -> None:
-        """Start listening for task changes and schedule the next due time."""
+    async def async_start(self) -> None:
+        """Start listeners and reconcile the current task state."""
         self._cancel_listener = self._manager.subscribe(self._handle_change)
         self.reschedule()
+        self._subscribe_sensors()
+        for task in self._manager.tasks:
+            if self._is_active_problem(task):
+                await self._trigger(task["task_id"])
 
     @callback
     def stop(self) -> None:
-        """Stop event and time listeners."""
-        if self._cancel_timer:
-            self._cancel_timer()
-            self._cancel_timer = None
-        if self._cancel_listener:
-            self._cancel_listener()
-            self._cancel_listener = None
+        """Stop time, task-change, and state listeners."""
+        for listener in (
+            self._cancel_timer,
+            self._cancel_listener,
+            self._cancel_state_listener,
+        ):
+            if listener:
+                listener()
+        self._cancel_timer = None
+        self._cancel_listener = None
+        self._cancel_state_listener = None
 
     @callback
     def _handle_change(self, change: TaskChange) -> None:
         if change.affects_tasks and change.action != "task_due":
             self.reschedule()
+        self._handle_problem_change(change)
 
     @callback
     def reschedule(self) -> None:
@@ -86,37 +95,6 @@ class TaskDueEventScheduler:
                 self._manager.task_became_due(task)
         self.reschedule()
 
-
-class ProblemSensorScheduler:
-    """Make sensor-triggered tasks due when their binary sensor turns on."""
-
-    def __init__(self, hass: HomeAssistant, manager: TaskManager) -> None:
-        self._hass = hass
-        self._manager = manager
-        self._cancel_state_listener = None
-        self._cancel_task_listener = None
-
-    async def async_start(self) -> None:
-        """Start listeners and catch up active problems after startup."""
-        self._subscribe_sensors()
-        self._cancel_task_listener = self._manager.subscribe(
-            self._handle_task_change
-        )
-        for task in self._manager.tasks:
-            if self._is_active_problem(task):
-                await self._trigger(task["task_id"])
-
-    @callback
-    def stop(self) -> None:
-        """Stop event listeners."""
-        for listener in (
-            self._cancel_state_listener,
-            self._cancel_task_listener,
-        ):
-            if listener:
-                listener()
-        self._cancel_state_listener = None
-        self._cancel_task_listener = None
 
     @staticmethod
     def _is_problem_task(task: dict[str, Any]) -> bool:
@@ -169,7 +147,7 @@ class ProblemSensorScheduler:
                 )
 
     @callback
-    def _handle_task_change(self, change: TaskChange) -> None:
+    def _handle_problem_change(self, change: TaskChange) -> None:
         if change.action == "bulk_mutated":
             if change.data.get("problem_trigger_changed"):
                 self._subscribe_sensors()

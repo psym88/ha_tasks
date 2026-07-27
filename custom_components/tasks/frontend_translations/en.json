@@ -15,6 +15,7 @@
     "error.invalid_attachment_id": "The attachment is invalid.",
     "error.invalid_frequency": "The selected frequency is invalid.",
     "error.invalid_notification_route": "Enter a relative Home Assistant route beginning with /.",
+    "error.invalid_upload": "The temporary attachment upload is invalid or has expired.",
     "error.invalid_monthly_schedule": "The monthly schedule is invalid.",
     "error.invalid_weekly_schedule": "The weekly schedule is invalid.",
     "error.invalid_yearly_schedule": "The yearly schedule is invalid.",

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from custom_components.tasks.manager import TaskChange, TaskManager
-from custom_components.tasks.scheduling import ProblemSensorScheduler
+from custom_components.tasks.scheduling import TaskEngine
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -50,7 +50,7 @@ def test_problem_sensor_triggers_only_when_state_becomes_on():
                 asyncio.create_task(coroutine)
             )
         )
-        scheduler = ProblemSensorScheduler(hass, store)
+        scheduler = TaskEngine(hass, store)
         fired_at = datetime(2026, 7, 25, 10, tzinfo=timezone.utc)
 
         scheduler._handle_state_event(
@@ -110,7 +110,7 @@ def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
                 lambda: None,
             )[1],
         )
-        scheduler = ProblemSensorScheduler(hass, store)
+        scheduler = TaskEngine(hass, store)
         await scheduler.async_start()
 
         assert tracked == [{"binary_sensor.pump_problem"}]
@@ -143,7 +143,7 @@ def test_problem_sensor_ignores_inactive_task(monkeypatch):
                 lambda: None,
             )[1],
         )
-        scheduler = ProblemSensorScheduler(hass, store)
+        scheduler = TaskEngine(hass, store)
         await scheduler.async_start()
 
         assert store.triggered == []
@@ -172,17 +172,17 @@ def test_problem_sensor_subscription_updates_only_for_trigger_changes(
             lambda: None,
         )[1],
     )
-    scheduler = ProblemSensorScheduler(
+    scheduler = TaskEngine(
         SimpleNamespace(async_create_task=lambda coroutine: coroutine.close()),
         manager,
     )
 
     scheduler._subscribe_sensors()
-    scheduler._handle_task_change(
+    scheduler._handle_problem_change(
         TaskChange("updated", "task", "pump", {"problem_trigger_changed": False})
     )
     task["problem_sensor"] = "binary_sensor.replacement"
-    scheduler._handle_task_change(
+    scheduler._handle_problem_change(
         TaskChange("updated", "task", "pump", {"problem_trigger_changed": True})
     )
 
@@ -230,7 +230,7 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(
             ),
         )
         manager = TaskManager(hass, store)
-        scheduler = ProblemSensorScheduler(hass, manager)
+        scheduler = TaskEngine(hass, manager)
 
         def change(old_state, new_state, fired_at):
             scheduler._handle_state_event(

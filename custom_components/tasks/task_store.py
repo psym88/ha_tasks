@@ -28,7 +28,7 @@ from .repository import TasksRepository
 
 
 class TasksStore:
-    """Persist and mutate schema-4 task aggregates."""
+    """Persist and mutate versioned task aggregates."""
 
     def __init__(
         self,

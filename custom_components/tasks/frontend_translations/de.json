@@ -15,6 +15,7 @@
     "error.invalid_attachment_id": "Der Anhang ist ungültig.",
     "error.invalid_frequency": "Der ausgewählte Rhythmus ist ungültig.",
     "error.invalid_notification_route": "Gib eine relative Home-Assistant-Route ein, die mit / beginnt.",
+    "error.invalid_upload": "Der temporäre Anhang-Upload ist ungültig oder abgelaufen.",
     "error.invalid_monthly_schedule": "Die monatliche Planung ist ungültig.",
     "error.invalid_weekly_schedule": "Die wöchentliche Planung ist ungültig.",
     "error.invalid_yearly_schedule": "Die jährliche Planung ist ungültig.",

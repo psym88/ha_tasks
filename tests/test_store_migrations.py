@@ -54,10 +54,10 @@ def test_home_assistant_store_uses_the_tasks_migration_chain():
     assert migrated == current["data"]
 
 
-def test_schema_four_projects_the_existing_transport_shape():
+def test_current_schema_projects_the_existing_transport_shape():
     """Current clients keep flat tasks and globally listed attachments."""
     store = TasksStore.__new__(TasksStore)
-    store._data = _fixture(4)["data"]
+    store._data = _fixture(STORAGE_VERSION)["data"]
 
     snapshot = store.snapshot()
 
@@ -75,6 +75,15 @@ def test_schema_four_projects_the_existing_transport_shape():
         }
     ]
     assert store.history("task-1")[0]["history_entry_id"] == "history-1"
+
+
+def test_schema_five_removes_only_retired_schedule_metadata():
+    source = _fixture(4)["data"]
+    migrated = upgrade_store_data(4, source)
+
+    assert "extra" not in migrated["tasks"][0]
+    expected = _fixture(5)["data"]
+    assert migrated == expected
 
 
 def test_version_one_wrapper_preserves_data_written_before_version_bump():

@@ -441,7 +441,7 @@ test("V2 notification editor excludes deleted and non-mobile devices", () => {
 });
 
 test("V2 stages attachments and commits file changes transactionally", () => {
-  assert.match(api, /hass\.fetchWithAuth\("\/api\/file_upload"/);
+  assert.match(api, /hass\.fetchWithAuth\("\/api\/tasks\/upload"/);
   assert.match(api, /file_ids: fileIds/);
   assert.match(
     api,

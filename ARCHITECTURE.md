@@ -4,7 +4,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** is the schema-4 aggregate root. It embeds its base data,
+- A **task** is the persisted aggregate root. It embeds its base data,
   schedule variant, notification settings, completion history, and attachment
   metadata. Attachment content remains in separate files. Label assignments
   persist stable Home Assistant label IDs; the frontend resolves their current
@@ -12,16 +12,19 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
 - A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
 - Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, and the due-task count. Resuming performs no scheduled-due recalculation.
-- Store schema 4 nests completion and attachment metadata under their owning
-  task. The sequential `1 → 2 → 3 → 4` migration chain and versioned fixtures
+- Store schema 5 nests completion and attachment metadata under their owning
+  task and removes retired schedule metadata that has no runtime semantics.
+  The sequential `1 → 2 → 3 → 4 → 5` migration chain and versioned fixtures
   preserve every published store format. WebSocket responses and archive
-  format 3 remain flat compatibility boundaries during the V2 transition.
+  format 3 remain flat compatibility boundaries.
 
 ## Home Assistant platforms
 
 - `sensor.tasks_due` is a push-only summary of active tasks whose due datetime has been reached.
-- A single timer tracks the nearest future `task_due` among active tasks, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
-- A separate problem-sensor scheduler listens for binary-sensor state transitions for active tasks. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
+- One `TaskEngine` holds the nearest future `task_due` timer and listens only
+  to binary sensors referenced by active tasks. It persists sensor trigger
+  times first, then uses the same due-event and notification path as scheduled
+  tasks.
 
 ## Backend
 
@@ -29,7 +32,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
   values
 - `repository.py`: Home Assistant Store persistence, migrations, and attachment
   files
-- `task_store.py`: atomic schema-4 aggregate mutations and legacy boundary
+- `task_store.py`: atomic versioned aggregate mutations and flat boundary
   projections
 - `manager.py`: application use cases, runtime revisions, and direct change
   callbacks
@@ -40,7 +43,8 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
 - `task_api.py`: authenticated task API, snapshot subscriptions,
   transactional bulk commands, and atomic editor saves
-- `attachment_api.py`: authenticated attachments and ZIP import/export
+- `attachment_api.py`: authenticated temporary multipart uploads, attachments,
+  and ZIP import/export
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution
 - `task_events.py`: public Tasks event helper
@@ -65,7 +69,7 @@ bundle includes Lit as its only runtime UI dependency.
 
 The panel and card consume the revisioned `tasks/subscribe` snapshot. Registry
 lookups and task-specific detail commands remain at the authenticated
-WebSocket boundary. Internal schedulers and the summary sensor receive
+WebSocket boundary. The internal task engine and summary sensor receive
 committed changes directly from `TaskManager`; the public event bus is not used
 for internal coordination or frontend polling.
 

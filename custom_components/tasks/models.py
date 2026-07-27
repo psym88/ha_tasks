@@ -1,4 +1,4 @@
-"""Typed schema-4 task aggregates with schema-3 boundary compatibility."""
+"""Typed task aggregates with flat transport-boundary compatibility."""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ class FixedSchedule:
         return tuple(values)
 
     def record(self) -> dict[str, Any]:
-        """Serialize the schedule into the schema-4 aggregate."""
+        """Serialize the schedule into the persisted aggregate."""
         record: dict[str, Any] = {
             "type": self.type,
             "unit": self.unit.value,
@@ -184,7 +184,7 @@ class AfterCompletionSchedule:
         return (self.type, self.unit.value, self.interval)
 
     def record(self) -> dict[str, Any]:
-        """Serialize the schedule into the schema-4 aggregate."""
+        """Serialize the schedule into the persisted aggregate."""
         return {
             "type": self.type,
             "unit": self.unit.value,
@@ -216,7 +216,7 @@ class ProblemTrigger:
         return (self.type, self.entity_id)
 
     def record(self) -> dict[str, Any]:
-        """Serialize the trigger into the schema-4 aggregate."""
+        """Serialize the trigger into the persisted aggregate."""
         return {"type": self.type, "entity_id": self.entity_id}
 
     def storage_fields(self) -> dict[str, Any]:
@@ -349,7 +349,7 @@ class NotificationSettings:
     def from_record(
         cls, data: Mapping[str, Any]
     ) -> NotificationSettings:
-        """Parse notification settings from the schema-4 aggregate."""
+        """Parse notification settings from the persisted aggregate."""
         return cls(
             device_ids=tuple(
                 dict.fromkeys(data.get("device_ids") or ())
@@ -360,7 +360,7 @@ class NotificationSettings:
         )
 
     def record(self) -> dict[str, Any]:
-        """Serialize notification settings into the schema-4 aggregate."""
+        """Serialize notification settings into the persisted aggregate."""
         return {
             "device_ids": list(self.device_ids),
             "persistent": self.persistent,
@@ -371,7 +371,7 @@ class NotificationSettings:
 
 @dataclass(frozen=True, slots=True)
 class Task:
-    """Typed task aggregate root compatible with schema 3."""
+    """Typed task aggregate root with a flat transport projection."""
 
     id: str
     name: str
@@ -446,7 +446,7 @@ class Task:
 
     @classmethod
     def from_record(cls, data: Mapping[str, Any]) -> Task:
-        """Parse one task from the schema-4 aggregate."""
+        """Parse one task from the persisted aggregate."""
         name = str(data.get("name") or "").strip()
         task_id = str(data.get("id") or "").strip()
         if not name:
@@ -483,7 +483,7 @@ class Task:
         completions: list[dict[str, Any]] | None = None,
         attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Serialize this task into the schema-4 aggregate."""
+        """Serialize this task into the persisted aggregate."""
         record = {
             "id": self.id,
             "name": self.name,
@@ -550,7 +550,7 @@ class Completion:
 
     @classmethod
     def from_record(cls, data: Mapping[str, Any]) -> Completion:
-        """Parse one completion from the schema-4 aggregate."""
+        """Parse one completion from the persisted aggregate."""
         return cls(
             id=str(data["id"]),
             completed_at=parse_aware_datetime(data["completed_at"]),
@@ -561,7 +561,7 @@ class Completion:
         )
 
     def record(self) -> dict[str, Any]:
-        """Serialize this completion into the schema-4 aggregate."""
+        """Serialize this completion into the persisted aggregate."""
         record = {
             "id": self.id,
             "completed_at": normalize_utc_datetime(self.completed_at),
@@ -621,7 +621,7 @@ class Attachment:
     def from_record(
         cls, data: Mapping[str, Any], task_id: str
     ) -> Attachment:
-        """Parse attachment metadata from the schema-4 aggregate."""
+        """Parse attachment metadata from the persisted aggregate."""
         return cls(
             id=str(data["id"]),
             task_id=task_id,

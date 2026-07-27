@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "minor_version": 1,
   "key": "tasks",
   "data": {
@@ -49,11 +49,7 @@
             "size": 42,
             "uploaded_at": "2026-07-20T10:00:00+00:00"
           }
-        ],
-        "extra": {
-          "schedule_anchor_date": "2026-07-23",
-          "schedule_start_date": null
-        }
+        ]
       }
     ]
   }

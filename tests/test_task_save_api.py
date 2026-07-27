@@ -36,11 +36,12 @@ def test_save_command_consumes_uploads_and_forwards_one_transaction(monkeypatch)
         now = datetime(2026, 7, 27, 10, tzinfo=timezone.utc)
         uploads = [("manual.pdf", "application/pdf", b"document")]
         monkeypatch.setattr(task_api.dt_util, "utcnow", lambda: now)
-        monkeypatch.setattr(
-            task_api,
-            "_read_uploaded_files",
-            lambda hass, file_ids: uploads,
-        )
+        async def consume(hass, file_ids, user_id):
+            assert file_ids == ["upload-1"]
+            assert user_id == "user-1"
+            return uploads
+
+        monkeypatch.setattr(task_api, "async_consume_uploads", consume)
         manager = Manager()
         context = object()
         results = []
@@ -50,6 +51,7 @@ def test_save_command_consumes_uploads_and_forwards_one_transaction(monkeypatch)
             )
         )
         connection = SimpleNamespace(
+            user=SimpleNamespace(id="user-1"),
             context=lambda msg: context,
             send_result=lambda message_id, result: results.append(
                 (message_id, result)

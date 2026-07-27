@@ -9,7 +9,7 @@ from custom_components.tasks.datetime_utils import (
     normalize_utc_datetime,
     parse_aware_datetime,
 )
-from custom_components.tasks.scheduling import TaskDueEventScheduler
+from custom_components.tasks.scheduling import TaskEngine
 
 
 def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
@@ -62,7 +62,7 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
         ],
         task_became_due=lambda task: due.append(task),
     )
-    scheduler = TaskDueEventScheduler(hass, manager)
+    scheduler = TaskEngine(hass, manager)
     monkeypatch.setattr(scheduler, "reschedule", lambda: None)
 
     scheduler._fire_due(
@@ -100,7 +100,7 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
         track_point_in_time,
     )
 
-    TaskDueEventScheduler(hass, store).reschedule()
+    TaskEngine(hass, store).reschedule()
 
     assert captured["hass"] is hass
     assert captured["point"] == target
@@ -134,6 +134,6 @@ def test_due_scheduler_ignores_inactive_future_tasks(monkeypatch):
         )[1],
     )
 
-    TaskDueEventScheduler(hass, store).reschedule()
+    TaskEngine(hass, store).reschedule()
 
     assert captured["point"] == now + timedelta(seconds=10)

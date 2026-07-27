@@ -3,17 +3,15 @@
 from datetime import timedelta
 from functools import wraps
 from itertools import islice
-import mimetypes
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
-from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
+from .attachment_api import async_consume_uploads
 from .const import DOWNLOAD_URL
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .manager import TaskChange, get_manager
@@ -106,28 +104,6 @@ PREVIEW_FIELDS = {
     **RECURRENCE_FIELDS,
 }
 PREVIEW_COUNT = 24
-ATTACHMENT_FILE_SELECTOR = FileSelector(FileSelectorConfig(accept="*/*"))
-
-
-def _read_uploaded_file(
-    hass: HomeAssistant, file_id: str
-) -> tuple[str, str, bytes]:
-    """Consume a native Home Assistant file upload outside the event loop."""
-    with process_uploaded_file(hass, file_id) as file_path:
-        filename = file_path.name
-        content_type = (
-            mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        )
-        return filename, content_type, file_path.read_bytes()
-
-
-def _read_uploaded_files(
-    hass: HomeAssistant, file_ids: list[str]
-) -> list[tuple[str, str, bytes]]:
-    """Consume native uploads for one editor save."""
-    return [_read_uploaded_file(hass, file_id) for file_id in file_ids]
-
-
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for command in COMMANDS:
@@ -227,7 +203,7 @@ async def ws_task_update(hass, connection, msg, manager):
     {
         vol.Required("type"): "tasks/task/save",
         vol.Optional("task_id"): str,
-        vol.Optional("file_ids", default=[]): [ATTACHMENT_FILE_SELECTOR],
+        vol.Optional("file_ids", default=[]): [str],
         vol.Optional("deleted_attachment_ids", default=[]): [str],
         vol.Optional("deleted_history_entry_ids", default=[]): [str],
         **TASK_FIELDS,
@@ -237,8 +213,11 @@ async def ws_task_update(hass, connection, msg, manager):
 @require_manager
 async def ws_task_save(hass, connection, msg, manager):
     """Commit one complete editor session."""
-    uploads = await hass.async_add_executor_job(
-        _read_uploaded_files, hass, msg["file_ids"]
+    user = connection.user
+    uploads = await async_consume_uploads(
+        hass,
+        msg["file_ids"],
+        user.id if user else None,
     )
     result = await manager.async_save_task(
         msg.get("task_id"),

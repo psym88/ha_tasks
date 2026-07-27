@@ -22,7 +22,7 @@ from .const import (
     TRANSLATIONS_URL,
 )
 from .manager import TaskManager
-from .scheduling import ProblemSensorScheduler, TaskDueEventScheduler
+from .scheduling import TaskEngine
 from .task_store import TasksStore
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -100,13 +100,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = TasksStore(hass, upload_dir)
     await store.async_load()
     manager = TaskManager(hass, store)
-    due_scheduler = TaskDueEventScheduler(hass, manager)
-    problem_scheduler = ProblemSensorScheduler(hass, manager)
+    engine = TaskEngine(hass, manager)
     entry.runtime_data = TasksData(manager)
-    due_scheduler.start()
-    await problem_scheduler.async_start()
-    entry.async_on_unload(due_scheduler.stop)
-    entry.async_on_unload(problem_scheduler.stop)
+    await engine.async_start()
+    entry.async_on_unload(engine.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _, panel_js_url, card_js_url = await _frontend_urls(hass)

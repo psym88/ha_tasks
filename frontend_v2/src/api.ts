@@ -132,7 +132,7 @@ const uploadFile = async (
 ): Promise<string> => {
   const data = new FormData();
   data.append("file", file);
-  const response = await hass.fetchWithAuth("/api/file_upload", {
+  const response = await hass.fetchWithAuth("/api/tasks/upload", {
     method: "POST",
     body: data,
   });

@@ -9,7 +9,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 - Phase: Complete
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
-- Store schema: 4
+- Store schema: 5
 - Archive format: 3
 - Minimum Home Assistant version: 2026.7.0
 - Validation Home Assistant version: 2026.7.4
@@ -60,10 +60,10 @@ Baseline validation:
 ## Fixed decisions
 
 1. Home Assistant `Store` remains the persistence mechanism.
-2. Store schema 4 persists one aggregate per task; completion and attachment
-   metadata belong to that task.
-3. Published store converters remain sequential and permanent. Schema 4 has a
-   tested 3-to-4 converter and versioned fixture.
+2. Store schema 5 persists one aggregate per task; completion and attachment
+   metadata belong to that task, and retired schedule metadata is removed.
+3. Published store converters remain sequential and permanent. Schemas 4 and
+   5 have tested sequential converters and versioned fixtures.
 4. Datetimes are aware `datetime` objects inside the domain and UTC ISO strings
    only at persistence and transport boundaries.
 5. A task has exactly one trigger variant:
@@ -117,7 +117,7 @@ rather than retained as one-file abstractions.
 
 ### Backend
 
-The domain model reads and writes aggregate store schema 4. Existing WebSocket
+The domain model reads and writes aggregate store schema 5. Existing WebSocket
 commands, archive format 3, and the current frontend continue to use flat
 compatibility projections until the V2 frontend is validated.
 
@@ -130,7 +130,7 @@ the V2 paths pass the functional matrix.
 
 ### Persistence
 
-Published migration converters and fixtures are never removed. Store schema 4
+Published migration converters and fixtures are never removed. Store schema 5
 is the active persistence format; older installations upgrade sequentially on
 load.
 
@@ -246,6 +246,7 @@ not replaced the path yet.
 - [x] Remove legacy WebSocket commands.
 - [x] Remove legacy frontend and TanStack vendor files.
 - [x] Introduce and migrate to store schema 4.
+- [x] Remove retired schedule metadata through store schema 5.
 - [x] Update stable architecture documentation.
 - [x] Compare final code and bundle sizes against the baseline.
 
@@ -571,4 +572,4 @@ not replaced the path yet.
 
 ## Next action
 
-Commit the tested Phase 8 cutover.
+Validate and commit the post-cutover architecture alignment.

@@ -1,20 +1,164 @@
 """Authenticated file upload and download."""
 
+import asyncio
+from dataclasses import dataclass
 from io import BytesIO
 import json
+import mimetypes
 from pathlib import Path
 import shutil
 import tempfile
+from typing import Final
+from uuid import uuid4
 import zipfile
 
-from aiohttp import web
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.core import HomeAssistant
+from aiohttp import BodyPartReader, hdrs, web
+from homeassistant.components.http import (
+    KEY_HASS,
+    KEY_HASS_USER,
+    HomeAssistantView,
+)
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.util import raise_if_invalid_filename
 import voluptuous as vol
 
-from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
+from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL, UPLOAD_URL
 from .manager import get_manager
 from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
+
+ONE_MEGABYTE: Final = 1024 * 1024
+UPLOAD_DATA_KEY: Final = f"{DOMAIN}_temporary_uploads"
+
+
+@dataclass(frozen=True, slots=True)
+class PendingUpload:
+    """One temporary attachment upload."""
+
+    filename: str
+    content_type: str
+    path: Path
+    user_id: str | None
+
+
+class TemporaryUploads:
+    """Own temporary attachment files until an editor save consumes them."""
+
+    def __init__(self, hass: HomeAssistant, root: Path) -> None:
+        self.hass = hass
+        self.root = root
+        self.files: dict[str, PendingUpload] = {}
+        self.lock = asyncio.Lock()
+
+    @classmethod
+    async def async_create(cls, hass: HomeAssistant) -> TemporaryUploads:
+        """Create a clean process-local upload directory."""
+        root = Path(tempfile.gettempdir()) / "home-assistant-tasks-upload"
+
+        def prepare() -> None:
+            if root.exists():
+                shutil.rmtree(root)
+            root.mkdir(mode=0o700)
+
+        await hass.async_add_executor_job(prepare)
+        uploads = cls(hass, root)
+
+        @callback
+        def cleanup(_event) -> None:
+            hass.async_create_task(
+                hass.async_add_executor_job(
+                    shutil.rmtree, root, True
+                )
+            )
+
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, cleanup)
+        return uploads
+
+    async def async_store(
+        self,
+        upload: BodyPartReader,
+        filename: str,
+        user_id: str | None,
+    ) -> str:
+        """Stream one multipart file into temporary storage."""
+        file_id = uuid4().hex
+        directory = self.root / file_id
+        path = directory / filename
+        content_type = (
+            upload.headers.get(hdrs.CONTENT_TYPE)
+            or mimetypes.guess_type(filename)[0]
+            or "application/octet-stream"
+        )
+
+        await self.hass.async_add_executor_job(directory.mkdir)
+        try:
+            with path.open("xb") as output:
+                while chunk := await upload.read_chunk(ONE_MEGABYTE):
+                    await self.hass.async_add_executor_job(
+                        output.write, chunk
+                    )
+        except Exception:
+            await self.hass.async_add_executor_job(
+                shutil.rmtree, directory, True
+            )
+            raise
+
+        self.files[file_id] = PendingUpload(
+            filename, content_type, path, user_id
+        )
+        return file_id
+
+    async def async_consume(
+        self, file_ids: list[str], user_id: str | None
+    ) -> list[tuple[str, str, bytes]]:
+        """Consume a set of uploads owned by the requesting user."""
+        if len(file_ids) != len(set(file_ids)):
+            raise ValueError("invalid_upload")
+        async with self.lock:
+            records = []
+            for file_id in file_ids:
+                record = self.files.get(file_id)
+                if record is None or record.user_id != user_id:
+                    raise ValueError("invalid_upload")
+                records.append(record)
+            for file_id in file_ids:
+                self.files.pop(file_id)
+
+        def read_and_remove() -> list[tuple[str, str, bytes]]:
+            try:
+                return [
+                    (
+                        record.filename,
+                        record.content_type,
+                        record.path.read_bytes(),
+                    )
+                    for record in records
+                ]
+            finally:
+                for record in records:
+                    shutil.rmtree(record.path.parent, ignore_errors=True)
+
+        return await self.hass.async_add_executor_job(read_and_remove)
+
+
+async def _async_uploads(hass: HomeAssistant) -> TemporaryUploads:
+    """Return the process-local temporary upload store."""
+    if UPLOAD_DATA_KEY not in hass.data:
+        hass.data[UPLOAD_DATA_KEY] = await TemporaryUploads.async_create(hass)
+    return hass.data[UPLOAD_DATA_KEY]
+
+
+async def async_consume_uploads(
+    hass: HomeAssistant,
+    file_ids: list[str],
+    user_id: str | None,
+) -> list[tuple[str, str, bytes]]:
+    """Consume temporary Tasks uploads for one editor save."""
+    if not file_ids:
+        return []
+    return await (await _async_uploads(hass)).async_consume(
+        file_ids, user_id
+    )
 
 ARCHIVE_MANIFEST_SCHEMA = vol.Schema(
     {
@@ -106,8 +250,42 @@ def archive_error_code(error: Exception) -> str:
 
 
 def async_register_views(hass: HomeAssistant) -> None:
+    hass.http.register_view(UploadView)
     hass.http.register_view(DownloadView)
     hass.http.register_view(ArchiveView)
+
+
+class UploadView(HomeAssistantView):
+    """Accept temporary Tasks attachment uploads."""
+
+    url = UPLOAD_URL
+    name = "api:tasks:upload"
+    requires_auth = True
+
+    async def post(self, request: web.Request) -> web.Response:
+        """Stream one multipart file into Tasks-owned temporary storage."""
+        request._client_max_size = 0  # noqa: SLF001
+        reader = await request.multipart()
+        upload = await reader.next()
+        filename = upload.filename if isinstance(upload, BodyPartReader) else None
+        if (
+            not isinstance(upload, BodyPartReader)
+            or upload.name != "file"
+            or filename is None
+        ):
+            raise web.HTTPBadRequest(text="Expected a file")
+        try:
+            raise_if_invalid_filename(filename)
+        except ValueError as err:
+            raise web.HTTPBadRequest from err
+        hass = request.app[KEY_HASS]
+        user = request.get(KEY_HASS_USER)
+        file_id = await (await _async_uploads(hass)).async_store(
+            upload,
+            filename,
+            getattr(user, "id", None),
+        )
+        return self.json({"file_id": file_id})
 
 
 class DownloadView(HomeAssistantView):

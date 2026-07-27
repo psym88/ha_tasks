@@ -1,4 +1,4 @@
-"""Schema-4 persistence and attachment files for Tasks."""
+"""Versioned aggregate persistence and attachment files for Tasks."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ class TasksRepository:
         }
 
     async def async_save(self, data: dict[str, Any]) -> None:
-        """Persist one schema-4 snapshot."""
+        """Persist one current aggregate snapshot."""
         await self.store.async_save(data)
 
     async def async_read_attachment_files(

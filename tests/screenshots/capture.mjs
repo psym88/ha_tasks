@@ -225,7 +225,7 @@ async function uploadAttachment(token) {
 </svg>`;
   const form = new FormData();
   form.append("file", new Blob([svg], { type: "image/svg+xml" }), "maintenance-guide.svg");
-  const response = await fetch(`${baseUrl}/api/file_upload`, {
+  const response = await fetch(`${baseUrl}/api/tasks/upload`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: form,
