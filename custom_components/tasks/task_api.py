@@ -4,7 +4,6 @@ from datetime import timedelta
 from functools import wraps
 from itertools import islice
 import mimetypes
-from typing import Any
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
@@ -17,9 +16,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
+from .manager import get_manager
 from .recurrence import occurrences
-from .task_events import async_fire_tasks_event
-from .task_store import get_store
 
 TEXT = vol.Any(str, None)
 SCHEDULE_UNIT = vol.In(("daily", "weekly", "monthly", "yearly"))
@@ -101,44 +99,25 @@ def async_register(hass: HomeAssistant) -> None:
         websocket_api.async_register_command(hass, command)
 
 
-def require_store(func):
+def require_manager(func):
     @wraps(func)
     async def wrapper(hass, connection, msg):
-        store = get_store(hass)
-        if store is None:
+        manager = get_manager(hass)
+        if manager is None:
             connection.send_error(msg["id"], "not_loaded", "Integration not loaded")
             return
         try:
-            await func(hass, connection, msg, store)
+            await func(hass, connection, msg, manager)
         except (ValueError, KeyError) as err:
             connection.send_error(msg["id"], str(err), str(err))
     return wrapper
 
 
-def updated(
-    hass: HomeAssistant,
-    connection,
-    msg: dict[str, Any],
-    action: str,
-    resource_type: str,
-    resource_id: str | None = None,
-    **data: Any,
-) -> None:
-    async_fire_tasks_event(
-        hass,
-        action,
-        resource_type,
-        resource_id,
-        context=connection.context(msg),
-        **data,
-    )
-
-
 @websocket_api.websocket_command({vol.Required("type"): "tasks/list"})
 @websocket_api.async_response
-@require_store
-async def ws_list(hass, connection, msg, store):
-    result = store.snapshot()
+@require_manager
+async def ws_list(hass, connection, msg, manager):
+    result = manager.snapshot()
     result["now"] = dt_util.utcnow().isoformat()
     result["users"] = [
         {"id": user.id, "name": user.name or user.id}
@@ -153,14 +132,12 @@ async def ws_list(hass, connection, msg, store):
     {vol.Required("type"): "tasks/task/create", **TASK_CREATE_FIELDS}
 )
 @websocket_api.async_response
-@require_store
-async def ws_task_create(hass, connection, msg, store):
-    result = await store.async_add_task(msg, dt_util.utcnow())
-    connection.send_result(msg["id"], result)
-    updated(
-        hass, connection, msg, "created", "task", result["task_id"],
-        resource_name=result["task_name"],
+@require_manager
+async def ws_task_create(hass, connection, msg, manager):
+    result = await manager.async_add_task(
+        msg, dt_util.utcnow(), context=connection.context(msg)
     )
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(
@@ -171,42 +148,33 @@ async def ws_task_create(hass, connection, msg, store):
     }
 )
 @websocket_api.async_response
-@require_store
-async def ws_task_update(hass, connection, msg, store):
-    previous = store.task(msg["task_id"])
-    result = await store.async_update_task(
-        msg["task_id"], msg, dt_util.utcnow()
+@require_manager
+async def ws_task_update(hass, connection, msg, manager):
+    result = await manager.async_update_task(
+        msg["task_id"],
+        msg,
+        dt_util.utcnow(),
+        context=connection.context(msg),
     )
     connection.send_result(msg["id"], result)
-    activated = not previous.get("active", True) and result.get("active", True)
-    updated(
-        hass, connection, msg, "updated", "task", msg["task_id"],
-        resource_name=result["task_name"],
-        problem_trigger_changed=(
-            previous.get("schedule_type") != result.get("schedule_type")
-            or previous.get("problem_sensor") != result.get("problem_sensor")
-            or activated
-        ),
-    )
+
+
 @websocket_api.websocket_command({vol.Required("type"): "tasks/task/delete", vol.Required("task_id"): str})
 @websocket_api.async_response
-@require_store
-async def ws_task_delete(hass, connection, msg, store):
-    task = store.task(msg["task_id"])
-    await store.async_delete_task(msg["task_id"])
-    connection.send_result(msg["id"])
-    updated(
-        hass, connection, msg, "deleted", "task", msg["task_id"],
-        resource_name=task.get("task_name") if task else None,
+@require_manager
+async def ws_task_delete(hass, connection, msg, manager):
+    await manager.async_delete_task(
+        msg["task_id"], context=connection.context(msg)
     )
+    connection.send_result(msg["id"])
 
 
 @websocket_api.websocket_command(
     {vol.Required("type"): "tasks/task/preview_next_due", **PREVIEW_FIELDS}
 )
 @websocket_api.async_response
-@require_store
-async def ws_task_preview_next_due(hass, connection, msg, store):
+@require_manager
+async def ws_task_preview_next_due(hass, connection, msg, manager):
     """Preview recurrence using the authoritative backend scheduler."""
     if msg.get("task_due"):
         current = parse_aware_datetime(msg["task_due"])
@@ -234,40 +202,39 @@ async def ws_task_preview_next_due(hass, connection, msg, store):
     }
 )
 @websocket_api.async_response
-@require_store
-async def ws_task_complete(hass, connection, msg, store):
+@require_manager
+async def ws_task_complete(hass, connection, msg, manager):
     user = connection.user
-    result = await store.async_complete_task(
+    result = await manager.async_complete_task(
         msg["task_id"],
         msg.get("completed_at", dt_util.utcnow().isoformat()),
         user.id if user else None,
         user.name if user else "system",
         msg.get("notes"),
+        context=connection.context(msg),
     )
     connection.send_result(msg["id"], result)
-    updated(
-        hass, connection, msg, "completed", "task", msg["task_id"],
-        resource_name=result.get("task_name"),
-    )
 
 
 @websocket_api.websocket_command({vol.Required("type"): "tasks/history/list", vol.Required("task_id"): str})
 @websocket_api.async_response
-@require_store
-async def ws_history_list(hass, connection, msg, store):
-    connection.send_result(msg["id"], {"history": store.history(msg["task_id"])})
+@require_manager
+async def ws_history_list(hass, connection, msg, manager):
+    connection.send_result(
+        msg["id"], {"history": manager.history(msg["task_id"])}
+    )
 
 
 @websocket_api.websocket_command({vol.Required("type"): "tasks/history/delete", vol.Required("task_id"): str, vol.Required("history_entry_id"): str})
 @websocket_api.async_response
-@require_store
-async def ws_history_delete(hass, connection, msg, store):
-    result = await store.async_delete_history(msg["task_id"], msg["history_entry_id"])
-    connection.send_result(msg["id"], result)
-    updated(
-        hass, connection, msg, "deleted", "history", msg["history_entry_id"],
-        task_id=msg["task_id"],
+@require_manager
+async def ws_history_delete(hass, connection, msg, manager):
+    result = await manager.async_delete_history(
+        msg["task_id"],
+        msg["history_entry_id"],
+        context=connection.context(msg),
     )
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(
@@ -277,10 +244,9 @@ async def ws_history_delete(hass, connection, msg, store):
     }
 )
 @websocket_api.async_response
-@require_store
-async def ws_attachment_urls(hass, connection, msg, store):
-    if store.task(msg["task_id"]) is None:
-        raise ValueError("unknown_task")
+@require_manager
+async def ws_attachment_urls(hass, connection, msg, manager):
+    manager.task(msg["task_id"])
     connection.send_result(
         msg["id"],
         {
@@ -291,7 +257,7 @@ async def ws_attachment_urls(hass, connection, msg, store):
                     timedelta(hours=1),
                     refresh_token_id=connection.refresh_token_id,
                 )
-                for item in store.snapshot()["attachments"]
+                for item in manager.snapshot()["attachments"]
                 if item["task_id"] == msg["task_id"]
             }
         },
@@ -306,37 +272,29 @@ async def ws_attachment_urls(hass, connection, msg, store):
     }
 )
 @websocket_api.async_response
-@require_store
-async def ws_attachment_create(hass, connection, msg, store):
+@require_manager
+async def ws_attachment_create(hass, connection, msg, manager):
     filename, content_type, content = await hass.async_add_executor_job(
         _read_uploaded_file, hass, msg["file_id"]
     )
-    record = await store.async_add_attachment(
-        msg["task_id"], filename, content_type, content
+    record = await manager.async_add_attachment(
+        msg["task_id"],
+        filename,
+        content_type,
+        content,
+        context=connection.context(msg),
     )
     connection.send_result(msg["id"], record)
-    updated(
-        hass,
-        connection,
-        msg,
-        "created",
-        "attachment",
-        record["attachment_id"],
-        task_id=msg["task_id"],
-    )
 
 
 @websocket_api.websocket_command({vol.Required("type"): "tasks/attachment/delete", vol.Required("attachment_id"): str})
 @websocket_api.async_response
-@require_store
-async def ws_attachment_delete(hass, connection, msg, store):
-    attachment = store.attachment(msg["attachment_id"])
-    await store.async_delete_attachment(msg["attachment_id"])
-    connection.send_result(msg["id"])
-    updated(
-        hass, connection, msg, "deleted", "attachment", msg["attachment_id"],
-        task_id=attachment.get("task_id") if attachment else None,
+@require_manager
+async def ws_attachment_delete(hass, connection, msg, manager):
+    await manager.async_delete_attachment(
+        msg["attachment_id"], context=connection.context(msg)
     )
+    connection.send_result(msg["id"])
 
 
 COMMANDS = (ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

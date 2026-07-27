@@ -59,7 +59,7 @@ def test_dashboard_module_is_registered_and_removed_with_config_entry():
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
-    assert "entry.async_on_unload(nfc_completion.async_setup_listener(hass, store))" in source
+    assert "entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))" in source
 
 
 def test_native_tag_integration_is_loaded_as_a_dependency():

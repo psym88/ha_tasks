@@ -13,9 +13,8 @@ from homeassistant.core import HomeAssistant
 import voluptuous as vol
 
 from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
+from .manager import get_manager
 from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
-from .task_events import async_fire_tasks_event
-from .task_store import get_store
 
 ARCHIVE_MANIFEST_SCHEMA = vol.Schema(
     {
@@ -117,11 +116,11 @@ class DownloadView(HomeAssistantView):
     requires_auth = True
 
     async def get(self, request: web.Request, attachment_id: str) -> web.StreamResponse:
-        store = get_store(request.app["hass"])
-        record = store.attachment(attachment_id) if store else None
-        if record is None or not store.file_path(attachment_id).exists():
+        manager = get_manager(request.app["hass"])
+        record = manager.attachment(attachment_id) if manager else None
+        if record is None or not manager.file_path(attachment_id).exists():
             raise web.HTTPNotFound()
-        return web.FileResponse(store.file_path(attachment_id), headers={"Content-Type": record["content_type"], "Content-Disposition": f'inline; filename="{record["filename"]}"'})
+        return web.FileResponse(manager.file_path(attachment_id), headers={"Content-Type": record["content_type"], "Content-Disposition": f'inline; filename="{record["filename"]}"'})
 
 
 class ArchiveView(HomeAssistantView):
@@ -130,10 +129,10 @@ class ArchiveView(HomeAssistantView):
     requires_auth = True
 
     async def get(self, request: web.Request) -> web.Response:
-        store = get_store(request.app["hass"])
-        if store is None:
+        manager = get_manager(request.app["hass"])
+        if manager is None:
             raise web.HTTPServiceUnavailable()
-        data, files = await store.async_export_archive()
+        data, files = await manager.async_export_archive()
         body = await request.app["hass"].async_add_executor_job(
             _build_archive, data, files
         )
@@ -147,8 +146,8 @@ class ArchiveView(HomeAssistantView):
         """Stream, validate, and import a Tasks archive."""
         request._client_max_size = 0  # noqa: SLF001
         hass = request.app["hass"]
-        store = get_store(hass)
-        if store is None:
+        manager = get_manager(hass)
+        if manager is None:
             raise web.HTTPServiceUnavailable()
         try:
             with tempfile.TemporaryDirectory(prefix="tasks-import-") as temp_dir:
@@ -160,7 +159,7 @@ class ArchiveView(HomeAssistantView):
                 data, files, archive_report = await hass.async_add_executor_job(
                     _parse_archive_file_with_report, archive_path, temp_path
                 )
-                import_report = await store.async_import_archive(data, files)
+                import_report = await manager.async_import_archive(data, files)
         except (
             ValueError,
             KeyError,
@@ -169,5 +168,4 @@ class ArchiveView(HomeAssistantView):
         ) as err:
             code = archive_error_code(err)
             return self.json({"code": code}, status_code=400)
-        async_fire_tasks_event(hass, "imported", "archive")
         return self.json({"imported": True, **archive_report, **import_report})

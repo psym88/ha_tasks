@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 2 - Repository and manager
+- Phase: 3 - Runtime adapters
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 3
@@ -196,9 +196,9 @@ not replaced the path yet.
 
 - [x] Isolate Home Assistant Store access in the repository.
 - [x] Add atomic in-memory mutation semantics.
-- [ ] Route task CRUD and completion through `TaskManager`.
+- [x] Route task CRUD and completion through `TaskManager`.
 - [x] Simplify history deletion.
-- [ ] Route attachment mutations through `TaskManager`.
+- [x] Route attachment mutations through `TaskManager`.
 
 ### Phase 3 - Runtime adapters
 
@@ -269,8 +269,15 @@ not replaced the path yet.
 - Reduced `task_store.py` from 404 to 389 lines. The explicit repository
   boundary and rollback behavior add 112 production lines in this phase.
 - Verified all 124 backend and 121 frontend tests.
+- Added `TaskManager` as the only runtime mutation entry point for WebSocket,
+  archive, NFC, scheduling, attachments, and completion.
+- Centralized public change events after successful persistence and removed
+  duplicate event construction from the WebSocket, HTTP, and NFC adapters.
+- Reduced `task_api.py` by 42 lines and `task_store.py` by another 8 lines.
+  The explicit application boundary adds a net 147 production lines.
+- Verified all 127 backend and 121 frontend tests.
 
 ## Next action
 
-Introduce `TaskManager` as the single task CRUD and completion entry point,
-while retaining the current WebSocket protocol and schema-3 representation.
+Replace the public Home Assistant event bus as the internal scheduler
+coordination mechanism with direct `TaskManager` change callbacks.

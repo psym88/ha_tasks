@@ -13,6 +13,7 @@ from homeassistant.loader import async_get_integration
 from . import attachment_api, nfc_completion, notifications, task_api
 from .const import DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
 from .due_events import TaskDueEventScheduler
+from .manager import TaskManager
 from .problem_events import ProblemSensorScheduler
 from .task_store import TasksStore
 
@@ -23,7 +24,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 class TasksData:
     """Runtime data stored on the config entry."""
 
-    store: TasksStore
+    manager: TaskManager
 
 
 async def _frontend_urls(hass: HomeAssistant) -> tuple[str, str, str]:
@@ -54,14 +55,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     upload_dir = Path(hass.config.path(DOMAIN, "uploads"))
     store = TasksStore(hass, upload_dir)
     await store.async_load()
-    due_scheduler = TaskDueEventScheduler(hass, store)
-    problem_scheduler = ProblemSensorScheduler(hass, store)
-    entry.runtime_data = TasksData(store)
+    manager = TaskManager(hass, store)
+    due_scheduler = TaskDueEventScheduler(hass, manager)
+    problem_scheduler = ProblemSensorScheduler(hass, manager)
+    entry.runtime_data = TasksData(manager)
     due_scheduler.start()
     await problem_scheduler.async_start()
     entry.async_on_unload(due_scheduler.stop)
     entry.async_on_unload(problem_scheduler.stop)
-    entry.async_on_unload(nfc_completion.async_setup_listener(hass, store))
+    entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     entry.async_on_unload(notifications.async_setup_listener(hass))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _, panel_js_url, card_js_url = await _frontend_urls(hass)

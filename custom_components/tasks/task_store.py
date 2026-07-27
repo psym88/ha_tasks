@@ -13,7 +13,6 @@ from uuid import uuid4
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .models import (
     Attachment,
@@ -26,15 +25,6 @@ from .models import (
 )
 from .recurrence import occurrences
 from .repository import TasksRepository
-
-def get_store(hass: HomeAssistant):
-    """Return the loaded singleton store."""
-    entries = hass.config_entries.async_entries(DOMAIN)
-    if not entries or not hasattr(entries[0], "runtime_data"):
-        return None
-    data = entries[0].runtime_data
-    return getattr(data, "store", None)
-
 
 class TasksStore:
     """Serialize mutations and persist one compact snapshot."""

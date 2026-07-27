@@ -15,7 +15,7 @@ async def async_setup_entry(
     entry: ConfigEntry[TasksData],
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    entity = TasksDueSensor(entry.runtime_data.store)
+    entity = TasksDueSensor(entry.runtime_data.manager)
     async_add_entities([entity])
 
     async def refresh(_event: Event) -> None:

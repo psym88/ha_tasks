@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.tasks import nfc_completion as nfc
+from custom_components.tasks.const import EVENT_TASKS
+from custom_components.tasks.manager import TaskManager
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -74,22 +76,27 @@ def test_task_labels_are_stored_and_updated_without_duplicates():
     asyncio.run(run())
 
 
-def test_matching_scan_completes_task_with_event_user(monkeypatch):
+def test_matching_scan_completes_task_with_event_user():
     async def run():
         store = _store([_task(tag_id="tag-1")])
         user = SimpleNamespace(id="user-1", name="Alex")
+        updates = []
         hass = SimpleNamespace(
-            auth=SimpleNamespace(async_get_user=lambda user_id: _async_value(user))
+            auth=SimpleNamespace(
+                async_get_user=lambda user_id: _async_value(user)
+            ),
+            bus=SimpleNamespace(
+                async_fire=lambda event_type, data, context=None: updates.append(
+                    (event_type, data, context)
+                )
+            ),
         )
+        manager = TaskManager(hass, store)
         event = SimpleNamespace(
             data={"tag_id": "tag-1", "device_id": "reader-1"},
             context=SimpleNamespace(user_id="user-1"),
         )
-        updates = []
-        monkeypatch.setattr(
-            nfc, "async_fire_tasks_event", lambda *args, **kwargs: updates.append((args, kwargs))
-        )
-        await nfc.async_handle_tag_scanned(hass, store, event)
+        await nfc.async_handle_tag_scanned(hass, manager, event)
         history = store.history("task-1")
         assert len(history) == 1
         assert history[0]["user_id"] == "user-1"
@@ -97,30 +104,38 @@ def test_matching_scan_completes_task_with_event_user(monkeypatch):
         assert history[0]["notes"] == nfc.NFC_COMPLETION_NOTE
         assert updates == [
             (
-                (hass, "completed", "task", "task-1"),
+                EVENT_TASKS,
                 {
-                    "context": event.context,
+                    "action": "completed",
+                    "resource_type": "task",
+                    "resource_id": "task-1",
                     "resource_name": "task-1",
                     "source": "nfc",
                 },
+                event.context,
             )
         ]
 
     asyncio.run(run())
 
 
-def test_unknown_scan_is_ignored(monkeypatch):
+def test_unknown_scan_is_ignored():
     async def run():
         store = _store([_task(tag_id="tag-1")])
-        hass = SimpleNamespace(auth=None)
+        updates = []
+        hass = SimpleNamespace(
+            auth=None,
+            bus=SimpleNamespace(
+                async_fire=lambda *args, **kwargs: updates.append(
+                    (args, kwargs)
+                )
+            ),
+        )
+        manager = TaskManager(hass, store)
         event = SimpleNamespace(
             data={"tag_id": "other"}, context=SimpleNamespace(user_id=None)
         )
-        updates = []
-        monkeypatch.setattr(
-            nfc, "async_fire_tasks_event", lambda *args, **kwargs: updates.append((args, kwargs))
-        )
-        await nfc.async_handle_tag_scanned(hass, store, event)
+        await nfc.async_handle_tag_scanned(hass, manager, event)
         assert store.history("task-1") == []
         assert updates == []
 
