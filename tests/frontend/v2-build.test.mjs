@@ -38,6 +38,10 @@ const taskForm = await readFile(
   new URL("../../frontend_v2/src/task-form.ts", import.meta.url),
   "utf8",
 );
+const taskViewer = await readFile(
+  new URL("../../frontend_v2/src/task-viewer.ts", import.meta.url),
+  "utf8",
+);
 const assets = JSON.parse(
   await readFile(
     new URL(
@@ -232,4 +236,62 @@ test("V2 loads completion history and stages deletion until save", () => {
   assert.match(taskForm, /loadTaskHistory/);
   assert.match(taskForm, /this\.deletedHistoryEntryIds/);
   assert.match(taskForm, /Completed via NFC/);
+});
+
+test("V2 task viewer loads assignment history and signed attachments", () => {
+  assert.match(taskViewer, /loadAssignmentOptions/);
+  assert.match(taskViewer, /loadTaskHistory/);
+  assert.match(taskViewer, /loadAttachmentUrls/);
+  assert.match(api, /type: "tasks\/attachment\/urls"/);
+  assert.match(taskViewer, /this\.signedFiles\[attachment\.attachment_id\]/);
+  assert.match(source, /openTaskViewer/);
+});
+
+test("V2 previews common attachment types in its owned dialog", () => {
+  assert.match(taskViewer, /type\.startsWith\("image\/"\)/);
+  assert.match(taskViewer, /type\.startsWith\("video\/"\)/);
+  assert.match(taskViewer, /type\.startsWith\("audio\/"\)/);
+  assert.match(taskViewer, /type === "application\/pdf"/);
+  assert.match(taskViewer, /openTasksDialog/);
+  assert.doesNotMatch(taskViewer, /ha-dialog|show-dialog/);
+});
+
+test("V2 completion requires confirmation and sends trimmed notes", () => {
+  assert.match(api, /type: "tasks\/task\/complete"/);
+  assert.match(api, /notes: notes\.trim\(\) \|\| null/);
+  assert.match(taskViewer, /heading: "Complete task\?"/);
+  assert.match(taskViewer, /if \(result !== "complete"\)/);
+  assert.match(taskViewer, /await completeTask/);
+  assert.match(taskViewer, /label="Completion notes"/);
+});
+
+test("V2 viewer renders complete trigger rules and responsive details", () => {
+  assert.match(taskViewer, /schedule_type === "sensor"/);
+  assert.match(taskViewer, /schedule_type === "sliding"/);
+  assert.match(taskViewer, /unit === "weekly"/);
+  assert.match(taskViewer, /unit === "monthly"/);
+  assert.match(taskViewer, /unit === "yearly"/);
+  assert.match(taskViewer, /schedule_weekdays/);
+  assert.match(taskViewer, /schedule_month/);
+  assert.match(taskViewer, /@media \(max-width: 520px\)/);
+});
+
+test("V2 viewer preserves safe common markdown without HA internals", () => {
+  assert.match(taskViewer, /renderDescription\(\)/);
+  assert.match(taskViewer, /<strong>/);
+  assert.match(taskViewer, /<em>/);
+  assert.match(taskViewer, /<code>/);
+  assert.match(taskViewer, /<blockquote>/);
+  assert.match(taskViewer, /\^\(\?:https\?:\|mailto:\|\\\/\|#\)/);
+  assert.doesNotMatch(taskViewer, /unsafeHTML|ha-markdown/);
+});
+
+test("V2 viewer keeps independently loaded details available", () => {
+  assert.match(taskViewer, /Promise\.allSettled/);
+  assert.match(taskViewer, /assignment\.status === "fulfilled"/);
+  assert.match(taskViewer, /history\.status === "fulfilled"/);
+  assert.match(taskViewer, /files\.status === "fulfilled"/);
+  assert.match(taskViewer, /Assignment details could not be loaded/);
+  assert.match(taskViewer, /Completion history could not be loaded/);
+  assert.match(taskViewer, /Attachment links could not be loaded/);
 });

@@ -152,12 +152,12 @@ not replaced the path yet.
 | After-completion recurrence | legacy | complete | completion timestamp anchor |
 | Recurrence preview | legacy | complete | same authoritative calculation |
 | Problem-sensor trigger | legacy | complete | startup and off-to-on behavior |
-| Completion notes | legacy | pending | trimming and attribution |
+| Completion notes | legacy | complete | trimming and attribution |
 | Delete history | legacy | complete | deletion does not alter current due |
 | NFC completion | legacy | pending | user/context attribution |
 | Persistent notification | legacy | complete | create and dismiss |
 | Mobile notification | legacy | complete | device target and critical payload |
-| Task attachments | legacy | pending | upload, preview and delete |
+| Task attachments | legacy | complete | upload, preview and delete |
 | ZIP export | legacy | pending | data and attachment consistency |
 | ZIP import | legacy | pending | streaming, migration and merge report |
 | Due sensor | legacy | pending | push update and active-task filtering |
@@ -228,7 +228,7 @@ not replaced the path yet.
 
 - [x] Add TypeScript and production bundling.
 - [x] Add owned UI primitives.
-- [ ] Add V2 task form and viewer.
+- [x] Add V2 task form and viewer.
 - [ ] Add V2 task table without grouping or a grid dependency.
 - [ ] Add V2 dashboard card.
 - [x] Register a parallel test panel.
@@ -431,8 +431,22 @@ not replaced the path yet.
   Undo presentation paths with exact HTTP and WebSocket payloads in a browser.
 - The hash-scoped bundle grew from 57,985 to 64,653 bytes. Verified all 145
   backend and 139 frontend tests.
+- Replaced the placeholder V2 task popup with the complete owned task viewer.
+- Added resolved assignee, label, NFC, file-count, status, and due metadata;
+  safe common Markdown rendering; explicit rules for every trigger variant;
+  signed attachment previews; and read-only completion history.
+- Added completion notes and a separate owned confirmation dialog before the
+  existing completion command. Cancelling the confirmation performs no
+  mutation and successful completion closes the viewer.
+- Kept assignment, history, and attachment-link loading independent so one
+  failed request does not discard the other available task details.
+- Verified attachment previews, cancellation, exact completion payloads,
+  partial loading failures, desktop and 390-pixel mobile layouts, and light
+  and dark themes in a browser.
+- The hash-scoped bundle grew from 64,653 to 76,186 bytes. Verified all 145
+  backend and 145 frontend tests.
 
 ## Next action
 
-Complete the V2 task viewer with assignment metadata, attachments, completion
-history, completion notes, and confirmation.
+Add V2 task creation and deletion by reusing the completed editor and owned
+confirmation dialog.

@@ -3,19 +3,15 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { subscribeTasks } from "./api";
 import { openTaskEditor } from "./task-form";
+import { openTaskViewer } from "./task-viewer";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
 import {
   actionMenuElementName,
   type ActionMenuItem,
 } from "./ui/action-menu";
-import { openTasksDialog } from "./ui/dialog";
-import { expandableElementName } from "./ui/expandable";
-import { pillElementName } from "./ui/pill";
 import { elementName } from "./version";
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
-const expandableTag = unsafeStatic(expandableElementName);
-const pillTag = unsafeStatic(pillElementName);
 const taskActions: ActionMenuItem[] = [
   { label: "Open", value: "open" },
   { label: "Edit", value: "edit" },
@@ -138,25 +134,13 @@ class TasksPanelV2 extends LitElement {
   }
 
   private openTask(task: Task): void {
-    void openTasksDialog({
-      heading: task.task_name,
-      content: staticHtml`
-        <p>
-          <${pillTag} tone=${task.active === false ? "muted" : "positive"}>
-            ${task.active === false ? "Inactive" : "Active"}
-          </${pillTag}>
-          <${pillTag}>${task.schedule_type || "Unknown trigger"}</${pillTag}>
-        </p>
-        ${task.task_description
-          ? html`<p>${task.task_description}</p>`
-          : nothing}
-        <${expandableTag} heading="Planning" open>
-          <p>Due: ${task.task_due || "Not scheduled"}</p>
-          <p>Trigger: ${task.schedule_type || "Unknown"}</p>
-        </${expandableTag}>
-      `,
-      actions: [{ label: "Close", value: "close" }],
-    });
+    if (this.hass) {
+      void openTaskViewer(
+        this.hass,
+        task,
+        this.snapshot?.attachments || [],
+      );
+    }
   }
 
   protected render() {

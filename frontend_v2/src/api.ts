@@ -201,6 +201,26 @@ export const loadTaskHistory = (
     task_id: taskId,
   });
 
+export const loadAttachmentUrls = (
+  hass: HomeAssistant,
+  taskId: string,
+): Promise<{ signed_files: Record<string, string> }> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/attachment/urls",
+    task_id: taskId,
+  });
+
+export const completeTask = (
+  hass: HomeAssistant,
+  taskId: string,
+  notes: string,
+): Promise<{ task: Task }> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/task/complete",
+    task_id: taskId,
+    notes: notes.trim() || null,
+  });
+
 export const previewTaskSchedule = (
   hass: HomeAssistant,
   schedule: RecurrenceScheduleDetails,
