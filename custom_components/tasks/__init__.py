@@ -12,9 +12,8 @@ from homeassistant.loader import async_get_integration
 
 from . import attachment_api, nfc_completion, task_api
 from .const import DOMAIN, ENGLISH_TRANSLATIONS_URL, FRONTEND_URL, PANEL_TITLE, PANEL_URL, PLATFORMS, TRANSLATIONS_URL
-from .due_events import TaskDueEventScheduler
 from .manager import TaskManager
-from .problem_events import ProblemSensorScheduler
+from .scheduling import ProblemSensorScheduler, TaskDueEventScheduler
 from .task_store import TasksStore
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 3 - Runtime adapters
+- Phase: 4 - Protocol
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 3
@@ -203,8 +203,8 @@ not replaced the path yet.
 ### Phase 3 - Runtime adapters
 
 - [x] Replace public-event internal coordination with direct callbacks.
-- [ ] Consolidate due and problem trigger scheduling.
-- [ ] Track only configured binary sensors.
+- [x] Consolidate due and problem trigger scheduling.
+- [x] Track only configured binary sensors.
 - [x] Route NFC and notifications through `TaskManager`.
 - [x] Update the due sensor from relevant domain changes only.
 
@@ -284,8 +284,15 @@ not replaced the path yet.
   every public Tasks event.
 - Added 24 net production lines for the typed internal change contract and
   verified all 128 backend plus 121 frontend tests.
+- Consolidated `due_events.py` and `problem_events.py` into `scheduling.py`.
+- Replaced the global state-event scan with Home Assistant 2026.7.4's indexed
+  `async_track_state_change_event` helper and dynamically refresh the entity
+  set only when problem-trigger configuration changes.
+- Eliminated one production module; the indexed subscription behavior adds 20
+  net production lines.
+- Verified all 129 backend and 121 frontend tests.
 
 ## Next action
 
-Consolidate due-time and problem-sensor runtime scheduling, then subscribe only
-to binary sensors referenced by active problem-trigger tasks.
+Add one initial-snapshot WebSocket subscription while retaining the legacy
+request and public-event APIs for the current frontend.

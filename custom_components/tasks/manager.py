@@ -136,10 +136,7 @@ class TaskManager:
             problem_trigger_changed=(
                 previous.get("schedule_type") != task.get("schedule_type")
                 or previous.get("problem_sensor") != task.get("problem_sensor")
-                or (
-                    not previous.get("active", True)
-                    and task.get("active", True)
-                )
+                or previous.get("active", True) != task.get("active", True)
             ),
         )
         return task

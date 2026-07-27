@@ -9,7 +9,7 @@ from custom_components.tasks.datetime_utils import (
     normalize_utc_datetime,
     parse_aware_datetime,
 )
-from custom_components.tasks.due_events import TaskDueEventScheduler
+from custom_components.tasks.scheduling import TaskDueEventScheduler
 
 
 def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
@@ -93,10 +93,10 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
         return lambda: None
 
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
+        "custom_components.tasks.scheduling.dt_util.utcnow", lambda: now
     )
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.async_track_point_in_time",
+        "custom_components.tasks.scheduling.async_track_point_in_time",
         track_point_in_time,
     )
 
@@ -124,10 +124,10 @@ def test_due_scheduler_ignores_inactive_future_tasks(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
+        "custom_components.tasks.scheduling.dt_util.utcnow", lambda: now
     )
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.async_track_point_in_time",
+        "custom_components.tasks.scheduling.async_track_point_in_time",
         lambda _hass, _action, point: (
             captured.update(point=point),
             lambda: None,

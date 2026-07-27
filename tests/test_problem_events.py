@@ -4,8 +4,8 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from custom_components.tasks.manager import TaskManager
-from custom_components.tasks.problem_events import ProblemSensorScheduler
+from custom_components.tasks.manager import TaskChange, TaskManager
+from custom_components.tasks.scheduling import ProblemSensorScheduler
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -85,9 +85,9 @@ def test_problem_sensor_triggers_only_when_state_becomes_on():
     asyncio.run(run())
 
 
-def test_problem_sensor_catches_up_active_problem_on_start():
+def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
     async def run():
-        listeners = []
+        tracked = []
         task = {
             "task_id": "pump",
             "task_name": "Check pump",
@@ -97,22 +97,23 @@ def test_problem_sensor_catches_up_active_problem_on_start():
         }
         store = ProblemStore(task)
         hass = SimpleNamespace(
-            bus=SimpleNamespace(
-                async_listen=lambda event_type, callback: (
-                    listeners.append((event_type, callback)),
-                    lambda: None,
-                )[1]
-            ),
             states=SimpleNamespace(
                 is_state=lambda entity_id, state: (
                     entity_id == "binary_sensor.pump_problem" and state == "on"
                 )
             ),
         )
+        monkeypatch.setattr(
+            "custom_components.tasks.scheduling.async_track_state_change_event",
+            lambda hass, entity_ids, action: (
+                tracked.append(set(entity_ids)),
+                lambda: None,
+            )[1],
+        )
         scheduler = ProblemSensorScheduler(hass, store)
         await scheduler.async_start()
 
-        assert len(listeners) == 1
+        assert tracked == [{"binary_sensor.pump_problem"}]
         assert len(store.listeners) == 1
         assert store.triggered == ["pump"]
         assert [item["task_id"] for item in store.due] == ["pump"]
@@ -120,8 +121,9 @@ def test_problem_sensor_catches_up_active_problem_on_start():
     asyncio.run(run())
 
 
-def test_problem_sensor_ignores_inactive_task():
+def test_problem_sensor_ignores_inactive_task(monkeypatch):
     async def run():
+        tracked = []
         task = {
             "task_id": "pump",
             "task_name": "Check pump",
@@ -132,15 +134,62 @@ def test_problem_sensor_ignores_inactive_task():
         }
         store = ProblemStore(task)
         hass = SimpleNamespace(
-            bus=SimpleNamespace(async_listen=lambda *_args: lambda: None),
-            states=SimpleNamespace(is_state=lambda *_args: True),
+            states=SimpleNamespace(is_state=lambda *_args: True)
+        )
+        monkeypatch.setattr(
+            "custom_components.tasks.scheduling.async_track_state_change_event",
+            lambda hass, entity_ids, action: (
+                tracked.append(set(entity_ids)),
+                lambda: None,
+            )[1],
         )
         scheduler = ProblemSensorScheduler(hass, store)
         await scheduler.async_start()
 
         assert store.triggered == []
+        assert tracked == [set()]
 
     asyncio.run(run())
+
+
+def test_problem_sensor_subscription_updates_only_for_trigger_changes(
+    monkeypatch,
+):
+    task = {
+        "task_id": "pump",
+        "task_name": "Check pump",
+        "active": True,
+        "schedule_type": "sensor",
+        "problem_sensor": "binary_sensor.pump",
+        "task_due": None,
+    }
+    manager = ProblemStore(task)
+    tracked = []
+    monkeypatch.setattr(
+        "custom_components.tasks.scheduling.async_track_state_change_event",
+        lambda hass, entity_ids, action: (
+            tracked.append(set(entity_ids)),
+            lambda: None,
+        )[1],
+    )
+    scheduler = ProblemSensorScheduler(
+        SimpleNamespace(async_create_task=lambda coroutine: coroutine.close()),
+        manager,
+    )
+
+    scheduler._subscribe_sensors()
+    scheduler._handle_task_change(
+        TaskChange("updated", "task", "pump", {"problem_trigger_changed": False})
+    )
+    task["problem_sensor"] = "binary_sensor.replacement"
+    scheduler._handle_task_change(
+        TaskChange("updated", "task", "pump", {"problem_trigger_changed": True})
+    )
+
+    assert tracked == [
+        {"binary_sensor.pump"},
+        {"binary_sensor.replacement"},
+    ]
 
 
 def test_problem_sensor_retriggers_after_completion_and_new_transition(
