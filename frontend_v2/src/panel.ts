@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
-import { subscribeTasks } from "./api";
+import { deleteTask, subscribeTasks } from "./api";
 import { openTaskEditor } from "./task-form";
 import { openTaskViewer } from "./task-viewer";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
@@ -9,12 +9,14 @@ import {
   actionMenuElementName,
   type ActionMenuItem,
 } from "./ui/action-menu";
+import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 const taskActions: ActionMenuItem[] = [
   { label: "Open", value: "open" },
   { label: "Edit", value: "edit" },
+  { label: "Delete", value: "delete", destructive: true },
 ];
 
 class TasksPanelV2 extends LitElement {
@@ -42,9 +44,32 @@ class TasksPanelV2 extends LitElement {
 
     header {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .add {
+      min-height: 40px;
+      padding: 0 18px;
+      color: var(--text-primary-color, white);
+      background: var(--primary-color);
+      border: 0;
+      border-radius: 20px;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .add:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
 
     h1 {
@@ -82,6 +107,17 @@ class TasksPanelV2 extends LitElement {
 
     .error {
       color: var(--error-color);
+    }
+
+    @media (max-width: 520px) {
+      header,
+      .header-actions {
+        align-items: flex-start;
+      }
+
+      header {
+        flex-direction: column;
+      }
     }
   `;
 
@@ -143,15 +179,48 @@ class TasksPanelV2 extends LitElement {
     }
   }
 
+  private async confirmDelete(task: Task): Promise<void> {
+    if (!this.hass) {
+      return;
+    }
+    await openTasksDialog({
+      heading: "Delete task?",
+      content: html`
+        <p>
+          Delete “${task.task_name}” including its completion history and
+          attachments?
+        </p>
+      `,
+      actions: [
+        { label: "Cancel", value: "cancel" },
+        {
+          label: "Delete",
+          value: "delete",
+          destructive: true,
+          run: () => deleteTask(this.hass!, task.task_id),
+        },
+      ],
+    });
+  }
+
   protected render() {
     const snapshot = this.snapshot;
     return html`
       <main>
         <header>
           <h1>Tasks V2</h1>
-          ${snapshot
-            ? html`${snapshot.tasks.length} Tasks · Revision ${snapshot.revision}`
-            : nothing}
+          <div class="header-actions">
+            ${snapshot
+              ? html`${snapshot.tasks.length} Tasks · Revision ${snapshot.revision}`
+              : nothing}
+            <button
+              class="add"
+              type="button"
+              @click=${() => this.hass && void openTaskEditor(this.hass)}
+            >
+              Add task
+            </button>
+          </div>
         </header>
         ${this.error
           ? html`<p class="error">Tasks konnten nicht geladen werden: ${this.error}</p>`
@@ -181,6 +250,8 @@ class TasksPanelV2 extends LitElement {
                                 task,
                                 snapshot.attachments,
                               );
+                            } else if (event.detail === "delete") {
+                              void this.confirmDelete(task);
                             }
                           }}
                         ></${actionMenuTag}>

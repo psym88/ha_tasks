@@ -119,7 +119,7 @@ const uploadFile = async (
 
 export const saveTaskDetails = async (
   hass: HomeAssistant,
-  task: Task,
+  task: Task | undefined,
   details: TaskDetails,
 ): Promise<{ task: Task }> => {
   const fileIds = await Promise.all(
@@ -127,14 +127,16 @@ export const saveTaskDetails = async (
   );
   return hass.connection.sendMessagePromise({
     type: "tasks/task/save",
-    task_id: task.task_id,
+    ...(task ? { task_id: task.task_id } : {}),
     task_name: details.name.trim(),
     task_description: details.description.trim() || null,
     task_icon: details.icon.trim() || null,
     active: details.active,
     ...(details.schedule
       ? schedulePayload(details.schedule)
-      : { schedule_type: task.schedule_type }),
+      : task
+        ? { schedule_type: task.schedule_type }
+        : {}),
     ...(details.assignment
       ? {
           assignee_id: details.assignment.assigneeId || null,
@@ -219,6 +221,15 @@ export const completeTask = (
     type: "tasks/task/complete",
     task_id: taskId,
     notes: notes.trim() || null,
+  });
+
+export const deleteTask = (
+  hass: HomeAssistant,
+  taskId: string,
+): Promise<void> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/task/delete",
+    task_id: taskId,
   });
 
 export const previewTaskSchedule = (

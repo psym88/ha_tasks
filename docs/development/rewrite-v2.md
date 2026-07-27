@@ -141,9 +141,9 @@ not replaced the path yet.
 
 | Capability | Baseline | V2 | Required verification |
 | --- | --- | --- | --- |
-| Create task | legacy | pending | API, persistence, panel |
-| Update task metadata | legacy | pending | partial update compatibility |
-| Delete task | legacy | pending | history and attachment cleanup |
+| Create task | legacy | complete | API, persistence, panel |
+| Update task metadata | legacy | complete | partial update compatibility |
+| Delete task | legacy | complete | history and attachment cleanup |
 | Pause and resume | legacy | pending | stored due value remains stable |
 | Fixed daily recurrence | legacy | complete | local wall time and DST |
 | Fixed weekly recurrence | legacy | complete | weekdays and interval anchor |
@@ -445,8 +445,16 @@ not replaced the path yet.
   and dark themes in a browser.
 - The hash-scoped bundle grew from 64,653 to 76,186 bytes. Verified all 145
   backend and 145 frontend tests.
+- Added V2 task creation by reusing the completed editor with explicit defaults
+  and no synthetic task identifier in the save command.
+- Added task deletion to the owned row menu with a separate destructive
+  confirmation covering related history and attachments.
+- Verified the exact create and delete payloads, create-time default sections,
+  skipped draft history loading, and both delete cancellation and confirmation
+  in a browser.
+- The hash-scoped bundle grew from 76,186 to 77,823 bytes. Verified all 145
+  backend and 147 frontend tests.
 
 ## Next action
 
-Add V2 task creation and deletion by reusing the completed editor and owned
-confirmation dialog.
+Add V2 pause and resume actions while preserving the stored due value.

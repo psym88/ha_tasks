@@ -132,11 +132,34 @@ test("V2 owns its text textarea select combobox and switch controls", () => {
 test("V2 editor saves task details and planning in one transaction", () => {
   assert.match(api, /type: "tasks\/task\/save"/);
   assert.match(api, /schedulePayload\(details\.schedule\)/);
+  assert.match(api, /task_id: task\.task_id/);
   assert.match(api, /schedule_type: task\.schedule_type/);
   assert.match(api, /deleted_attachment_ids: details\.files\?/);
   assert.match(taskForm, /run: \(\) => form\.save\(\)/);
   assert.match(taskForm, /if \(!name\)/);
   assert.match(taskForm, /this\.scheduleDirty \? schedule : undefined/);
+});
+
+test("V2 creates tasks through the shared editor with complete defaults", () => {
+  assert.match(taskForm, /existingTask\?: Task/);
+  assert.match(taskForm, /heading: existingTask \? `Edit/);
+  assert.match(taskForm, /: "New task"/);
+  assert.match(taskForm, /const isNew = !task\.task_id/);
+  assert.match(taskForm, /this\.scheduleDirty = isNew/);
+  assert.match(taskForm, /this\.assignmentDirty = isNew/);
+  assert.match(taskForm, /this\.notificationDirty = isNew/);
+  assert.match(taskForm, /this\.task\.task_id \? this\.task : undefined/);
+  assert.match(source, /openTaskEditor\(this\.hass\)/);
+});
+
+test("V2 deletes tasks only after its owned confirmation", () => {
+  assert.match(api, /type: "tasks\/task\/delete"/);
+  assert.match(source, /heading: "Delete task\?"/);
+  assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.task_id\)/);
+  assert.match(
+    source,
+    /\{ label: "Delete", value: "delete", destructive: true \}/,
+  );
 });
 
 test("V2 planning uses the authoritative preview API for every recurrence", () => {

@@ -450,9 +450,10 @@ class TasksTaskForm extends LitElement {
     this.scheduleTime =
       task.schedule_time || `${parts.hour || "09"}:${parts.minute || "00"}`;
     this.problemSensor = task.problem_sensor || "";
-    this.scheduleDirty = false;
-    this.assignmentDirty = false;
-    this.notificationDirty = false;
+    const isNew = !task.task_id;
+    this.scheduleDirty = isNew;
+    this.assignmentDirty = isNew;
+    this.notificationDirty = isNew;
     void this.loadAssignments();
     void this.loadNotifications();
     void this.loadHistory();
@@ -532,7 +533,7 @@ class TasksTaskForm extends LitElement {
   private async loadHistory(): Promise<void> {
     const hass = this.hass;
     const task = this.task;
-    if (!hass || !task) {
+    if (!hass || !task?.task_id) {
       return;
     }
     this.historyLoading = true;
@@ -703,33 +704,37 @@ class TasksTaskForm extends LitElement {
     this.saveError = "";
     this.saving = true;
     try {
-      await saveTaskDetails(this.hass, this.task, {
-        name,
-        description: this.description,
-        active: this.status === "active",
-        icon: this.icon,
-        schedule: this.scheduleDirty ? schedule : undefined,
-        assignment: this.assignmentDirty
-          ? {
-              assigneeId: this.assigneeId,
-              labelIds: this.labelIds,
-              nfcTagId: this.nfcTagId,
-            }
-          : undefined,
-        notification: this.notificationDirty
-          ? {
-              deviceIds: this.notificationDeviceIds,
-              persistent: this.notificationPersistent,
-              critical: this.notificationCritical,
-              route: notificationRoute,
-            }
-          : undefined,
-        files: {
-          staged: this.stagedFiles,
-          deletedAttachmentIds: this.deletedAttachmentIds,
-          deletedHistoryEntryIds: this.deletedHistoryEntryIds,
+      await saveTaskDetails(
+        this.hass,
+        this.task.task_id ? this.task : undefined,
+        {
+          name,
+          description: this.description,
+          active: this.status === "active",
+          icon: this.icon,
+          schedule: this.scheduleDirty ? schedule : undefined,
+          assignment: this.assignmentDirty
+            ? {
+                assigneeId: this.assigneeId,
+                labelIds: this.labelIds,
+                nfcTagId: this.nfcTagId,
+              }
+            : undefined,
+          notification: this.notificationDirty
+            ? {
+                deviceIds: this.notificationDeviceIds,
+                persistent: this.notificationPersistent,
+                critical: this.notificationCritical,
+                route: notificationRoute,
+              }
+            : undefined,
+          files: {
+            staged: this.stagedFiles,
+            deletedAttachmentIds: this.deletedAttachmentIds,
+            deletedHistoryEntryIds: this.deletedHistoryEntryIds,
+          },
         },
-      });
+      );
       return true;
     } catch (error) {
       this.saveError = error instanceof Error ? error.message : String(error);
@@ -1283,9 +1288,13 @@ class TasksTaskForm extends LitElement {
         <${expandableTag} heading="Attachments">
           ${this.renderAttachments()}
         </${expandableTag}>
-        <${expandableTag} heading="Completion history">
-          ${this.renderHistory()}
-        </${expandableTag}>
+        ${this.task?.task_id
+          ? staticHtml`
+              <${expandableTag} heading="Completion history">
+                ${this.renderHistory()}
+              </${expandableTag}>
+            `
+          : nothing}
         ${this.saveError
           ? html`<p class="error" role="alert">${this.saveError}</p>`
           : nothing}
@@ -1302,13 +1311,21 @@ if (!customElements.get(taskFormElementName)) {
 
 export const openTaskEditor = async (
   hass: HomeAssistant,
-  task: Task,
+  existingTask?: Task,
   attachments: Attachment[] = [],
 ): Promise<boolean> => {
+  const task: Task = existingTask || {
+    task_id: "",
+    task_name: "",
+    active: true,
+    schedule_type: "sliding",
+    schedule_unit: "monthly",
+    schedule_interval: 1,
+  };
   const form = document.createElement(taskFormElementName) as TasksTaskForm;
   form.configure(hass, task, attachments);
   const result = await openTasksDialog({
-    heading: `Edit ${task.task_name}`,
+    heading: existingTask ? `Edit ${task.task_name}` : "New task",
     content: form,
     actions: [
       { label: "Cancel", value: "cancel" },
