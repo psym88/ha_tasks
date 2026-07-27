@@ -86,7 +86,7 @@ test("V2 subscribes to the revisioned snapshot protocol", () => {
 test("V2 bundle owns its Lit runtime and custom element", () => {
   assert.match(assets.panel, /^panel-[A-Z0-9]+\.js$/);
   assert.match(assets.card, /^card-[A-Z0-9]+\.js$/);
-  assert.match(bundle, /ha-tasks-/);
+  assert.match(version, /`ha-tasks-v2-\${name}`/);
   assert.match(cardBundle, /tasks-card-v2/);
   assert.doesNotMatch(bundle, /\bfrom\s+["']lit["']/);
   assert.doesNotMatch(bundle, /\bimport\s+["']lit["']/);
@@ -162,8 +162,8 @@ test("V2 editor saves task details and planning in one transaction", () => {
 
 test("V2 creates tasks through the shared editor with complete defaults", () => {
   assert.match(taskForm, /existingTask\?: Task/);
-  assert.match(taskForm, /heading: existingTask \? `Edit/);
-  assert.match(taskForm, /: "New task"/);
+  assert.match(taskForm, /existingTask\s*\?\s*`\$\{t\("task\.edit"\)\}/);
+  assert.match(taskForm, /: t\("task\.new"\)/);
   assert.match(taskForm, /const isNew = !task\.task_id/);
   assert.match(taskForm, /this\.scheduleDirty = isNew/);
   assert.match(taskForm, /this\.assignmentDirty = isNew/);
@@ -174,18 +174,21 @@ test("V2 creates tasks through the shared editor with complete defaults", () => 
 
 test("V2 deletes tasks only after its owned confirmation", () => {
   assert.match(api, /type: "tasks\/task\/delete"/);
-  assert.match(source, /heading: "Delete task\?"/);
+  assert.match(source, /heading: t\("task\.delete_title"\)/);
   assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.task_id\)/);
   assert.match(
     taskTable,
-    /\{ label: "Delete", value: "delete", destructive: true \}/,
+    /\{ label: t\("common\.delete"\), value: "delete", destructive: true \}/,
   );
 });
 
 test("V2 pauses and resumes tasks through the minimal update contract", () => {
   assert.match(api, /type: "tasks\/task\/update"/);
   assert.match(api, /task_id: taskId,\s*active,/);
-  assert.match(taskTable, /task\.active === false \? "Resume" : "Pause"/);
+  assert.match(
+    taskTable,
+    /task\.active === false \? t\("v2\.resume"\) : t\("v2\.pause"\)/,
+  );
   assert.match(taskTable, /value: "active"/);
   assert.match(
     source,
@@ -228,7 +231,7 @@ test("V2 task table resolves registry names and excludes deleted references", ()
     taskTable,
     /this\.devices\s*\.filter\(\(device\) => ids\.has\(device\.id\)\)/,
   );
-  assert.match(taskTable, /assignee: "Assignee"/);
+  assert.match(taskTable, /assignee: "table\.assignee"/);
   assert.match(taskTable, /this\.columnHeader\(key\)/);
 });
 
@@ -276,8 +279,8 @@ test("V2 table selection submits one transactional bulk command", () => {
   assert.match(api, /type: "tasks\/task\/bulk"/);
   assert.match(api, /operations,/);
   assert.match(taskTable, /selectedIds: \{ state: true \}/);
-  assert.match(taskTable, /aria-label="Select visible tasks"/);
-  assert.match(taskTable, /aria-label="Select \$\{task\.task_name\}"/);
+  assert.match(taskTable, /aria-label=\$\{t\("v2\.select_visible"\)\}/);
+  assert.match(taskTable, /t\("v2\.select_task"/);
   assert.match(taskTable, /private bulkOperations\(\): BulkTaskOperation\[\]/);
   assert.match(taskTable, /await mutateTasks\(this\.hass, operations\)/);
   assert.match(taskTable, /action: "complete"/);
@@ -350,7 +353,7 @@ test("V2 planning uses the authoritative preview API for every recurrence", () =
   assert.match(taskForm, /scheduleUnit === "weekly"/);
   assert.match(taskForm, /scheduleUnit === "monthly"/);
   assert.match(taskForm, /scheduleUnit === "yearly"/);
-  assert.match(taskForm, /Select at least one weekday/);
+  assert.match(taskForm, /t\("error\.select_at_least_one_weekday"\)/);
   assert.match(taskForm, /startsWith\("binary_sensor\."\)/);
 });
 
@@ -439,7 +442,7 @@ test("V2 loads completion history and stages deletion until save", () => {
   );
   assert.match(taskForm, /loadTaskHistory/);
   assert.match(taskForm, /this\.deletedHistoryEntryIds/);
-  assert.match(taskForm, /Completed via NFC/);
+  assert.match(taskForm, /t\("history\.completed_via_nfc"\)/);
 });
 
 test("V2 task viewer loads assignment history and signed attachments", () => {
@@ -463,10 +466,10 @@ test("V2 previews common attachment types in its owned dialog", () => {
 test("V2 completion requires confirmation and sends trimmed notes", () => {
   assert.match(api, /type: "tasks\/task\/complete"/);
   assert.match(api, /notes: notes\.trim\(\) \|\| null/);
-  assert.match(taskViewer, /heading: "Complete task\?"/);
+  assert.match(taskViewer, /heading: t\("task\.complete_title"\)/);
   assert.match(taskViewer, /if \(result !== "complete"\)/);
   assert.match(taskViewer, /await completeTask/);
-  assert.match(taskViewer, /label="Completion notes"/);
+  assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
 });
 
 test("V2 viewer renders complete trigger rules and responsive details", () => {
@@ -495,7 +498,7 @@ test("V2 viewer keeps independently loaded details available", () => {
   assert.match(taskViewer, /assignment\.status === "fulfilled"/);
   assert.match(taskViewer, /history\.status === "fulfilled"/);
   assert.match(taskViewer, /files\.status === "fulfilled"/);
-  assert.match(taskViewer, /Assignment details could not be loaded/);
-  assert.match(taskViewer, /Completion history could not be loaded/);
-  assert.match(taskViewer, /Attachment links could not be loaded/);
+  assert.match(taskViewer, /t\("v2\.assignment_load_error"\)/);
+  assert.match(taskViewer, /t\("v2\.history_load_error"\)/);
+  assert.match(taskViewer, /t\("v2\.attachment_load_error"\)/);
 });

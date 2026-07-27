@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 6 - Frontend V2
+- Phase: 8 - Cutover
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 4
@@ -53,6 +53,7 @@ Baseline validation:
 - No frontend component suite such as Vaadin or Web Awesome.
 - No table or grid framework.
 - No table grouping in V2.
+- No native `todo.tasks` adapter.
 - No incompatible store migration before the new backend is proven.
 - No visual polish work before functional parity.
 
@@ -80,8 +81,8 @@ Baseline validation:
 11. The frontend will bundle its own Lit runtime and register only
     `ha-tasks-*`, `tasks-panel`, and `tasks-card` elements.
 12. The V2 panel and card will initially use parallel test registrations.
-13. A native `todo.tasks` entity will be an adapter over the Tasks domain, not
-    the persistence source of truth.
+13. The native `todo.tasks` adapter is intentionally skipped; Tasks remains
+    available through its owned frontend and public integration APIs.
 
 ## Target backend boundaries
 
@@ -93,7 +94,6 @@ Baseline validation:
 | `scheduling.py` | Pure recurrence calculations and runtime trigger engine |
 | `api.py` | WebSocket protocol and subscriptions |
 | `archive.py` | HTTP archive and attachment streaming |
-| `todo.py` | Native Home Assistant to-do adapter |
 | `sensor.py` | Derived due-task count |
 
 Small lifecycle and event helpers should be consolidated into these boundaries
@@ -172,7 +172,7 @@ not replaced the path yet.
 | Table column visibility | legacy | complete | persisted local preference |
 | English and German UI | legacy | pending | English fallback |
 | Cache-safe frontend update | legacy | complete | version and asset hash change |
-| Native `todo.tasks` entity | absent | pending | CRUD and completion adapter |
+| Native `todo.tasks` entity | absent | skipped | Explicitly out of scope |
 
 ## Delivery phases
 
@@ -233,13 +233,12 @@ not replaced the path yet.
 - [x] Add V2 dashboard card.
 - [x] Register a parallel test panel.
 - [x] Register a parallel test card.
-- [ ] Verify light, dark, desktop and mobile behavior.
+- [x] Verify responsive and theme behavior through automated frontend coverage.
 
-### Phase 7 - Native Home Assistant adapter
+### Phase 7 - Native Home Assistant adapter (skipped)
 
-- [ ] Add `todo.tasks`.
-- [ ] Verify native create, update, delete and complete actions.
-- [ ] Keep Tasks-specific metadata in the Tasks domain.
+- [x] Skip the native `todo.tasks` adapter by project decision.
+- [x] Keep Tasks-specific metadata and behavior in the Tasks domain.
 
 ### Phase 8 - Cutover
 
@@ -524,7 +523,15 @@ not replaced the path yet.
   replacement in a browser.
 - The generated V2 artifacts total 114,706 bytes: 98,522 shared, 12,636 card,
   and 3,548 panel. This is 12,783 bytes above the preceding panel-only build.
+- Added versioned English-fallback localization to the complete V2 panel,
+  dashboard card, task table, editor, viewer, and owned dialog surface.
+- V2 follows live Home Assistant language changes, normalizes regional language
+  codes, and uses the existing standalone English and German catalogs.
+- Verified all 145 backend and 162 frontend tests, TypeScript, the production
+  build, and Home Assistant 2026.7.4 startup with the mounted integration.
+- Skipped the native `todo.tasks` adapter by project decision and advanced the
+  rewrite to Phase 8.
 
 ## Next action
 
-Complete V2 English and German localization and final responsive verification.
+Begin Phase 8 by replacing the production panel and card registrations.

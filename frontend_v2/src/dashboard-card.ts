@@ -7,6 +7,7 @@ import {
   setTaskActive,
   subscribeTasks,
 } from "./api";
+import { ready, setLanguage, t } from "./localize";
 import { openTaskEditor } from "./task-form";
 import { taskActions } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -48,10 +49,10 @@ const secondaryOptions: Array<{
   value: SecondaryInfo;
   label: string;
 }> = [
-  { value: "due", label: "Due" },
-  { value: "assignee", label: "Assignee" },
-  { value: "nfc_tag", label: "NFC tag" },
-  { value: "labels", label: "Labels" },
+  { value: "due", label: "task.due" },
+  { value: "assignee", label: "task.user" },
+  { value: "nfc_tag", label: "task.nfc_tag_id" },
+  { value: "labels", label: "task.labels" },
 ];
 const defaultConfig = (): CardConfig => ({
   type: `custom:${stableCardTag}`,
@@ -179,6 +180,7 @@ class TasksDashboardCardEditor extends LitElement {
 
   declare hass?: HomeAssistant;
   declare config: CardConfig;
+  private language?: string;
 
   constructor() {
     super();
@@ -187,6 +189,13 @@ class TasksDashboardCardEditor extends LitElement {
 
   setConfig(config: Partial<CardConfig>): void {
     this.config = normalizeConfig(config);
+  }
+
+  protected updated(): void {
+    if (this.hass?.locale?.language !== this.language) {
+      this.language = this.hass?.locale?.language;
+      void setLanguage(this.language).then(() => this.requestUpdate());
+    }
   }
 
   private change(changes: Partial<CardConfig>): void {
@@ -206,7 +215,7 @@ class TasksDashboardCardEditor extends LitElement {
     );
     return html`
       <fieldset>
-        <legend>Actions</legend>
+        <legend>${t("card.options")}</legend>
         <label>
           <input
             type="checkbox"
@@ -218,7 +227,7 @@ class TasksDashboardCardEditor extends LitElement {
                 ).checked,
               })}
           >
-          Show task actions
+          ${t("card.show_action_menu")}
         </label>
         <label>
           <input
@@ -231,11 +240,11 @@ class TasksDashboardCardEditor extends LitElement {
                 ).checked,
               })}
           >
-          Show add task
+          ${t("card.show_add_task")}
         </label>
       </fieldset>
       <fieldset>
-        <legend>Secondary information</legend>
+        <legend>${t("card.state_content")}</legend>
         ${secondaryOptions.map(
           (option) => html`
             <label>
@@ -260,15 +269,15 @@ class TasksDashboardCardEditor extends LitElement {
                   });
                 }}
               >
-              ${option.label}
+              ${t(option.label)}
             </label>
           `,
         )}
       </fieldset>
       <fieldset>
-        <legend>Filters</legend>
+        <legend>${t("card.filter")}</legend>
         <label class="field">
-          <span>Due within days (empty for all)</span>
+          <span>${t("card.due_days")}</span>
           <input
             type="number"
             min="0"
@@ -287,7 +296,7 @@ class TasksDashboardCardEditor extends LitElement {
           >
         </label>
         <label class="field">
-          <span>Assignee</span>
+          <span>${t("task.user")}</span>
           <select
             .value=${this.config.assignee_filter}
             @change=${(event: Event) =>
@@ -297,8 +306,8 @@ class TasksDashboardCardEditor extends LitElement {
                 ).value,
               })}
           >
-            <option value="all">All assignees</option>
-            <option value="current_user">Logged-in user</option>
+            <option value="all">${t("card.all_users")}</option>
+            <option value="current_user">${t("card.current_user")}</option>
             ${customAssignee
               ? html`
                   <option value=${this.config.assignee_filter}>
@@ -460,6 +469,7 @@ class TasksDashboardCard extends LitElement {
 
   private connection?: HomeAssistant["connection"];
   private unsubscribe?: () => void;
+  private language?: string;
 
   static getStubConfig(): Partial<CardConfig> {
     return stubConfig();
@@ -492,6 +502,10 @@ class TasksDashboardCard extends LitElement {
   protected updated(): void {
     if (this.hass?.connection !== this.connection) {
       void this.connect();
+    }
+    if (this.hass?.locale?.language !== this.language) {
+      this.language = this.hass?.locale?.language;
+      void setLanguage(this.language).then(() => this.requestUpdate());
     }
   }
 
@@ -611,18 +625,14 @@ class TasksDashboardCard extends LitElement {
         Date.parse(`${todayKey}T00:00:00Z`)) /
       86_400_000;
     const relative =
-      difference === -1
-        ? "Yesterday"
-        : difference === 0
-          ? "Today"
-          : difference === 1
-            ? "Tomorrow"
-            : difference === 2
-              ? "In 2 days"
-              : new Intl.DateTimeFormat(this.hass?.locale?.language, {
-                  dateStyle: "medium",
-                  timeZone: this.timeZone(),
-                }).format(new Date(task.task_due));
+      difference >= -1 && difference <= 2
+        ? new Intl.RelativeTimeFormat(this.hass?.locale?.language, {
+            numeric: "auto",
+          }).format(difference, "day")
+        : new Intl.DateTimeFormat(this.hass?.locale?.language, {
+            dateStyle: "medium",
+            timeZone: this.timeZone(),
+          }).format(new Date(task.task_due));
     return difference >= 0 && difference <= 2
       ? `${relative} · ${new Intl.DateTimeFormat(
           this.hass?.locale?.language,
@@ -699,15 +709,14 @@ class TasksDashboardCard extends LitElement {
       return;
     }
     await openTasksDialog({
-      heading: "Delete task?",
+      heading: t("task.delete_title"),
       content: html`<p>
-        Delete “${task.task_name}” including its completion history and
-        attachments?
+        ${t("task.delete_confirm", { name: task.task_name })}
       </p>`,
       actions: [
-        { label: "Cancel", value: "cancel" },
+        { label: t("common.cancel"), value: "cancel" },
         {
-          label: "Delete",
+          label: t("common.delete"),
           value: "delete",
           destructive: true,
           run: () => deleteTask(this.hass!, task.task_id),
@@ -723,7 +732,7 @@ class TasksDashboardCard extends LitElement {
     }
     return staticHtml`
       <article class="card">
-        <ul aria-label="Tasks">
+        <ul aria-label=${t("v2.title")}>
           ${tasks.length
             ? tasks.map((task) => staticHtml`
                 <li class=${this.dueStatus(task)}>
@@ -744,7 +753,9 @@ class TasksDashboardCard extends LitElement {
                     ? staticHtml`
                         <span class="menu">
                           <${actionMenuTag}
-                            label="Actions for ${task.task_name}"
+                            label=${t("v2.actions_for", {
+                              name: task.task_name,
+                            })}
                             .items=${taskActions(task)}
                             @tasks-action=${(event: CustomEvent<string>) =>
                               this.action(task, event.detail)}
@@ -754,7 +765,7 @@ class TasksDashboardCard extends LitElement {
                     : nothing}
                 </li>
               `)
-            : html`<li class="empty">No tasks</li>`}
+            : html`<li class="empty">${t("card.empty")}</li>`}
           ${this.config.show_add_task
             ? html`
                 <li>
@@ -765,7 +776,7 @@ class TasksDashboardCard extends LitElement {
                       this.hass && void openTaskEditor(this.hass)}
                   >
                     <span class="plus" aria-hidden="true">+</span>
-                    <span>Add task</span>
+                    <span>${t("common.add_task")}</span>
                   </button>
                 </li>
               `
@@ -784,10 +795,16 @@ if (!customElements.get(editorElementName)) {
 }
 
 window.customCards ||= [];
-if (!window.customCards.some((card) => card.type === stableCardTag)) {
-  window.customCards.push({
+let cardMetadata = window.customCards.find(
+  (card) => card.type === stableCardTag,
+);
+if (!cardMetadata) {
+  cardMetadata = {
     type: stableCardTag,
     name: "Tasks V2",
-    description: "Tasks card using the owned V2 frontend.",
-  });
+  };
+  window.customCards.push(cardMetadata);
 }
+void ready.then(() => {
+  cardMetadata!.description = t("card.description");
+});

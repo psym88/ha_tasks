@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 
+import { t } from "../localize";
 import { elementName } from "../version";
 
 export interface DialogAction {
@@ -179,7 +180,7 @@ class TasksDialog extends LitElement {
             <button
               class="close"
               type="button"
-              aria-label="Close"
+              aria-label=${t("common.close")}
               @click=${() => this.close()}
             >
               ×

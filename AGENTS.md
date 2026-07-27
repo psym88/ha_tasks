@@ -9,6 +9,7 @@
 - Use `.agents/skills/develop-home-assistant-integration` for Home Assistant integration work. Re-check version-sensitive behavior against current official documentation, version-matched Home Assistant Core source, and the development container instead of relying on static knowledge.
 - Treat persisted Home Assistant store data as user data: every incompatible store-schema change must increment `STORAGE_VERSION`, provide a sequential converter from the immediately preceding version, and add or update versioned migration fixtures and tests. Never remove a published migration path.
 - After integration code changes, ensure the `ha-tasks-dev` container mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
+- Do not use an interactive browser for validation unless the user explicitly requests it. Validate frontend changes with TypeScript, focused and complete frontend tests, a production build, generated-asset checks, and Home Assistant container startup and HTTP/resource checks.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
 
 ## Commit convention

@@ -7,6 +7,7 @@ import {
   loadAttachmentUrls,
   loadTaskHistory,
 } from "./api";
+import { t } from "./localize";
 import type {
   Attachment,
   Completion,
@@ -77,7 +78,7 @@ class TasksAttachmentPreview extends LitElement {
       ></iframe>`;
     }
     return html`<a href=${this.url} target="_blank" rel="noopener">
-      Open ${this.attachment.filename}
+      ${t("v2.open_file", { name: this.attachment.filename })}
     </a>`;
   }
 }
@@ -298,26 +299,26 @@ class TasksTaskViewer extends LitElement {
       this.tags = assignment.value.tags;
       this.assignmentReady = true;
     } else {
-      this.assignmentError = "Assignment details could not be loaded";
+      this.assignmentError = t("v2.assignment_load_error");
     }
     if (history.status === "fulfilled") {
       this.history = Array.isArray(history.value.history)
         ? history.value.history
         : [];
     } else {
-      this.historyError = "Completion history could not be loaded";
+      this.historyError = t("v2.history_load_error");
     }
     if (files.status === "fulfilled") {
       this.signedFiles = files.value.signed_files || {};
     } else {
-      this.attachmentError = "Attachment links could not be loaded";
+      this.attachmentError = t("v2.attachment_load_error");
     }
     this.loading = false;
   }
 
   private formatDate(value?: string | null): string {
     if (!value) {
-      return "Not scheduled";
+      return t("v2.not_scheduled");
     }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -345,19 +346,30 @@ class TasksTaskViewer extends LitElement {
       const entityId = this.task.problem_sensor || "";
       const name =
         this.hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
-      return name ? `When ${name} reports a problem` : "When a problem occurs";
+      return name
+        ? `${t("schedule.problem_sensor_description")} (${name})`
+        : t("schedule.problem_sensor_description");
     }
     const interval = Math.max(1, Number(this.task.schedule_interval) || 1);
     const unit = this.task.schedule_unit || "monthly";
-    const singular: Record<string, string> = {
+    const periodKey: Record<string, string> = {
       daily: "day",
       weekly: "week",
       monthly: "month",
       yearly: "year",
     };
-    const period = `${interval} ${singular[unit]}${interval === 1 ? "" : "s"}`;
+    const singular = t(`schedule.period_${periodKey[unit] || "month"}`);
+    const plural = t(`schedule.period_${periodKey[unit] || "month"}s`);
     if (this.task.schedule_type === "sliding") {
-      return `Every ${period} after completion`;
+      return t(
+        interval === 1
+          ? "schedule.after_completion_one"
+          : "schedule.after_completion_many",
+        {
+          schedule_interval: interval,
+          period: interval === 1 ? singular : plural,
+        },
+      );
     }
     const time = this.task.schedule_time || "00:00";
     if (unit === "weekly") {
@@ -369,16 +381,32 @@ class TasksTaskViewer extends LitElement {
       );
       const weekdays = (this.task.schedule_weekdays || [])
         .map((day) => names[day])
-        .filter(Boolean)
-        .join(", ");
-      return `Every ${period}${weekdays ? ` on ${weekdays}` : ""} at ${time}`;
+        .filter(Boolean);
+      const joined =
+        weekdays.length > 1
+          ? `${weekdays.slice(0, -1).join(", ")}${t("schedule.and")}${weekdays.at(-1)}`
+          : weekdays[0] || "";
+      const description = t(
+        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
+        {
+          schedule_interval: interval,
+          days: joined ? t("schedule.on_days", { days: joined }) : "",
+        },
+      );
+      return `${description} ${t("v2.at_time", { time })}`;
     }
     if (unit === "monthly") {
       const day =
         this.task.schedule_day === "last"
-          ? "the last day"
-          : `day ${this.task.schedule_day || 1}`;
-      return `Every ${period} on ${day} at ${time}`;
+          ? t("schedule.on_last_day")
+          : t("schedule.on_day_number", {
+              day: Number(this.task.schedule_day || 1),
+            });
+      const description = t(
+        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
+        { schedule_interval: interval, day },
+      );
+      return `${description} ${t("v2.at_time", { time })}`;
     }
     if (unit === "yearly") {
       const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
@@ -386,11 +414,24 @@ class TasksTaskViewer extends LitElement {
       }).format(new Date(2024, (this.task.schedule_month || 1) - 1, 1));
       const day =
         this.task.schedule_day === "last"
-          ? `the last day of ${month}`
-          : `${month} ${this.task.schedule_day || 1}`;
-      return `Every ${period} on ${day} at ${time}`;
+          ? t("schedule.on_last_day_of_month", { month })
+          : t("schedule.on_day_of_month", {
+              day: Number(this.task.schedule_day || 1),
+              month,
+            });
+      const description = t(
+        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
+        { schedule_interval: interval, day },
+      );
+      return `${description} ${t("v2.at_time", { time })}`;
     }
-    return `Every ${period} at ${time}`;
+    return `${t(
+      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
+      {
+        schedule_interval: interval,
+        period: interval === 1 ? singular : plural,
+      },
+    )} ${t("v2.at_time", { time })}`;
   }
 
   private renderInline(text: string) {
@@ -430,7 +471,7 @@ class TasksTaskViewer extends LitElement {
   private renderDescription() {
     const lines = (this.task.task_description || "").split(/\r?\n/);
     if (!lines.some((line) => line.trim())) {
-      return html`<p class="hint">No description.</p>`;
+      return html`<p class="hint">${t("task.no_description")}.</p>`;
     }
     const blocks: unknown[] = [];
     for (let index = 0; index < lines.length; ) {
@@ -497,14 +538,13 @@ class TasksTaskViewer extends LitElement {
       return false;
     }
     const result = await openTasksDialog({
-      heading: "Complete task?",
+      heading: t("task.complete_title"),
       content: html`<p>
-        Mark “${this.task.task_name}” as completed and calculate its next due
-        date?
+        ${t("task.complete_confirm", { name: this.task.task_name })}
       </p>`,
       actions: [
-        { label: "Cancel", value: "cancel" },
-        { label: "Complete", value: "complete" },
+        { label: t("common.cancel"), value: "cancel" },
+        { label: t("v2.complete"), value: "complete" },
       ],
     });
     if (result !== "complete") {
@@ -527,7 +567,9 @@ class TasksTaskViewer extends LitElement {
   private renderMetadata() {
     const assignee =
       this.users.find((user) => user.id === this.task.assignee_id)?.name ||
-      (this.assignmentReady ? "Unassigned" : "Loading assignment…");
+      (this.assignmentReady
+        ? t("task.unassigned")
+        : t("v2.loading_assignments"));
     const tag = this.tags.find((item) => item.id === this.task.nfc_tag_id);
     const labels = (this.task.label_ids || [])
       .map((id) => this.labels.find((label) => label.label_id === id))
@@ -537,12 +579,16 @@ class TasksTaskViewer extends LitElement {
         <${pillTag}>${this.formatDate(this.task.task_due)}</${pillTag}>
         <${pillTag}>${assignee}</${pillTag}>
         <${pillTag} tone=${this.task.active === false ? "muted" : "positive"}>
-          ${this.task.active === false ? "Inactive" : "Active"}
+          ${this.task.active === false ? t("v2.inactive") : t("v2.active")}
         </${pillTag}>
         ${this.attachments.length
           ? staticHtml`<${pillTag}>
-              ${this.attachments.length}
-              ${this.attachments.length === 1 ? "file" : "files"}
+              ${t(
+                this.attachments.length === 1
+                  ? "v2.file_count_one"
+                  : "v2.file_count_many",
+                { count: this.attachments.length },
+              )}
             </${pillTag}>`
           : nothing}
         ${tag
@@ -561,7 +607,7 @@ class TasksTaskViewer extends LitElement {
       return html`<p class="error" role="alert">${this.attachmentError}</p>`;
     }
     if (!this.attachments.length) {
-      return html`<p class="hint">No attachments.</p>`;
+      return html`<p class="hint">${t("task.no_files")}.</p>`;
     }
     return html`
       <ul class="records">
@@ -594,7 +640,7 @@ class TasksTaskViewer extends LitElement {
       return html`<p class="error" role="alert">${this.historyError}</p>`;
     }
     if (!this.history.length) {
-      return html`<p class="hint">No completion history.</p>`;
+      return html`<p class="hint">${t("task.no_history")}.</p>`;
     }
     return html`
       <ul class="records">
@@ -602,12 +648,12 @@ class TasksTaskViewer extends LitElement {
           <li class="record">
             <span
               >${this.formatDate(entry.completed_at)} ·
-              ${entry.user_name || "System"}</span
+              ${entry.user_name || t("common.system")}</span
             >
             <span class="secondary"
               >${entry.notes === "tasks.history.completed_via_nfc"
-                ? "Completed via NFC"
-                : entry.notes || "No notes"}</span
+                ? t("history.completed_via_nfc")
+                : entry.notes || t("v2.no_notes")}</span
             >
           </li>
         `)}
@@ -621,27 +667,29 @@ class TasksTaskViewer extends LitElement {
         ${this.renderMetadata()}
         <div class="description">${this.renderDescription()}</div>
         ${this.loading
-          ? html`<p class="hint" aria-live="polite">Loading task details…</p>`
+          ? html`<p class="hint" aria-live="polite">
+              ${t("v2.loading_details")}
+            </p>`
           : nothing}
         ${this.assignmentError
           ? html`<p class="error" role="alert">${this.assignmentError}</p>`
           : nothing}
-        <${expandableTag} heading="Planning" open>
+        <${expandableTag} heading=${t("task.planning")} open>
           <dl class="planning-details">
-            <dt>Due</dt>
+            <dt>${t("task.due")}</dt>
             <dd>${this.formatDate(this.task.task_due)}</dd>
-            <dt>Rule</dt>
+            <dt>${t("v2.rule")}</dt>
             <dd>${this.scheduleText()}</dd>
           </dl>
         </${expandableTag}>
-        <${expandableTag} heading="Attachments">
+        <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}
         </${expandableTag}>
-        <${expandableTag} heading="Completion history">
+        <${expandableTag} heading=${t("task.history")}>
           ${this.renderHistory()}
         </${expandableTag}>
         <${textFieldTag}
-          label="Completion notes"
+          label=${t("task.completion_notes")}
           multiline
           .value=${this.completionNotes}
           ?disabled=${this.completing}
@@ -675,8 +723,12 @@ export const openTaskViewer = async (
     heading: task.task_name,
     content: viewer,
     actions: [
-      { label: "Close", value: "close" },
-      { label: "Complete", value: "complete", run: () => viewer.complete() },
+      { label: t("common.close"), value: "close" },
+      {
+        label: t("v2.complete"),
+        value: "complete",
+        run: () => viewer.complete(),
+      },
     ],
   });
   return result === "complete";

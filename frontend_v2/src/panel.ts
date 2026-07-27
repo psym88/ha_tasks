@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";
+import { setLanguage, t } from "./localize";
 import { openTaskEditor } from "./task-form";
 import { taskTableElementName } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -91,10 +92,15 @@ class TasksPanelV2 extends LitElement {
 
   private unsubscribe?: () => void;
   private connection?: HomeAssistant["connection"];
+  private language?: string;
 
   protected updated(): void {
     if (this.hass?.connection !== this.connection) {
       void this.connect();
+    }
+    if (this.hass?.locale?.language !== this.language) {
+      this.language = this.hass?.locale?.language;
+      void setLanguage(this.language).then(() => this.requestUpdate());
     }
   }
 
@@ -148,17 +154,14 @@ class TasksPanelV2 extends LitElement {
       return;
     }
     await openTasksDialog({
-      heading: "Delete task?",
-      content: html`
-        <p>
-          Delete “${task.task_name}” including its completion history and
-          attachments?
-        </p>
-      `,
+      heading: t("task.delete_title"),
+      content: html`<p>
+        ${t("task.delete_confirm", { name: task.task_name })}
+      </p>`,
       actions: [
-        { label: "Cancel", value: "cancel" },
+        { label: t("common.cancel"), value: "cancel" },
         {
-          label: "Delete",
+          label: t("common.delete"),
           value: "delete",
           destructive: true,
           run: () => deleteTask(this.hass!, task.task_id),
@@ -195,24 +198,29 @@ class TasksPanelV2 extends LitElement {
     return html`
       <main>
         <header>
-          <h1>Tasks V2</h1>
+          <h1>${t("v2.title")}</h1>
           <div class="header-actions">
             ${snapshot
-              ? html`${snapshot.tasks.length} Tasks · Revision ${snapshot.revision}`
+              ? html`${t("v2.summary", {
+                  count: snapshot.tasks.length,
+                  revision: snapshot.revision,
+                })}`
               : nothing}
             <button
               class="add"
               type="button"
               @click=${() => this.hass && void openTaskEditor(this.hass)}
             >
-              Add task
+              ${t("common.add_task")}
             </button>
           </div>
         </header>
         ${this.error
-          ? html`<p class="error">Tasks konnten nicht geladen werden: ${this.error}</p>`
+          ? html`<p class="error">${t("v2.load_error", {
+              message: this.error,
+            })}</p>`
           : !snapshot
-            ? html`<p>Tasks werden geladen …</p>`
+            ? html`<p>${t("common.loading")}</p>`
             : staticHtml`
                 <${taskTableTag}
                   .hass=${this.hass}

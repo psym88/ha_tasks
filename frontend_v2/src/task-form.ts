@@ -10,6 +10,7 @@ import {
   type RecurrenceScheduleDetails,
   type ScheduleDetails,
 } from "./api";
+import { t } from "./localize";
 import type {
   Attachment,
   Completion,
@@ -42,38 +43,38 @@ const multiSelectFieldTag = unsafeStatic(multiSelectFieldElementName);
 const switchFieldTag = unsafeStatic(switchFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
 
-const statusOptions: FieldOption[] = [
-  { label: "Active", value: "active" },
-  { label: "Inactive", value: "inactive" },
+const statusOptions = (): FieldOption[] => [
+  { label: t("v2.active"), value: "active" },
+  { label: t("v2.inactive"), value: "inactive" },
 ];
 
-const iconOptions: FieldOption[] = [
-  { label: "Tasks", value: "mdi:clipboard-check-outline" },
-  { label: "Tools", value: "mdi:wrench-outline" },
-  { label: "Cleaning", value: "mdi:broom" },
-  { label: "Home", value: "mdi:home-outline" },
-  { label: "Calendar", value: "mdi:calendar-check-outline" },
+const iconOptions = (): FieldOption[] => [
+  { label: t("v2.title"), value: "mdi:clipboard-check-outline" },
+  { label: "🛠", value: "mdi:wrench-outline" },
+  { label: "🧹", value: "mdi:broom" },
+  { label: "⌂", value: "mdi:home-outline" },
+  { label: "📅", value: "mdi:calendar-check-outline" },
 ];
 
-const triggerOptions: FieldOption[] = [
-  { label: "After completion", value: "sliding" },
-  { label: "Fixed schedule", value: "fixed" },
-  { label: "Problem sensor", value: "sensor" },
+const triggerOptions = (): FieldOption[] => [
+  { label: t("task.sliding"), value: "sliding" },
+  { label: t("task.fixed"), value: "fixed" },
+  { label: t("task.problem_sensor"), value: "sensor" },
 ];
 
-const unitOptions: FieldOption[] = [
-  { label: "Days", value: "daily" },
-  { label: "Weeks", value: "weekly" },
-  { label: "Months", value: "monthly" },
-  { label: "Years", value: "yearly" },
+const scheduleUnitOptions = (): FieldOption[] => [
+  { label: t("task.daily"), value: "daily" },
+  { label: t("task.weekly"), value: "weekly" },
+  { label: t("task.monthly"), value: "monthly" },
+  { label: t("task.yearly"), value: "yearly" },
 ];
 
-const dayOptions: FieldOption[] = [
+const dayOptions = (): FieldOption[] => [
   ...Array.from({ length: 31 }, (_, index) => ({
     label: String(index + 1),
     value: String(index + 1),
   })),
-  { label: "Last day", value: "last" },
+  { label: t("task.last_day"), value: "last" },
 ];
 
 const localDateParts = (
@@ -491,7 +492,7 @@ class TasksTaskForm extends LitElement {
         ? this.nfcTagId
         : "";
     } catch {
-      this.assignmentError = "Assignments could not be loaded";
+      this.assignmentError = t("v2.assignment_load_error");
     } finally {
       this.assignmentLoading = false;
     }
@@ -524,7 +525,7 @@ class TasksTaskForm extends LitElement {
         this.devices.some((device) => device.id === id),
       );
     } catch {
-      this.notificationError = "Notification devices could not be loaded";
+      this.notificationError = t("v2.notification_load_error");
     } finally {
       this.notificationLoading = false;
     }
@@ -542,7 +543,7 @@ class TasksTaskForm extends LitElement {
       const result = await loadTaskHistory(hass, task.task_id);
       this.history = Array.isArray(result.history) ? result.history : [];
     } catch {
-      this.historyError = "Completion history could not be loaded";
+      this.historyError = t("v2.history_load_error");
     } finally {
       this.historyLoading = false;
     }
@@ -581,7 +582,7 @@ class TasksTaskForm extends LitElement {
     if (this.scheduleType === "sensor") {
       const problemSensor = this.problemSensor.trim();
       if (!problemSensor.startsWith("binary_sensor.")) {
-        error = "Select a binary sensor";
+        error = t("v2.select_binary_sensor");
       }
       if (reportError) {
         this.scheduleError = error;
@@ -590,18 +591,18 @@ class TasksTaskForm extends LitElement {
     }
 
     if (!Number.isInteger(this.scheduleInterval) || this.scheduleInterval < 1) {
-      error = "Interval must be at least 1";
+      error = t("v2.interval_min");
     } else if (
       this.scheduleType === "fixed" &&
       !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.scheduleTime)
     ) {
-      error = "Select a valid time";
+      error = t("v2.select_valid_time");
     } else if (
       this.scheduleType === "fixed" &&
       this.scheduleUnit === "weekly" &&
       !this.scheduleWeekdays.length
     ) {
-      error = "Select at least one weekday";
+      error = t("error.select_at_least_one_weekday");
     }
     if (reportError) {
       this.scheduleError = error;
@@ -663,7 +664,7 @@ class TasksTaskForm extends LitElement {
     } catch {
       if (request === this.previewRequest) {
         this.preview = [];
-        this.previewError = "Schedule preview could not be loaded";
+        this.previewError = t("v2.preview_load_error");
       }
     } finally {
       if (request === this.previewRequest) {
@@ -685,14 +686,14 @@ class TasksTaskForm extends LitElement {
     const schedule = this.scheduleDetails(true);
     const notificationRoute = this.notificationRoute.trim();
     if (!name) {
-      this.nameError = "Name is required";
+      this.nameError = t("v2.name_required");
     }
     if (
       notificationRoute &&
       (!notificationRoute.startsWith("/") ||
         notificationRoute.startsWith("//"))
     ) {
-      this.notificationRouteError = "Use an internal path beginning with /";
+      this.notificationRouteError = t("v2.route_invalid");
     }
     if (!name || !schedule || this.notificationRouteError) {
       return false;
@@ -751,7 +752,7 @@ class TasksTaskForm extends LitElement {
     let unitOptions: unknown = nothing;
     if (this.scheduleUnit === "weekly") {
       unitOptions = html`
-        <p class="caption">Weekdays</p>
+        <p class="caption">${t("task.schedule_weekdays")}</p>
         <div class="weekdays">
           ${this.weekdayLabels().map(
             (label, day) => html`
@@ -777,9 +778,9 @@ class TasksTaskForm extends LitElement {
     } else if (this.scheduleUnit === "monthly") {
       unitOptions = staticHtml`
         <${selectFieldTag}
-          label="Day"
+          label=${t("task.day")}
           .value=${String(this.scheduleDay)}
-          .options=${dayOptions}
+          .options=${dayOptions()}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<string>) =>
             this.scheduleChanged(() => {
@@ -792,9 +793,9 @@ class TasksTaskForm extends LitElement {
       unitOptions = staticHtml`
         <div class="row">
           <${selectFieldTag}
-            label="Day"
+            label=${t("task.day")}
             .value=${String(this.scheduleDay)}
-            .options=${dayOptions}
+            .options=${dayOptions()}
             ?disabled=${this.saving}
             @value-changed=${(event: CustomEvent<string>) =>
               this.scheduleChanged(() => {
@@ -803,7 +804,7 @@ class TasksTaskForm extends LitElement {
               })}
           ></${selectFieldTag}>
           <${selectFieldTag}
-            label="Month"
+            label=${t("task.month")}
             .value=${String(this.scheduleMonth)}
             .options=${this.monthOptions()}
             ?disabled=${this.saving}
@@ -817,7 +818,7 @@ class TasksTaskForm extends LitElement {
     }
     return staticHtml`
       <${textFieldTag}
-        label="Time"
+        label=${t("task.time")}
         required
         .inputType=${"time"}
         .value=${this.scheduleTime}
@@ -836,14 +837,16 @@ class TasksTaskForm extends LitElement {
       return nothing;
     }
     if (this.previewLoading && !this.preview.length) {
-      return html`<p class="hint" aria-live="polite">Loading preview…</p>`;
+      return html`<p class="hint" aria-live="polite">
+        ${t("v2.loading_preview")}
+      </p>`;
     }
     if (this.previewError) {
       return html`<p class="error" role="alert">${this.previewError}</p>`;
     }
     if (this.scheduleType === "sliding") {
       return html`
-        <p class="caption">First due</p>
+        <p class="caption">${t("task.first_due")}</p>
         <p class="hint">
           ${this.preview[0] ? this.formatDue(this.preview[0]) : "—"}
         </p>
@@ -853,7 +856,7 @@ class TasksTaskForm extends LitElement {
       ? this.preview
       : this.preview.slice(0, 4);
     return html`
-      <p class="caption">Next due dates</p>
+      <p class="caption">${t("task.preview_task_dues")}</p>
       <ol class="preview">
         ${visible.map((due) => html`<li>${this.formatDue(due)}</li>`)}
       </ol>
@@ -866,7 +869,7 @@ class TasksTaskForm extends LitElement {
                 this.previewExpanded = !this.previewExpanded;
               }}
             >
-              ${this.previewExpanded ? "Show less" : "Show all"}
+              ${this.previewExpanded ? t("v2.show_less") : t("v2.show_all")}
             </button>
           `
         : nothing}
@@ -878,9 +881,9 @@ class TasksTaskForm extends LitElement {
       return staticHtml`
         <div class="planning">
           <${selectFieldTag}
-            label="Trigger"
+            label=${t("task.recurrence_calculation")}
             .value=${this.scheduleType}
-            .options=${triggerOptions}
+            .options=${triggerOptions()}
             ?disabled=${this.saving}
             @value-changed=${(event: CustomEvent<string>) =>
               this.scheduleChanged(() => {
@@ -888,7 +891,7 @@ class TasksTaskForm extends LitElement {
               })}
           ></${selectFieldTag}>
           <${comboboxFieldTag}
-            label="Problem sensor"
+            label=${t("task.problem_sensor")}
             required
             .value=${this.problemSensor}
             .options=${this.problemSensorOptions()}
@@ -900,7 +903,7 @@ class TasksTaskForm extends LitElement {
               })}
           ></${comboboxFieldTag}>
           <p class="hint">
-            The task becomes due when the binary sensor changes to on.
+            ${t("v2.sensor_hint")}
           </p>
         </div>
       `;
@@ -908,9 +911,9 @@ class TasksTaskForm extends LitElement {
     return staticHtml`
       <div class="planning">
         <${selectFieldTag}
-          label="Trigger"
+          label=${t("task.recurrence_calculation")}
           .value=${this.scheduleType}
-          .options=${triggerOptions}
+          .options=${triggerOptions()}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<string>) =>
             this.scheduleChanged(() => {
@@ -919,7 +922,7 @@ class TasksTaskForm extends LitElement {
         ></${selectFieldTag}>
         <div class="row">
           <${textFieldTag}
-            label="Every"
+            label=${t("v2.every")}
             required
             .inputType=${"number"}
             .min=${1}
@@ -931,9 +934,9 @@ class TasksTaskForm extends LitElement {
               })}
           ></${textFieldTag}>
           <${selectFieldTag}
-            label="Unit"
+            label=${t("v2.unit")}
             .value=${this.scheduleUnit}
-            .options=${unitOptions}
+            .options=${scheduleUnitOptions()}
             ?disabled=${this.saving}
             @value-changed=${(event: CustomEvent<string>) =>
               this.scheduleChanged(() => {
@@ -945,7 +948,7 @@ class TasksTaskForm extends LitElement {
         ${this.scheduleType === "sliding"
           ? html`
               <p class="hint">
-                The next due date is calculated from each completion.
+                ${t("v2.sliding_hint")}
               </p>
             `
           : nothing}
@@ -960,18 +963,18 @@ class TasksTaskForm extends LitElement {
   private renderAssignment() {
     if (this.assignmentLoading) {
       return html`<p class="hint" aria-live="polite">
-        Loading assignments…
+        ${t("v2.loading_assignments")}
       </p>`;
     }
     if (this.assignmentError) {
       return html`<p class="error" role="alert">${this.assignmentError}</p>`;
     }
     const userOptions: FieldOption[] = [
-      { label: "Unassigned", value: "" },
+      { label: t("task.unassigned"), value: "" },
       ...this.users.map((user) => ({ label: user.name, value: user.id })),
     ];
     const tagOptions: FieldOption[] = [
-      { label: "No NFC tag", value: "" },
+      { label: t("task.no_nfc_tag"), value: "" },
       ...this.tags.map((tag) => ({
         label: tag.name || tag.id,
         value: tag.id,
@@ -984,7 +987,7 @@ class TasksTaskForm extends LitElement {
     return staticHtml`
       <div class="planning">
         <${selectFieldTag}
-          label="Assignee"
+          label=${t("task.user")}
           .value=${this.assigneeId}
           .options=${userOptions}
           ?disabled=${this.saving}
@@ -994,7 +997,7 @@ class TasksTaskForm extends LitElement {
             })}
         ></${selectFieldTag}>
         <${selectFieldTag}
-          label="NFC tag"
+          label=${t("task.nfc_tag_id")}
           .value=${this.nfcTagId}
           .options=${tagOptions}
           ?disabled=${this.saving}
@@ -1004,7 +1007,7 @@ class TasksTaskForm extends LitElement {
             })}
         ></${selectFieldTag}>
         <${multiSelectFieldTag}
-          label="Labels"
+          label=${t("task.labels")}
           .value=${this.labelIds}
           .options=${labelOptions}
           ?disabled=${this.saving}
@@ -1020,7 +1023,7 @@ class TasksTaskForm extends LitElement {
   private renderNotification() {
     if (this.notificationLoading) {
       return html`<p class="hint" aria-live="polite">
-        Loading notification devices…
+        ${t("v2.loading_notifications")}
       </p>`;
     }
     if (this.notificationError) {
@@ -1033,7 +1036,7 @@ class TasksTaskForm extends LitElement {
     return staticHtml`
       <div class="planning">
         <${multiSelectFieldTag}
-          label="Mobile devices"
+          label=${t("v2.mobile_devices")}
           .value=${this.notificationDeviceIds}
           .options=${deviceOptions}
           ?disabled=${this.saving}
@@ -1044,10 +1047,10 @@ class TasksTaskForm extends LitElement {
         ></${multiSelectFieldTag}>
         ${deviceOptions.length
           ? nothing
-          : html`<p class="hint">No mobile app devices found.</p>`}
+          : html`<p class="hint">${t("v2.no_mobile_devices")}</p>`}
         <${switchFieldTag}
-          label="Persistent notification"
-          description="Also show this notification in Home Assistant."
+          label=${t("task.notification_persistent")}
+          description=${t("task.notification_persistent_description")}
           .checked=${this.notificationPersistent}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<boolean>) =>
@@ -1056,8 +1059,8 @@ class TasksTaskForm extends LitElement {
             })}
         ></${switchFieldTag}>
         <${switchFieldTag}
-          label="Critical notification"
-          description="Use critical delivery on supported mobile devices."
+          label=${t("task.notification_critical")}
+          description=${t("task.notification_critical_description")}
           .checked=${this.notificationCritical}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<boolean>) =>
@@ -1066,7 +1069,7 @@ class TasksTaskForm extends LitElement {
             })}
         ></${switchFieldTag}>
         <${textFieldTag}
-          label="Navigation target"
+          label=${t("v2.navigation_target")}
           .value=${this.notificationRoute}
           .error=${this.notificationRouteError}
           ?disabled=${this.saving}
@@ -1075,7 +1078,7 @@ class TasksTaskForm extends LitElement {
               this.notificationRoute = event.detail;
             })}
         ></${textFieldTag}>
-        <p class="hint">Internal path, for example /lovelace/tasks.</p>
+        <p class="hint">${t("v2.navigation_hint")}</p>
       </div>
     `;
   }
@@ -1117,9 +1120,12 @@ class TasksTaskForm extends LitElement {
                       <button
                         class="record-action"
                         type="button"
-                        aria-label=${pending
-                          ? `Undo removal of ${attachment.filename}`
-                          : `Remove ${attachment.filename}`}
+                        aria-label=${t(
+                          pending
+                            ? "v2.undo_remove_named"
+                            : "v2.remove_named",
+                          { name: attachment.filename },
+                        )}
                         ?disabled=${this.saving}
                         @click=${() => {
                           this.deletedAttachmentIds = this.toggleId(
@@ -1128,7 +1134,7 @@ class TasksTaskForm extends LitElement {
                           );
                         }}
                       >
-                        ${pending ? "Undo" : "Remove"}
+                        ${pending ? t("common.undo") : t("common.remove")}
                       </button>
                     </li>
                   `;
@@ -1139,13 +1145,16 @@ class TasksTaskForm extends LitElement {
                       <span class="record-copy">
                         <span class="record-title">${file.name}</span>
                         <span class="record-detail"
-                          >${this.formatSize(file.size)} · New</span
+                          >${this.formatSize(file.size)} ·
+                          ${t("v2.new_file")}</span
                         >
                       </span>
                       <button
                         class="record-action"
                         type="button"
-                        aria-label=${`Remove new file ${file.name}`}
+                        aria-label=${t("v2.remove_new_file", {
+                          name: file.name,
+                        })}
                         ?disabled=${this.saving}
                         @click=${() => {
                           this.stagedFiles = this.stagedFiles.filter(
@@ -1153,16 +1162,16 @@ class TasksTaskForm extends LitElement {
                           );
                         }}
                       >
-                        Remove
+                        ${t("common.remove")}
                       </button>
                     </li>
                   `,
                 )}
               </ul>
             `
-          : html`<p class="hint">No attachments.</p>`}
+          : html`<p class="hint">${t("task.no_files")}.</p>`}
         <label class="file-picker">
-          <span>Add files</span>
+          <span>${t("v2.add_files")}</span>
           <input
             type="file"
             multiple
@@ -1184,14 +1193,14 @@ class TasksTaskForm extends LitElement {
   private renderHistory() {
     if (this.historyLoading) {
       return html`<p class="hint" aria-live="polite">
-        Loading completion history…
+        ${t("v2.loading_history")}
       </p>`;
     }
     if (this.historyError) {
       return html`<p class="error" role="alert">${this.historyError}</p>`;
     }
     if (!this.history.length) {
-      return html`<p class="hint">No completion history.</p>`;
+      return html`<p class="hint">${t("task.no_history")}.</p>`;
     }
     return html`
       <ul class="records">
@@ -1201,14 +1210,14 @@ class TasksTaskForm extends LitElement {
           );
           const notes =
             entry.notes === "tasks.history.completed_via_nfc"
-              ? "Completed via NFC"
-              : entry.notes || "No notes";
+              ? t("history.completed_via_nfc")
+              : entry.notes || t("v2.no_notes");
           return html`
             <li class="record ${pending ? "pending" : ""}">
               <span class="record-copy">
                 <span class="record-title"
                   >${this.formatDue(entry.completed_at)} ·
-                  ${entry.user_name || "System"}</span
+                  ${entry.user_name || t("common.system")}</span
                 >
                 <span class="record-detail">${notes}</span>
               </span>
@@ -1216,8 +1225,8 @@ class TasksTaskForm extends LitElement {
                 class="record-action"
                 type="button"
                 aria-label=${pending
-                  ? "Undo removal of completion"
-                  : "Remove completion"}
+                  ? t("history.undo_remove")
+                  : t("history.remove")}
                 ?disabled=${this.saving}
                 @click=${() => {
                   this.deletedHistoryEntryIds = this.toggleId(
@@ -1226,7 +1235,7 @@ class TasksTaskForm extends LitElement {
                   );
                 }}
               >
-                ${pending ? "Undo" : "Remove"}
+                ${pending ? t("common.undo") : t("common.remove")}
               </button>
             </li>
           `;
@@ -1239,7 +1248,7 @@ class TasksTaskForm extends LitElement {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
         <${textFieldTag}
-          label="Name"
+          label=${t("task.name")}
           required
           .value=${this.name}
           .error=${this.nameError}
@@ -1250,7 +1259,7 @@ class TasksTaskForm extends LitElement {
           }}
         ></${textFieldTag}>
         <${textFieldTag}
-          label="Description"
+          label=${t("task.optional_description")}
           multiline
           .value=${this.description}
           ?disabled=${this.saving}
@@ -1259,38 +1268,38 @@ class TasksTaskForm extends LitElement {
           }}
         ></${textFieldTag}>
         <${selectFieldTag}
-          label="Status"
+          label=${t("v2.status")}
           .value=${this.status}
-          .options=${statusOptions}
+          .options=${statusOptions()}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<string>) => {
             this.status = event.detail as "active" | "inactive";
           }}
         ></${selectFieldTag}>
         <${comboboxFieldTag}
-          label="Icon"
+          label=${t("task.icon")}
           .value=${this.icon}
-          .options=${iconOptions}
+          .options=${iconOptions()}
           ?disabled=${this.saving}
           @value-changed=${(event: CustomEvent<string>) => {
             this.icon = event.detail;
           }}
         ></${comboboxFieldTag}>
-        <${expandableTag} heading="Assignment">
+        <${expandableTag} heading=${t("task.assignment")}>
           ${this.renderAssignment()}
         </${expandableTag}>
-        <${expandableTag} heading="Notifications">
+        <${expandableTag} heading=${t("task.notification")}>
           ${this.renderNotification()}
         </${expandableTag}>
-        <${expandableTag} heading="Planning" open>
+        <${expandableTag} heading=${t("task.planning")} open>
           ${this.renderPlanning()}
         </${expandableTag}>
-        <${expandableTag} heading="Attachments">
+        <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}
         </${expandableTag}>
         ${this.task?.task_id
           ? staticHtml`
-              <${expandableTag} heading="Completion history">
+              <${expandableTag} heading=${t("task.history")}>
                 ${this.renderHistory()}
               </${expandableTag}>
             `
@@ -1325,11 +1334,13 @@ export const openTaskEditor = async (
   const form = document.createElement(taskFormElementName) as TasksTaskForm;
   form.configure(hass, task, attachments);
   const result = await openTasksDialog({
-    heading: existingTask ? `Edit ${task.task_name}` : "New task",
+    heading: existingTask
+      ? `${t("task.edit")}: ${task.task_name}`
+      : t("task.new"),
     content: form,
     actions: [
-      { label: "Cancel", value: "cancel" },
-      { label: "Save", value: "save", run: () => form.save() },
+      { label: t("common.cancel"), value: "cancel" },
+      { label: t("common.save"), value: "save", run: () => form.save() },
     ],
   });
   return result === "save";

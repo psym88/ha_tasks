@@ -7,6 +7,7 @@ import {
   mutateTasks,
   type BulkTaskOperation,
 } from "./api";
+import { t } from "./localize";
 import type {
   HomeAssistant,
   Task,
@@ -53,12 +54,12 @@ interface FilterOption {
 const localStorageKey = "tasks-v2-table-state-v1";
 const sessionStorageKey = "tasks-v2-table-session-v1";
 const columnLabels: Record<ColumnKey, string> = {
-  due: "Due",
-  assignee: "Assignee",
-  labels: "Labels",
-  notifications: "Notifications",
-  trigger: "Trigger",
-  status: "Status",
+  due: "task.due",
+  assignee: "table.assignee",
+  labels: "task.labels",
+  notifications: "table.notifications",
+  trigger: "table.recurrence",
+  status: "v2.status",
 };
 const defaultColumns: ColumnVisibility = {
   due: true,
@@ -92,13 +93,13 @@ const storedObject = (
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 export const taskActions = (task: Task): ActionMenuItem[] => [
-  { label: "Open", value: "open" },
-  { label: "Edit", value: "edit" },
+  { label: t("v2.open"), value: "open" },
+  { label: t("menu.edit"), value: "edit" },
   {
-    label: task.active === false ? "Resume" : "Pause",
+    label: task.active === false ? t("v2.resume") : t("v2.pause"),
     value: "active",
   },
-  { label: "Delete", value: "delete", destructive: true },
+  { label: t("common.delete"), value: "delete", destructive: true },
 ];
 
 class TasksTaskTable extends LitElement {
@@ -573,27 +574,27 @@ class TasksTaskTable extends LitElement {
       assignments.status === "rejected" ||
       devices.status === "rejected"
     ) {
-      this.registryError = "Some filter options could not be loaded";
+      this.registryError = t("v2.registry_load_error");
     }
   }
 
   private trigger(task: Task): string {
     if (task.schedule_type === "sensor") {
-      return "Problem sensor";
+      return t("task.problem_sensor");
     }
     return task.schedule_type === "fixed"
-      ? "Fixed schedule"
-      : "After completion";
+      ? t("task.fixed")
+      : t("task.sliding");
   }
 
   private status(task: Task): string {
-    return task.active === false ? "Paused" : "Active";
+    return task.active === false ? t("v2.paused") : t("v2.active");
   }
 
   private assignee(task: Task): string {
     return (
       this.users.find((user) => user.id === task.assignee_id)?.name ||
-      "Unassigned"
+      t("task.unassigned")
     );
   }
 
@@ -637,7 +638,7 @@ class TasksTaskTable extends LitElement {
   private notificationsText(task: Task): string {
     return [
       ...(task.notification_persistent
-        ? ["Persistent notification"]
+        ? [t("task.notification_persistent")]
         : []),
       ...this.notificationDevices(task).map((device) =>
         this.deviceName(device),
@@ -667,10 +668,10 @@ class TasksTaskTable extends LitElement {
   private filterLabel(key: FilterKey, value: string): string {
     if (value === "__none__") {
       return key === "assignee"
-        ? "Unassigned"
+        ? t("task.unassigned")
         : key === "labels"
-          ? "No labels"
-          : "No notifications";
+          ? t("task.no_labels")
+          : t("v2.no_notifications");
     }
     if (key === "assignee") {
       return this.users.find((user) => user.id === value)?.name || value;
@@ -682,16 +683,16 @@ class TasksTaskTable extends LitElement {
     }
     if (key === "notifications") {
       return value === "panel"
-        ? "Persistent notification"
+        ? t("task.notification_persistent")
         : this.deviceName(
             this.devices.find((device) => device.id === value)!,
           );
     }
     return value === "sensor"
-      ? "Problem sensor"
+      ? t("task.problem_sensor")
       : value === "fixed"
-        ? "Fixed schedule"
-        : "After completion";
+        ? t("task.fixed")
+        : t("task.sliding");
   }
 
   private filterOptions(key: FilterKey): FilterOption[] {
@@ -927,7 +928,7 @@ class TasksTaskTable extends LitElement {
   private bulkTargets(): FilterOption[] {
     if (this.bulkAction === "assign") {
       return [
-        { value: "__none__", label: "Unassigned" },
+        { value: "__none__", label: t("task.unassigned") },
         ...this.users.map((user) => ({
           value: user.id,
           label: user.name,
@@ -948,7 +949,7 @@ class TasksTaskTable extends LitElement {
       this.bulkAction === "remove-notification"
     ) {
       return [
-        { value: "panel", label: "Persistent notification" },
+        { value: "panel", label: t("task.notification_persistent") },
         ...this.devices.map((device) => ({
           value: device.id,
           label: this.deviceName(device),
@@ -1034,17 +1035,17 @@ class TasksTaskTable extends LitElement {
       const deleting = this.bulkAction === "delete";
       const result = await openTasksDialog({
         heading: deleting
-          ? "Delete selected tasks?"
-          : "Complete selected tasks?",
+          ? t("bulk.delete_title")
+          : t("bulk.complete_title"),
         content: html`<p>
           ${deleting
-            ? `Delete ${operations.length} selected tasks including their history and attachments?`
-            : `Mark ${operations.length} selected tasks as completed?`}
+            ? t("bulk.delete_confirm", { count: operations.length })
+            : t("bulk.complete_confirm", { count: operations.length })}
         </p>`,
         actions: [
-          { label: "Cancel", value: "cancel" },
+          { label: t("common.cancel"), value: "cancel" },
           {
-            label: deleting ? "Delete" : "Complete",
+            label: deleting ? t("common.delete") : t("v2.complete"),
             value: "confirm",
             destructive: deleting,
           },
@@ -1153,8 +1154,8 @@ class TasksTaskTable extends LitElement {
   private columnHeader(key: ColumnKey) {
     const className = `${key}-column`;
     return key === "labels" || key === "notifications"
-      ? html`<th class=${className}>${columnLabels[key]}</th>`
-      : this.header(columnLabels[key], key, className);
+      ? html`<th class=${className}>${t(columnLabels[key])}</th>`
+      : this.header(t(columnLabels[key]), key, className);
   }
 
   private columnCell(task: Task, key: ColumnKey) {
@@ -1188,8 +1189,8 @@ class TasksTaskTable extends LitElement {
         <input
           class="search"
           type="search"
-          aria-label="Search tasks"
-          placeholder="Search tasks"
+          aria-label=${t("table.search")}
+          placeholder=${t("table.search")}
           .value=${this.search}
           @input=${(event: Event) => {
             this.search = (event.currentTarget as HTMLInputElement).value;
@@ -1197,13 +1198,13 @@ class TasksTaskTable extends LitElement {
           }}
         >
         <details>
-          <summary>Filters${filterCount ? ` (${filterCount})` : ""}</summary>
+          <summary>${t("table.filters")}${filterCount ? ` (${filterCount})` : ""}</summary>
           <div class="popover-panel">
             <div class="filter-grid">
-              ${this.filterGroup("Assignment", "assignee")}
-              ${this.filterGroup("Labels", "labels")}
-              ${this.filterGroup("Notifications", "notifications")}
-              ${this.filterGroup("Trigger", "trigger")}
+              ${this.filterGroup(t("task.assignment"), "assignee")}
+              ${this.filterGroup(t("task.labels"), "labels")}
+              ${this.filterGroup(t("table.notifications"), "notifications")}
+              ${this.filterGroup(t("table.recurrence"), "trigger")}
             </div>
             <div class="filter-footer">
               ${this.registryError
@@ -1217,23 +1218,23 @@ class TasksTaskTable extends LitElement {
                     this.storeSessionView();
                   }}
                 >
-                  Clear filters
+                  ${t("table.reset_filters")}
                 </button>
                 <button
                   type="button"
                   @click=${this.closePanel}
                 >
-                  Done
+                  ${t("v2.done")}
                 </button>
               </div>
             </div>
           </div>
         </details>
         <details>
-          <summary>Columns</summary>
+          <summary>${t("table.columns")}</summary>
           <div class="popover-panel column-panel">
             <fieldset>
-              <legend>Visible columns</legend>
+              <legend>${t("v2.visible_columns")}</legend>
               ${(Object.keys(columnLabels) as ColumnKey[]).map(
                 (key) => html`
                   <label>
@@ -1246,14 +1247,16 @@ class TasksTaskTable extends LitElement {
                           (event.currentTarget as HTMLInputElement).checked,
                         )}
                     >
-                    <span>${columnLabels[key]}</span>
+                    <span>${t(columnLabels[key])}</span>
                   </label>
                 `,
               )}
             </fieldset>
             <div class="filter-footer">
               <span></span>
-              <button type="button" @click=${this.closePanel}>Done</button>
+              <button type="button" @click=${this.closePanel}>
+                ${t("v2.done")}
+              </button>
             </div>
           </div>
         </details>
@@ -1262,10 +1265,10 @@ class TasksTaskTable extends LitElement {
         ? html`
             <div class="bulk-bar">
               <span class="bulk-count">
-                ${selectedTasks.length} selected
+                ${t("v2.selected", { count: selectedTasks.length })}
               </span>
               <select
-                aria-label="Bulk action"
+                aria-label=${t("bulk.actions")}
                 .value=${this.bulkAction}
                 @change=${(event: Event) => {
                   this.bulkAction = (
@@ -1275,21 +1278,21 @@ class TasksTaskTable extends LitElement {
                   this.bulkError = "";
                 }}
               >
-                <option value="">Choose action</option>
-                <option value="complete">Complete</option>
-                <option value="pause">Pause</option>
-                <option value="resume">Resume</option>
-                <option value="assign">Assign person</option>
-                <option value="add-label">Add label</option>
-                <option value="remove-label">Remove label</option>
-                <option value="add-notification">Add notification</option>
-                <option value="remove-notification">Remove notification</option>
-                <option value="delete">Delete</option>
+                <option value="">${t("v2.choose_action")}</option>
+                <option value="complete">${t("bulk.complete")}</option>
+                <option value="pause">${t("v2.pause")}</option>
+                <option value="resume">${t("v2.resume")}</option>
+                <option value="assign">${t("bulk.assign_person")}</option>
+                <option value="add-label">${t("v2.add_label")}</option>
+                <option value="remove-label">${t("v2.remove_label")}</option>
+                <option value="add-notification">${t("v2.add_notification")}</option>
+                <option value="remove-notification">${t("v2.remove_notification")}</option>
+                <option value="delete">${t("bulk.delete")}</option>
               </select>
               ${bulkTargets.length
                 ? html`
                     <select
-                      aria-label="Bulk action target"
+                      aria-label=${t("v2.choose_target")}
                       .value=${this.bulkTarget}
                       @change=${(event: Event) => {
                         this.bulkTarget = (
@@ -1297,7 +1300,7 @@ class TasksTaskTable extends LitElement {
                         ).value;
                       }}
                     >
-                      <option value="">Choose target</option>
+                      <option value="">${t("v2.choose_target")}</option>
                       ${bulkTargets.map(
                         (option) => html`
                           <option value=${option.value}>
@@ -1315,7 +1318,7 @@ class TasksTaskTable extends LitElement {
                 (this.bulkNeedsTarget() && !this.bulkTarget)}
                 @click=${() => void this.applyBulk()}
               >
-                ${this.bulkBusy ? "Applying…" : "Apply"}
+                ${this.bulkBusy ? t("v2.applying") : t("v2.apply")}
               </button>
               <button
                 type="button"
@@ -1327,7 +1330,7 @@ class TasksTaskTable extends LitElement {
                   this.bulkError = "";
                 }}
               >
-                Clear
+                ${t("v2.clear")}
               </button>
               ${this.bulkError
                 ? html`<p class="bulk-error">${this.bulkError}</p>`
@@ -1342,7 +1345,7 @@ class TasksTaskTable extends LitElement {
               <th class="selection">
                 <input
                   type="checkbox"
-                  aria-label="Select visible tasks"
+                  aria-label=${t("v2.select_visible")}
                   .checked=${allVisibleSelected}
                   .indeterminate=${someVisibleSelected &&
                   !allVisibleSelected}
@@ -1353,9 +1356,9 @@ class TasksTaskTable extends LitElement {
                     )}
                 >
               </th>
-              ${this.header("Task", "name")}
+              ${this.header(t("table.task"), "name")}
               ${visibleColumns.map((key) => this.columnHeader(key))}
-              <th class="actions" aria-label="Actions"></th>
+              <th class="actions" aria-label=${t("task.actions")}></th>
             </tr>
           </thead>
           <tbody>
@@ -1369,7 +1372,9 @@ class TasksTaskTable extends LitElement {
                       <td class="selection">
                         <input
                           type="checkbox"
-                          aria-label="Select ${task.task_name}"
+                          aria-label=${t("v2.select_task", {
+                            name: task.task_name,
+                          })}
                           .checked=${selectedIds.has(task.task_id)}
                           @change=${(event: Event) =>
                             this.toggleTask(
@@ -1395,7 +1400,9 @@ class TasksTaskTable extends LitElement {
                         this.columnCell(task, key))}
                       <td class="actions">
                         <${actionMenuTag}
-                          label="Actions for ${task.task_name}"
+                          label=${t("v2.actions_for", {
+                            name: task.task_name,
+                          })}
                           .items=${taskActions(task)}
                           @tasks-action=${(event: CustomEvent<string>) =>
                             this.action(task, event.detail)}
@@ -1407,7 +1414,7 @@ class TasksTaskTable extends LitElement {
               : html`
                   <tr>
                     <td class="empty" colspan=${this.visibleColumnCount()}>
-                      ${this.search ? "No matching tasks" : "No tasks"}
+                      ${this.search ? t("table.empty") : t("v2.no_tasks")}
                     </td>
                   </tr>
                 `}
