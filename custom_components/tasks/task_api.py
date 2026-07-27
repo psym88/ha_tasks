@@ -73,6 +73,34 @@ TASK_UPDATE_FIELDS = {
     vol.Optional(key.schema): validator
     for key, validator in TASK_CREATE_FIELDS.items()
 }
+BULK_OPERATION = vol.Any(
+    vol.Schema(
+        {
+            vol.Required("action"): "update",
+            vol.Required("task_id"): str,
+            vol.Required("changes"): vol.Schema(
+                TASK_UPDATE_FIELDS, extra=vol.PREVENT_EXTRA
+            ),
+        },
+        extra=vol.PREVENT_EXTRA,
+    ),
+    vol.Schema(
+        {
+            vol.Required("action"): "complete",
+            vol.Required("task_id"): str,
+            vol.Optional("completed_at"): str,
+            vol.Optional("notes"): TEXT,
+        },
+        extra=vol.PREVENT_EXTRA,
+    ),
+    vol.Schema(
+        {
+            vol.Required("action"): "delete",
+            vol.Required("task_id"): str,
+        },
+        extra=vol.PREVENT_EXTRA,
+    ),
+)
 PREVIEW_FIELDS = {
     vol.Optional("task_due"): str,
     **RECURRENCE_FIELDS,
@@ -198,6 +226,29 @@ async def ws_task_update(hass, connection, msg, manager):
         context=connection.context(msg),
     )
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "tasks/task/bulk",
+        vol.Required("operations"): vol.All(
+            [BULK_OPERATION], vol.Length(min=1)
+        ),
+    }
+)
+@websocket_api.async_response
+@require_manager
+async def ws_task_bulk(hass, connection, msg, manager):
+    """Apply multiple task changes as one transaction."""
+    user = connection.user
+    results = await manager.async_bulk_mutate(
+        msg["operations"],
+        user.id if user else None,
+        user.name if user else "system",
+        dt_util.utcnow(),
+        context=connection.context(msg),
+    )
+    connection.send_result(msg["id"], {"results": results})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "tasks/task/delete", vol.Required("task_id"): str})
@@ -338,4 +389,4 @@ async def ws_attachment_delete(hass, connection, msg, manager):
     connection.send_result(msg["id"])
 
 
-COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)
+COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_bulk, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

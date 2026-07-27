@@ -1,6 +1,7 @@
 """Tests for the Tasks application service."""
 
 import asyncio
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -144,5 +145,72 @@ def test_problem_trigger_notifies_internal_and_public_consumers():
         assert [change.action for change in changes] == ["task_due"]
         assert events[0][1]["action"] == "task_due"
         assert events[0][1]["task_due"] == "2026-07-27T10:00:00+00:00"
+
+    asyncio.run(run())
+
+
+def test_bulk_mutation_publishes_one_revision(monkeypatch):
+    class Store:
+        def task(self, task_id):
+            return {
+                "task_id": task_id,
+                "task_name": "Pump",
+                "active": True,
+                "schedule_type": "sensor",
+                "problem_sensor": "binary_sensor.old",
+            }
+
+        async def async_bulk_mutate(
+            self, operations, user_id, user_name, now
+        ):
+            return [
+                {
+                    "action": "update",
+                    "task_id": "task-1",
+                    "task": {
+                        **self.task("task-1"),
+                        "problem_sensor": "binary_sensor.new",
+                    },
+                },
+                {
+                    "action": "complete",
+                    "task_id": "task-2",
+                    "task": {"task_id": "task-2", "task_name": "Filter"},
+                },
+            ]
+
+    async def run():
+        dismissed = []
+        monkeypatch.setattr(
+            "custom_components.tasks.manager.dismiss_task_notification",
+            lambda hass, task_id: dismissed.append(task_id),
+        )
+        hass, events = _hass()
+        manager = TaskManager(hass, Store())
+        changes = []
+        manager.subscribe(changes.append)
+
+        results = await manager.async_bulk_mutate(
+            [
+                {
+                    "action": "update",
+                    "task_id": "task-1",
+                    "changes": {
+                        "problem_sensor": "binary_sensor.new",
+                    },
+                },
+                {"action": "complete", "task_id": "task-2"},
+            ],
+            "user-1",
+            "Alex",
+            datetime(2026, 7, 27, 10, tzinfo=timezone.utc),
+        )
+
+        assert len(results) == 2
+        assert manager.revision == 1
+        assert [change.action for change in changes] == ["bulk_mutated"]
+        assert changes[0].data["problem_task_ids"] == ["task-1"]
+        assert dismissed == ["task-2"]
+        assert [event[1]["action"] for event in events] == ["bulk_mutated"]
 
     asyncio.run(run())

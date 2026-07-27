@@ -18,13 +18,20 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Backend
 
-- `task_store.py`: persistence, serialized mutations, and task normalization
+- `models.py`: typed task, trigger, completion, notification, and attachment
+  values
+- `repository.py`: Home Assistant Store persistence, migrations, and attachment
+  files
+- `task_store.py`: atomic snapshot mutations and schema-3 serialization
+- `manager.py`: application use cases, runtime revisions, and direct change
+  callbacks
 - `migrations.py`: sequential Home Assistant store-schema and archive-manifest migrations
 - `recurrence.py`: trigger validation and recurring local datetime calculations
 - `scheduling.py`: due-time scheduling, indexed problem-sensor transitions, and
   startup reconciliation
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
-- `task_api.py`: authenticated task and metadata API
+- `task_api.py`: authenticated task API, snapshot subscriptions, and
+  transactional bulk commands
 - `attachment_api.py`: authenticated attachments and ZIP import/export
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution
@@ -52,7 +59,11 @@ The sidebar panel and dashboard card share the same controller and task viewer/e
 
 Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
 
-The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the summary sensor immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
+The current frontend loads an initial snapshot and reloads it from the public
+`tasks_event`. A parallel revisioned snapshot subscription is available for the
+V2 frontend. Internal schedulers and the summary sensor receive committed
+changes directly from `TaskManager`; the public event bus is not used for
+internal coordination or polling.
 
 ## Security and permissions
 

@@ -212,7 +212,7 @@ not replaced the path yet.
 
 - [x] Add an initial-snapshot WebSocket subscription.
 - [x] Add revisioned task updates.
-- [ ] Add one bulk-mutation command.
+- [x] Add one bulk-mutation command.
 - [ ] Add transactional task and attachment saving.
 - [ ] Retain legacy commands until the current frontend is retired.
 
@@ -303,8 +303,15 @@ not replaced the path yet.
 - Kept revisions out of persisted schema 3 so no user-data migration is
   required. The protocol change adds 14 production lines.
 - Verified all 131 backend and 121 frontend tests.
+- Added `tasks/task/bulk` for update, completion, and deletion operations.
+- Bulk operations mutate one copied snapshot, persist exactly once, publish one
+  revision, and remove attachment files only after a successful commit.
+- Switched all existing table bulk actions from sequential WebSocket requests
+  to the transactional command.
+- The explicit schemas and transaction path add 173 backend lines and 234
+  frontend bytes; all 137 backend and 121 frontend tests pass.
 
 ## Next action
 
-Add one transactional bulk-mutation command for the existing table actions
-without changing their individual legacy commands.
+Add transactional task-and-attachment saving for the editor while retaining
+the existing individual task and attachment commands.

@@ -359,3 +359,145 @@ def test_inactive_problem_task_does_not_trigger():
         assert task["task_due"] is None
 
     asyncio.run(run())
+
+
+def test_bulk_mutations_persist_one_snapshot():
+    async def run():
+        first = _weekly_task()
+        second = {**_weekly_task(), "task_id": "task-2", "task_name": "Second"}
+        store = _store(first)
+        store._data["tasks"].append(second)
+        commits = []
+
+        async def commit(data):
+            commits.append(data)
+            store._data = data
+
+        store._commit = commit
+        results = await store.async_bulk_mutate(
+            [
+                {
+                    "action": "update",
+                    "task_id": "task",
+                    "changes": {"assignee_id": "alex"},
+                },
+                {
+                    "action": "complete",
+                    "task_id": "task-2",
+                    "notes": "Done together",
+                },
+            ],
+            "user-1",
+            "Alex",
+            date(2026, 7, 30),
+        )
+
+        assert len(commits) == 1
+        assert results[0]["task"]["assignee_id"] == "alex"
+        assert results[1]["task"]["task_due"] == (
+            "2026-08-05T10:15:00+00:00"
+        )
+        assert store.history("task-2")[0]["notes"] == "Done together"
+
+    asyncio.run(run())
+
+
+def test_failed_bulk_mutation_keeps_the_entire_previous_snapshot():
+    async def run():
+        store = _store(_weekly_task())
+        before = store._data
+        commits = []
+
+        async def commit(data):
+            commits.append(data)
+            store._data = data
+
+        store._commit = commit
+        with pytest.raises(ValueError, match="unknown_task"):
+            await store.async_bulk_mutate(
+                [
+                    {
+                        "action": "update",
+                        "task_id": "task",
+                        "changes": {"task_name": "Should roll back"},
+                    },
+                    {
+                        "action": "delete",
+                        "task_id": "missing",
+                    },
+                ],
+                None,
+                "system",
+                date(2026, 7, 30),
+            )
+
+        assert commits == []
+        assert store._data is before
+        assert store.tasks[0]["task_name"] == "Task"
+
+    asyncio.run(run())
+
+
+def test_bulk_delete_removes_attachment_files_after_commit():
+    async def run():
+        store = _store(_weekly_task())
+        store._data["attachments"] = [
+            {"attachment_id": "file-1", "task_id": "task"}
+        ]
+        calls = []
+
+        async def commit(data):
+            calls.append("commit")
+            store._data = data
+
+        class Repository:
+            async def async_delete_attachment(self, attachment_id):
+                calls.append(f"delete:{attachment_id}")
+
+        store._commit = commit
+        store._repository = Repository()
+        await store.async_bulk_mutate(
+            [{"action": "delete", "task_id": "task"}],
+            None,
+            "system",
+            date(2026, 7, 30),
+        )
+
+        assert calls == ["commit", "delete:file-1"]
+        assert store.tasks == []
+        assert store._data["attachments"] == []
+
+    asyncio.run(run())
+
+
+def test_failed_bulk_save_keeps_files_and_metadata():
+    async def run():
+        store = _store(_weekly_task())
+        store._data["attachments"] = [
+            {"attachment_id": "file-1", "task_id": "task"}
+        ]
+        before = store._data
+        deleted = []
+
+        async def commit(data):
+            raise RuntimeError("save failed")
+
+        class Repository:
+            async def async_delete_attachment(self, attachment_id):
+                deleted.append(attachment_id)
+
+        store._commit = commit
+        store._repository = Repository()
+        with pytest.raises(RuntimeError, match="save failed"):
+            await store.async_bulk_mutate(
+                [{"action": "delete", "task_id": "task"}],
+                None,
+                "system",
+                date(2026, 7, 30),
+            )
+
+        assert store._data is before
+        assert store.tasks[0]["task_id"] == "task"
+        assert deleted == []
+
+    asyncio.run(run())

@@ -185,6 +185,55 @@ class TaskManager:
         )
         return task
 
+    async def async_bulk_mutate(
+        self,
+        operations: list[dict[str, Any]],
+        user_id: str | None,
+        user_name: str,
+        now: datetime,
+        *,
+        context: Context | None = None,
+    ) -> list[dict[str, Any]]:
+        """Apply task mutations as one persisted and published change."""
+        previous = {
+            operation["task_id"]: self._store.task(operation["task_id"])
+            for operation in operations
+            if operation["action"] == "update"
+        }
+        results = await self._store.async_bulk_mutate(
+            operations, user_id, user_name, now
+        )
+        problem_task_ids = []
+        for result in results:
+            task_id = result["task_id"]
+            if result["action"] in {"complete", "delete"}:
+                dismiss_task_notification(self._hass, task_id)
+            if result["action"] != "update":
+                continue
+            before = previous[task_id]
+            task = result["task"]
+            if (
+                before.get("schedule_type") != task.get("schedule_type")
+                or before.get("problem_sensor") != task.get("problem_sensor")
+                or before.get("active", True) != task.get("active", True)
+            ):
+                problem_task_ids.append(task_id)
+        self._changed(
+            "bulk_mutated",
+            "task",
+            context=context,
+            operations=[
+                {
+                    "action": result["action"],
+                    "task_id": result["task_id"],
+                }
+                for result in results
+            ],
+            problem_trigger_changed=bool(problem_task_ids),
+            problem_task_ids=problem_task_ids,
+        )
+        return results
+
     async def async_delete_history(
         self,
         task_id: str,

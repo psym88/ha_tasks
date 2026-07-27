@@ -170,6 +170,12 @@ class ProblemSensorScheduler:
 
     @callback
     def _handle_task_change(self, change: TaskChange) -> None:
+        if change.action == "bulk_mutated":
+            if change.data.get("problem_trigger_changed"):
+                self._subscribe_sensors()
+                for task_id in change.data.get("problem_task_ids", []):
+                    self._hass.async_create_task(self._reconcile(task_id))
+            return
         if (
             change.resource_type == "archive"
             or change.resource_type == "task"

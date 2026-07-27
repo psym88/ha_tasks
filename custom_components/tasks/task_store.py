@@ -214,75 +214,87 @@ class TasksStore:
     ) -> dict[str, Any]:
         async with self._lock:
             data = deepcopy(self._data)
-            task = self._find_in(data, "tasks", task_id)
-            current = Task.from_mapping(task)
-            values = {
-                key: payload[key]
-                for key in TASK_MUTABLE_FIELDS
-                if key in payload
-            }
-            if "nfc_tag_id" in values:
-                values["nfc_tag_id"] = self._normalize_nfc_tag_id(
-                    values["nfc_tag_id"], task_id, data
-                )
-            schedule_update = any(
-                key in payload for key in TRIGGER_FIELDS
-            )
-            updated = Task.from_mapping(
-                {**current.storage_fields(), **values}
-            )
-            schedule_changed = (
-                schedule_update
-                and updated.trigger.signature() != current.trigger.signature()
-            )
-            if schedule_changed:
-                if isinstance(updated.trigger, ProblemTrigger):
-                    updated = replace(updated, due=None)
-                else:
-                    boundary = dt_util.as_local(now or dt_util.utcnow())
-                    if current.due and not isinstance(
-                        current.trigger, ProblemTrigger
-                    ):
-                        previous_due = dt_util.as_local(current.due)
-                        boundary = boundary.replace(
-                            hour=previous_due.hour,
-                            minute=previous_due.minute,
-                            second=previous_due.second,
-                            microsecond=previous_due.microsecond,
-                            fold=0,
-                        )
-                    schedule = updated.storage_fields()
-                    schedule.pop("task_due")
-                    updated = replace(
-                        updated,
-                        due=next(occurrences(schedule, boundary)),
-                    )
-            task.clear()
-            task.update(updated.storage_fields())
+            task = self._update_task_in(data, task_id, payload, now)
             await self._commit(data)
             return task
+
+    def _update_task_in(
+        self,
+        data: dict[str, Any],
+        task_id: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        task = self._find_in(data, "tasks", task_id)
+        current = Task.from_mapping(task)
+        values = {
+            key: payload[key]
+            for key in TASK_MUTABLE_FIELDS
+            if key in payload
+        }
+        if "nfc_tag_id" in values:
+            values["nfc_tag_id"] = self._normalize_nfc_tag_id(
+                values["nfc_tag_id"], task_id, data
+            )
+        updated = Task.from_mapping(
+            {**current.storage_fields(), **values}
+        )
+        if (
+            any(key in payload for key in TRIGGER_FIELDS)
+            and updated.trigger.signature() != current.trigger.signature()
+        ):
+            if isinstance(updated.trigger, ProblemTrigger):
+                updated = replace(updated, due=None)
+            else:
+                boundary = dt_util.as_local(now or dt_util.utcnow())
+                if current.due and not isinstance(
+                    current.trigger, ProblemTrigger
+                ):
+                    previous_due = dt_util.as_local(current.due)
+                    boundary = boundary.replace(
+                        hour=previous_due.hour,
+                        minute=previous_due.minute,
+                        second=previous_due.second,
+                        microsecond=previous_due.microsecond,
+                        fold=0,
+                    )
+                schedule = updated.storage_fields()
+                schedule.pop("task_due")
+                updated = replace(
+                    updated,
+                    due=next(occurrences(schedule, boundary)),
+                )
+        task.clear()
+        task.update(updated.storage_fields())
+        return task
 
     async def async_delete_task(self, task_id: str) -> None:
         async with self._lock:
             data = deepcopy(self._data)
-            self._find_in(data, "tasks", task_id)
-            file_ids = [
-                attachment["attachment_id"]
-                for attachment in data["attachments"]
-                if attachment["task_id"] == task_id
-            ]
-            data["tasks"] = [
-                task for task in data["tasks"] if task["task_id"] != task_id
-            ]
-            data["attachments"] = [
-                attachment
-                for attachment in data["attachments"]
-                if attachment["task_id"] != task_id
-            ]
-            data["history"].pop(task_id, None)
+            file_ids = self._delete_task_in(data, task_id)
             await self._commit(data)
             for file_id in file_ids:
                 await self._repository.async_delete_attachment(file_id)
+
+    def _delete_task_in(
+        self, data: dict[str, Any], task_id: str
+    ) -> list[str]:
+        self._find_in(data, "tasks", task_id)
+        file_ids = [
+            attachment["attachment_id"]
+            for attachment in data["attachments"]
+            if attachment["task_id"] == task_id
+        ]
+        data["tasks"] = [
+            task for task in data["tasks"] if task["task_id"] != task_id
+        ]
+        data["attachments"] = [
+            attachment
+            for attachment in data["attachments"]
+            if attachment["task_id"] != task_id
+        ]
+        data["history"].pop(task_id, None)
+        return file_ids
 
     async def async_complete_task(
         self,
@@ -294,25 +306,87 @@ class TasksStore:
     ) -> dict[str, Any]:
         async with self._lock:
             data = deepcopy(self._data)
-            task = self._find_in(data, "tasks", task_id)
-            completion = parse_aware_datetime(completed_at)
-            if task.get("schedule_type") == "sensor":
-                task_due_after = None
-            else:
-                task_due_after = normalize_utc_datetime(
-                    next(occurrences(task, completion))
-                )
-            record = Completion.from_mapping({
-                "history_entry_id": uuid4().hex,
-                "completed_at": normalize_utc_datetime(completion),
-                "user_id": user_id,
-                "user_name": user_name,
-                "notes": str(notes or "").strip() or None,
-            }).storage_fields()
-            task["task_due"] = task_due_after
-            data["history"].setdefault(task_id, []).append(record)
+            task = self._complete_task_in(
+                data,
+                task_id,
+                completed_at,
+                user_id,
+                user_name,
+                notes,
+            )
             await self._commit(data)
             return task
+
+    def _complete_task_in(
+        self,
+        data: dict[str, Any],
+        task_id: str,
+        completed_at: str,
+        user_id: str | None,
+        user_name: str,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        task = self._find_in(data, "tasks", task_id)
+        completion = parse_aware_datetime(completed_at)
+        task_due_after = (
+            None
+            if task.get("schedule_type") == "sensor"
+            else normalize_utc_datetime(next(occurrences(task, completion)))
+        )
+        record = Completion.from_mapping({
+            "history_entry_id": uuid4().hex,
+            "completed_at": normalize_utc_datetime(completion),
+            "user_id": user_id,
+            "user_name": user_name,
+            "notes": str(notes or "").strip() or None,
+        }).storage_fields()
+        task["task_due"] = task_due_after
+        data["history"].setdefault(task_id, []).append(record)
+        return task
+
+    async def async_bulk_mutate(
+        self,
+        operations: list[dict[str, Any]],
+        user_id: str | None,
+        user_name: str,
+        now: datetime,
+    ) -> list[dict[str, Any]]:
+        """Apply task operations to one snapshot and persist exactly once."""
+        async with self._lock:
+            data = deepcopy(self._data)
+            results = []
+            deleted_files = []
+            for operation in operations:
+                action = operation["action"]
+                task_id = operation["task_id"]
+                if action == "update":
+                    task = self._update_task_in(
+                        data, task_id, operation["changes"], now
+                    )
+                elif action == "complete":
+                    task = self._complete_task_in(
+                        data,
+                        task_id,
+                        operation.get(
+                            "completed_at",
+                            normalize_utc_datetime(now),
+                        ),
+                        user_id,
+                        user_name,
+                        operation.get("notes"),
+                    )
+                else:
+                    deleted_files.extend(
+                        self._delete_task_in(data, task_id)
+                    )
+                    task = None
+                results.append(
+                    {"action": action, "task_id": task_id, "task": task}
+                )
+            await self._commit(data)
+            for file_id in deleted_files:
+                await self._repository.async_delete_attachment(file_id)
+            return results
 
     def history(self, task_id: str) -> list[dict[str, Any]]:
         self._find("tasks", task_id)
