@@ -8,7 +8,13 @@ const outdir = join(root, "custom_components/tasks/frontend/v2");
 
 await mkdir(outdir, { recursive: true });
 for (const file of await readdir(outdir)) {
-  if (/^panel(?:-[A-Z0-9]+)?\.js$/.test(file) || file === "assets.json") {
+  if (
+    /^panel(?:-[A-Z0-9]+)?\.js$/.test(file) ||
+    /^card(?:-[A-Z0-9]+)?\.js$/.test(file) ||
+    /^chunk-[A-Z0-9]+\.js$/.test(file) ||
+    file === "card-loader.js" ||
+    file === "assets.json"
+  ) {
     await rm(join(outdir, file));
   }
 }
@@ -16,10 +22,13 @@ for (const file of await readdir(outdir)) {
 const result = await build({
   entryPoints: {
     panel: join(root, "frontend_v2/src/panel.ts"),
+    card: join(root, "frontend_v2/src/card.ts"),
   },
   outdir,
   bundle: true,
+  splitting: true,
   entryNames: "[name]-[hash]",
+  chunkNames: "chunk-[hash]",
   format: "esm",
   legalComments: "none",
   metafile: true,
@@ -28,13 +37,21 @@ const result = await build({
   target: "es2022",
 });
 
-const panel = Object.entries(result.metafile.outputs).find(
-  ([, output]) => output.entryPoint,
-)?.[0];
-if (!panel) {
-  throw new Error("V2 panel output was not generated");
+const outputFor = (entryName) =>
+  Object.entries(result.metafile.outputs).find(
+    ([, output]) =>
+      output.entryPoint && basename(output.entryPoint) === `${entryName}.ts`,
+  )?.[0];
+const panel = outputFor("panel");
+const card = outputFor("card");
+if (!panel || !card) {
+  throw new Error("V2 panel or card output was not generated");
 }
 await writeFile(
   join(outdir, "assets.json"),
-  `${JSON.stringify({ panel: basename(panel) }, null, 2)}\n`,
+  `${JSON.stringify(
+    { panel: basename(panel), card: basename(card) },
+    null,
+    2,
+  )}\n`,
 );

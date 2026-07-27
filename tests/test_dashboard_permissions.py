@@ -58,7 +58,9 @@ def test_only_sidepanel_requires_admin():
 def test_dashboard_module_is_registered_and_removed_with_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "frontend.add_extra_js_url(hass, card_js_url)" in source
+    assert "frontend.add_extra_js_url(hass, v2_card_js_url)" in source
     assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
+    assert "frontend.remove_extra_js_url(hass, v2_card_js_url)" in source
 
 
 def test_v2_panel_is_registered_alongside_the_legacy_panel():
@@ -66,9 +68,11 @@ def test_v2_panel_is_registered_alongside_the_legacy_panel():
         encoding="utf-8"
     )
     assert 'webcomponent_name="tasks-panel"' in source
-    assert "webcomponent_name=v2_panel_element" in source
+    assert 'webcomponent_name="ha-tasks-v2-panel"' in source
     assert 'f"{base_url}/v2/{v2_panel_asset}"' in source
-    assert "await hass.async_add_executor_job(_v2_panel_asset)" in source
+    assert 'f"{base_url}/v2/{v2_card_asset}"' in source
+    assert "await hass.async_add_executor_job(" in source
+    assert "_v2_assets" in source
     assert (
         'frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))'
         in source

@@ -96,6 +96,9 @@ export interface HomeAssistantConnection {
 
 export interface HomeAssistant {
   connection: HomeAssistantConnection;
+  user?: {
+    id: string;
+  };
   fetchWithAuth(
     path: string,
     init?: RequestInit,

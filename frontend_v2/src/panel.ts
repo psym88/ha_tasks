@@ -229,7 +229,7 @@ class TasksPanelV2 extends LitElement {
   }
 }
 
-const panelElementName = elementName("panel-v2");
+const panelElementName = elementName("panel");
 if (!customElements.get(panelElementName)) {
   customElements.define(panelElementName, TasksPanelV2);
 }

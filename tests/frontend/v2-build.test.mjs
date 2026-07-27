@@ -46,6 +46,14 @@ const taskTable = await readFile(
   new URL("../../frontend_v2/src/task-table.ts", import.meta.url),
   "utf8",
 );
+const dashboardCard = await readFile(
+  new URL("../../frontend_v2/src/dashboard-card.ts", import.meta.url),
+  "utf8",
+);
+const cardEntry = await readFile(
+  new URL("../../frontend_v2/src/card.ts", import.meta.url),
+  "utf8",
+);
 const assets = JSON.parse(
   await readFile(
     new URL(
@@ -62,6 +70,13 @@ const bundle = await readFile(
   ),
   "utf8",
 );
+const cardBundle = await readFile(
+  new URL(
+    `../../custom_components/tasks/frontend/v2/${assets.card}`,
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("V2 subscribes to the revisioned snapshot protocol", () => {
   assert.match(api, /type: "tasks\/subscribe"/);
@@ -70,7 +85,9 @@ test("V2 subscribes to the revisioned snapshot protocol", () => {
 
 test("V2 bundle owns its Lit runtime and custom element", () => {
   assert.match(assets.panel, /^panel-[A-Z0-9]+\.js$/);
+  assert.match(assets.card, /^card-[A-Z0-9]+\.js$/);
   assert.match(bundle, /ha-tasks-/);
+  assert.match(cardBundle, /tasks-card-v2/);
   assert.doesNotMatch(bundle, /\bfrom\s+["']lit["']/);
   assert.doesNotMatch(bundle, /\bimport\s+["']lit["']/);
 });
@@ -88,9 +105,8 @@ test("V2 expandable uses native disclosure semantics", () => {
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 
-test("V2 assets and elements are isolated by the bundle hash", () => {
-  assert.match(version, /new URL\(import\.meta\.url\)/);
-  assert.match(version, /`ha-tasks-\${name}-\${bundleHash}`/);
+test("V2 elements use an integration-owned namespace", () => {
+  assert.match(version, /`ha-tasks-v2-\${name}`/);
 });
 
 test("V2 action menu anchors to its trigger and stays in the viewport", () => {
@@ -286,6 +302,45 @@ test("V2 bulk actions cover existing assignment and notification behavior", () =
   assert.match(taskTable, /label_ids:/);
   assert.match(taskTable, /assignee_id:/);
   assert.match(taskTable, /openTasksDialog/);
+});
+
+test("V2 dashboard card owns its view and editor", () => {
+  assert.match(cardEntry, /import "\.\/dashboard-card"/);
+  assert.doesNotMatch(source, /dashboard-card/);
+  assert.match(dashboardCard, /class TasksDashboardCard extends LitElement/);
+  assert.match(
+    dashboardCard,
+    /class TasksDashboardCardEditor extends LitElement/,
+  );
+  assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
+  assert.match(dashboardCard, /secondary_info:/);
+  assert.match(dashboardCard, /due_days:/);
+  assert.match(dashboardCard, /assignee_filter:/);
+  assert.doesNotMatch(
+    dashboardCard,
+    /<ha-(?:card|list|icon|form|selector)/,
+  );
+});
+
+test("V2 dashboard card uses live snapshots and owned task actions", () => {
+  assert.match(dashboardCard, /subscribeTasks\(hass/);
+  assert.match(dashboardCard, /task\.active !== false/);
+  assert.match(dashboardCard, /currentUserFilter/);
+  assert.match(dashboardCard, /dateKey\(task\.task_due/);
+  assert.match(dashboardCard, /openTaskViewer/);
+  assert.match(dashboardCard, /openTaskEditor/);
+  assert.match(dashboardCard, /taskActions\(task\)/);
+});
+
+test("V2 dashboard card follows the Lovelace custom-card contract", () => {
+  assert.match(dashboardCard, /stableCardTag = "tasks-card-v2"/);
+  assert.match(dashboardCard, /editorElementName = "tasks-card-v2-editor"/);
+  assert.match(dashboardCard, /customElements\.define\(stableCardTag/);
+  assert.match(dashboardCard, /customElements\.define\(editorElementName/);
+  assert.match(dashboardCard, /card\.type === stableCardTag/);
+  assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
+  assert.match(dashboardCard, /const \{ type: _type, \.\.\.config \}/);
+  assert.doesNotMatch(dashboardCard, /__haTasksV2CardRuntime|runtimeChangedEvent/);
 });
 
 test("V2 planning uses the authoritative preview API for every recurrence", () => {

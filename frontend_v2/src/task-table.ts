@@ -91,7 +91,7 @@ const storedObject = (
 };
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
-const taskActions = (task: Task): ActionMenuItem[] => [
+export const taskActions = (task: Task): ActionMenuItem[] => [
   { label: "Open", value: "open" },
   { label: "Edit", value: "edit" },
   {

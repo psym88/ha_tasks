@@ -164,7 +164,7 @@ not replaced the path yet.
 | Public Tasks events | legacy | pending | stable filterable event data |
 | Authenticated task access | legacy | pending | existing permission contract |
 | Admin-only sidebar | legacy | pending | panel registration |
-| Dashboard card | legacy | pending | view and edit modes |
+| Dashboard card | legacy | complete | view and edit modes |
 | Table search | legacy | complete | localized presentation |
 | Table filters | legacy | complete | assignee, label, notification, trigger |
 | Table sorting | legacy | complete | missing due values sort last |
@@ -230,9 +230,9 @@ not replaced the path yet.
 - [x] Add owned UI primitives.
 - [x] Add V2 task form and viewer.
 - [x] Add V2 task table without grouping or a grid dependency.
-- [ ] Add V2 dashboard card.
+- [x] Add V2 dashboard card.
 - [x] Register a parallel test panel.
-- [ ] Register a parallel test card.
+- [x] Register a parallel test card.
 - [ ] Verify light, dark, desktop and mobile behavior.
 
 ### Phase 7 - Native Home Assistant adapter
@@ -505,7 +505,26 @@ not replaced the path yet.
   mobile notifications, active state, completion, and deletion in a browser.
 - The hash-scoped bundle grew from 94,525 to 101,923 bytes. Verified all 145
   backend and 156 frontend tests.
+- Added the parallel `custom:tasks-card-v2` dashboard card with owned list,
+  empty, action, add-task, and configuration-editor presentation.
+- Reused the revisioned task subscription and owned viewer, editor, action
+  menu, and confirmation paths without loading Home Assistant frontend
+  elements.
+- Preserved the existing active-task, due-window, current-user, named-user,
+  secondary-information, ordering, and card-size behavior.
+- Added a dedicated card entry module which directly registers the stable
+  `tasks-card-v2` card and `tasks-card-v2-editor` elements and publishes the
+  card through `window.customCards`.
+- Kept the panel and card as separate entry modules while sharing their common
+  owned UI code in one generated chunk.
+- Matched the Lovelace card contract by returning stub configuration without
+  the `type` property and emitting editor changes as `{ config: ... }`.
+- Verified due and assignee filtering, registry projections, exact task-update
+  payloads, editor change events, metadata registration, and live runtime
+  replacement in a browser.
+- The generated V2 artifacts total 114,706 bytes: 98,522 shared, 12,636 card,
+  and 3,548 panel. This is 12,783 bytes above the preceding panel-only build.
 
 ## Next action
 
-Add the parallel V2 dashboard card.
+Complete V2 English and German localization and final responsive verification.

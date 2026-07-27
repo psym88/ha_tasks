@@ -36,35 +36,42 @@ class TasksData:
     manager: TaskManager
 
 
-def _v2_panel_asset() -> str:
-    """Return the validated generated V2 panel filename."""
+def _v2_assets() -> tuple[str, str]:
+    """Return the validated generated V2 frontend filenames."""
     assets = json.loads(
         (Path(__file__).parent / "frontend/v2/assets.json").read_text()
     )
     panel = assets.get("panel")
-    if (
-        not isinstance(panel, str)
-        or not panel.startswith("panel-")
-        or not panel.endswith(".js")
-        or "/" in panel
-        or "\\" in panel
-    ):
-        raise RuntimeError("Invalid Tasks V2 panel asset")
-    return panel
+    card = assets.get("card")
+    for name, value in (("panel", panel), ("card", card)):
+        if (
+            not isinstance(value, str)
+            or not value.startswith(f"{name}-")
+            or not value.endswith(".js")
+            or "/" in value
+            or "\\" in value
+        ):
+            raise RuntimeError(f"Invalid Tasks V2 {name} asset")
+    return panel, card
 
 
-async def _frontend_urls(hass: HomeAssistant) -> tuple[str, str, str, str]:
+async def _frontend_urls(
+    hass: HomeAssistant,
+) -> tuple[str, str, str, str, str]:
     """Return frontend URLs derived from the manifest version."""
     version = (await async_get_integration(hass, DOMAIN)).version
     if version is None:
         raise RuntimeError("Tasks manifest version is required")
     base_url = f"{FRONTEND_URL}/{version}"
-    v2_panel_asset = await hass.async_add_executor_job(_v2_panel_asset)
+    v2_panel_asset, v2_card_asset = await hass.async_add_executor_job(
+        _v2_assets
+    )
     return (
         base_url,
         f"{base_url}/panel.js",
         f"{base_url}/dashboard-card.js",
         f"{base_url}/v2/{v2_panel_asset}",
+        f"{base_url}/v2/{v2_card_asset}",
     )
 
 
@@ -74,7 +81,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     frontend_dir = Path(__file__).parent / "frontend"
     translations_dir = Path(__file__).parent / "frontend_translations"
     english_translations = translations_dir / "en.json"
-    frontend_url, _, _, _ = await _frontend_urls(hass)
+    frontend_url, _, _, _, _ = await _frontend_urls(hass)
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(frontend_url, str(frontend_dir), False),
@@ -105,12 +112,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(problem_scheduler.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _, panel_js_url, card_js_url, v2_panel_js_url = await _frontend_urls(hass)
-    v2_panel_element = (
-        f"ha-tasks-panel-v2-"
-        f"{Path(v2_panel_js_url).stem.removeprefix('panel-').lower()}"
+    _, panel_js_url, card_js_url, v2_panel_js_url, v2_card_js_url = (
+        await _frontend_urls(hass)
     )
     frontend.add_extra_js_url(hass, card_js_url)
+    frontend.add_extra_js_url(hass, v2_card_js_url)
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="tasks-panel",
@@ -123,7 +129,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     await panel_custom.async_register_panel(
         hass,
-        webcomponent_name=v2_panel_element,
+        webcomponent_name="ha-tasks-v2-panel",
         frontend_url_path=V2_PANEL_URL.removeprefix("/"),
         module_url=v2_panel_js_url,
         sidebar_title="Tasks V2",
@@ -137,8 +143,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        _, _, card_js_url, _ = await _frontend_urls(hass)
+        _, _, card_js_url, _, v2_card_js_url = await _frontend_urls(hass)
         frontend.remove_extra_js_url(hass, card_js_url)
+        frontend.remove_extra_js_url(hass, v2_card_js_url)
         frontend.async_remove_panel(hass, PANEL_URL.removeprefix("/"))
         frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))
     return unloaded
