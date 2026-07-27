@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from custom_components.tasks.recurrence import (
     add_interval,
+    next_due_after_completion,
     occurrences,
 )
 
@@ -46,6 +47,75 @@ def test_sliding_intervals():
         ),
         date(2026, 7, 21),
     ) == [date(2026, 8, 4)]
+
+
+def test_replay_due_uses_latest_completion_for_sliding_schedule():
+    value = task(
+        due="2026-09-20T14:37:00+00:00",
+        type="sliding",
+        unit="monthly",
+        interval=2,
+    )
+
+    assert next_due_after_completion(value, date(2026, 7, 21)) == date(
+        2026, 9, 21
+    )
+
+
+def test_replay_due_can_follow_fixed_phase_before_current_due():
+    cases = (
+        (
+            task(due="2026-07-29T14:37:00+00:00", interval=3),
+            date(2026, 7, 21),
+            date(2026, 7, 23),
+        ),
+        (
+            task(
+                due="2026-08-20T14:37:00+00:00",
+                unit="weekly",
+                interval=2,
+                weekdays=[3],
+            ),
+            date(2026, 7, 24),
+            date(2026, 8, 6),
+        ),
+        (
+            task(
+                due="2026-11-15T14:37:00+00:00",
+                unit="monthly",
+                interval=2,
+                day=15,
+            ),
+            date(2026, 7, 20),
+            date(2026, 9, 15),
+        ),
+        (
+            task(
+                due="2030-07-01T14:37:00+00:00",
+                unit="yearly",
+                interval=2,
+                month=7,
+                day=1,
+            ),
+            date(2026, 7, 2),
+            date(2028, 7, 1),
+        ),
+    )
+
+    for value, completion, expected in cases:
+        assert next_due_after_completion(value, completion) == expected
+
+
+def test_replay_due_does_not_derive_sensor_state_from_history():
+    value = {
+        "due": "2026-07-20T14:37:00+00:00",
+        "schedule": {
+            "type": "sensor",
+            "entity_id": "binary_sensor.problem",
+        },
+    }
+
+    assert next_due_after_completion(value, date(2026, 7, 19)) is None
 
 
 def test_daily_interval_preserves_local_wall_time_across_dst():

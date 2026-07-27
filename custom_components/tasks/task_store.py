@@ -23,7 +23,7 @@ from .models import (
     Task,
     trigger_from_record,
 )
-from .recurrence import occurrences
+from .recurrence import next_due_after_completion, occurrences
 from .repository import TasksRepository
 
 
@@ -469,6 +469,18 @@ class TasksStore:
                 for entry in task["completions"]
                 if entry["id"] not in deleted_history_entry_ids
             ]
+            if deleted_history_entry_ids and task["completions"]:
+                latest_completion = max(
+                    (
+                        parse_aware_datetime(entry["completed_at"])
+                        for entry in task["completions"]
+                    ),
+                )
+                replayed_due = next_due_after_completion(
+                    task, latest_completion
+                )
+                if replayed_due is not None:
+                    task["due"] = normalize_utc_datetime(replayed_due)
             attachments = [
                 Attachment(
                     uuid4().hex,

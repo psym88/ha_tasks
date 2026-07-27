@@ -15,6 +15,7 @@ from .models import (
     trigger_from_record,
 )
 
+
 def _resolve_local(value: datetime) -> datetime:
     """Resolve imaginary local times and choose the first ambiguous occurrence."""
     value = value.replace(fold=0)
@@ -76,7 +77,7 @@ def _fixed_due_on_or_after(
     schedule_interval = max(1, int(schedule["interval"]))
     schedule_unit = schedule["unit"]
     if schedule_unit == "daily":
-        elapsed = max(0, boundary.toordinal() - anchor.toordinal())
+        elapsed = boundary.toordinal() - anchor.toordinal()
         steps = elapsed // schedule_interval
         candidate = add_interval(anchor, steps * schedule_interval, "day")
         if candidate < boundary:
@@ -105,8 +106,8 @@ def _fixed_due_on_or_after(
             (boundary.year - anchor.year) * 12 + boundary.month - anchor.month
         )
         for offset in range(
-            max(0, month_delta),
-            max(0, month_delta) + schedule_interval + 2,
+            month_delta,
+            month_delta + schedule_interval + 2,
         ):
             if offset % schedule_interval:
                 continue
@@ -120,8 +121,8 @@ def _fixed_due_on_or_after(
         month = int(schedule["month"])
         selected = schedule["day"]
         for year in range(
-            max(boundary.year, anchor.year),
-            max(boundary.year, anchor.year) + schedule_interval + 2,
+            boundary.year,
+            boundary.year + schedule_interval + 2,
         ):
             if (year - anchor.year) % schedule_interval:
                 continue
@@ -130,6 +131,39 @@ def _fixed_due_on_or_after(
                 return candidate
         raise ValueError("invalid_yearly_schedule")
     raise ValueError("invalid_frequency")
+
+
+def next_due_after_completion(
+    task: dict[str, Any], completed_at: datetime
+) -> datetime | None:
+    """Recalculate due from the newest remaining completion."""
+    if completed_at.tzinfo is None:
+        raise ValueError("recurrence_timezone_required")
+    schedule = task["schedule"]
+    trigger = trigger_from_record(schedule)
+    if isinstance(trigger, ProblemTrigger):
+        return None
+
+    completion = dt_util.as_local(completed_at)
+    if isinstance(trigger, AfterCompletionSchedule):
+        return add_interval(
+            completion,
+            trigger.interval,
+            trigger.unit.interval_unit,
+        )
+
+    assert isinstance(trigger, FixedSchedule)
+    current_due = (
+        dt_util.as_local(parse_aware_datetime(task["due"]))
+        if task.get("due")
+        else completion
+    )
+    anchor = _with_schedule_time(schedule, current_due)
+    return _fixed_due_on_or_after(
+        schedule,
+        anchor,
+        completion + timedelta(microseconds=1),
+    )
 
 
 def occurrences(

@@ -132,7 +132,7 @@
     "table.columns": "Columns",
     "table.reset_filters": "Reset filters",
     "settings.import_export": "Backup",
-    "settings.archive_hint": "The archive contains all tasks, history, and attachments. Existing tasks are neither overwritten nor supplemented. Older archives are checked during import and converted to the new format.",
+    "settings.archive_hint": "The archive contains the versioned Tasks store snapshot and all attachments. Existing tasks are neither overwritten nor supplemented.",
     "settings.export": "Export",
     "settings.import": "Import",
     "settings.exporting": "Creating archive…",

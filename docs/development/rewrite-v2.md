@@ -16,8 +16,9 @@ rather than the retired transition strategy.
   sliding schedules advance from completion.
 - Sensor tasks use the same `due` state as other tasks. `due` is empty while
   waiting, set when the sensor triggers, and cleared on completion.
-- Completion history is an audit log. Deleting an entry never replays or
-  changes the current due state.
+- Completion history records completed work. After deletion, fixed and sliding
+  tasks recalculate `due` only from the newest remaining completion; sensor
+  tasks and empty histories preserve their current state.
 - The public Home Assistant `tasks_event` remains available to users and
   automations, but internal components communicate directly through
   `TaskManager`.

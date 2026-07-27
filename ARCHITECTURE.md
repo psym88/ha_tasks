@@ -20,6 +20,9 @@ Persistent data is stored in Home Assistant; attachment files live under
   clears `due`; a later transition can trigger it again.
 - Pausing preserves `due` but excludes the task from scheduling, sensor
   triggering, the dashboard card, and the due-task count.
+- Removing completion records recalculates fixed and sliding `due` from the
+  newest remaining completion. Sensor tasks and tasks without remaining
+  completions preserve their current `due`.
 - Date-times are timezone-aware Python values internally and UTC ISO strings at
   persistence and transport boundaries.
 - Store schema 6 nests completion and attachment metadata under each task and

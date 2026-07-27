@@ -132,7 +132,7 @@
     "table.columns": "Spalten",
     "table.reset_filters": "Filter zurücksetzen",
     "settings.import_export": "Backup",
-    "settings.archive_hint": "Das Archiv enthält alle Tasks, Verläufe und Anhänge. Vorhandene Tasks werden nicht überschrieben oder ergänzt. Ältere Archive werden beim Import überprüft und in das neue Format konvertiert.",
+    "settings.archive_hint": "Das Archiv enthält den versionierten Tasks-Store-Snapshot und alle Anhänge. Vorhandene Tasks werden nicht überschrieben oder ergänzt.",
     "settings.export": "Exportieren",
     "settings.import": "Importieren",
     "settings.exporting": "Archiv wird erstellt…",
