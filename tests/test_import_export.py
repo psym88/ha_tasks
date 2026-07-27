@@ -19,6 +19,7 @@ from custom_components.tasks.attachment_api import (
     _parse_archive_file_with_report,
     _parse_archive_manifest,
 )
+from custom_components.tasks.repository import TasksRepository
 from custom_components.tasks.task_store import TasksStore
 
 
@@ -73,18 +74,17 @@ def archive_task(task_id: str, task_name: str) -> dict:
 
 
 def archive_store(tmp_path: Path) -> TasksStore:
-    store = TasksStore.__new__(TasksStore)
-    store._hass = FakeHass()
-    store._store = MemoryStore()
-    store._upload_dir = tmp_path / "uploads"
-    store._lock = asyncio.Lock()
+    repository = TasksRepository(
+        FakeHass(), tmp_path / "uploads", store=MemoryStore()
+    )
+    store = TasksStore(repository=repository)
     store._data = {
         "tasks": [archive_task("task-1", "Bins")],
         "history": {"task-1": [{"history_entry_id": "history-1"}]},
         "attachments": [{"attachment_id": "file-1", "task_id": "task-1", "size": 7}],
     }
-    store._upload_dir.mkdir(parents=True)
-    (store._upload_dir / "file-1").write_bytes(b"content")
+    repository.upload_dir.mkdir(parents=True)
+    (repository.upload_dir / "file-1").write_bytes(b"content")
     return store
 
 
@@ -100,14 +100,14 @@ def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
         source._data["attachments"].append(
             {"attachment_id": "file-3", "task_id": "task-2", "size": 5}
         )
-        (source._upload_dir / "file-2").write_bytes(b"new")
-        (source._upload_dir / "file-3").write_bytes(b"added")
+        (source._repository.upload_dir / "file-2").write_bytes(b"new")
+        (source._repository.upload_dir / "file-3").write_bytes(b"added")
         data, files = await source.async_export_archive()
 
         target = archive_store(tmp_path / "target")
         target._data["tasks"][0]["task_name"] = "Existing data"
-        (target._upload_dir / "file-2").write_bytes(b"keep")
-        (target._upload_dir / "obsolete").write_bytes(b"old")
+        (target._repository.upload_dir / "file-2").write_bytes(b"keep")
+        (target._repository.upload_dir / "obsolete").write_bytes(b"old")
         report = await target.async_import_archive(data, files)
 
         assert [
@@ -127,13 +127,21 @@ def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
             {"attachment_id": "file-1", "task_id": "task-1", "size": 7},
             {"attachment_id": "file-3", "task_id": "task-2", "size": 5},
         ]
-        assert target._store.data == target._data
-        assert sorted(path.name for path in target._upload_dir.iterdir()) == [
+        assert target._repository.store.data == target._data
+        assert sorted(
+            path.name for path in target._repository.upload_dir.iterdir()
+        ) == [
             "file-1", "file-2", "file-3", "obsolete"
         ]
-        assert (target._upload_dir / "file-1").read_bytes() == b"content"
-        assert (target._upload_dir / "file-2").read_bytes() == b"keep"
-        assert (target._upload_dir / "file-3").read_bytes() == b"added"
+        assert (
+            target._repository.upload_dir / "file-1"
+        ).read_bytes() == b"content"
+        assert (
+            target._repository.upload_dir / "file-2"
+        ).read_bytes() == b"keep"
+        assert (
+            target._repository.upload_dir / "file-3"
+        ).read_bytes() == b"added"
         assert report == {
             "tasks_imported": 1,
             "tasks_skipped": ["Imported conflict"],
@@ -153,34 +161,38 @@ def test_import_removes_only_new_files_when_store_save_fails(tmp_path):
         source._data["attachments"].append(
             {"attachment_id": "file-2", "task_id": "task-2", "size": 3}
         )
-        (source._upload_dir / "file-2").write_bytes(b"new")
+        (source._repository.upload_dir / "file-2").write_bytes(b"new")
         data, files = await source.async_export_archive()
 
         target = archive_store(tmp_path / "target")
-        target._store = FailingStore()
+        target._repository.store = FailingStore()
         old_data = target._data
 
         with pytest.raises(RuntimeError, match="save failed"):
             await target.async_import_archive(data, files)
 
         assert target._data is old_data
-        assert (target._upload_dir / "file-1").read_bytes() == b"content"
-        assert not (target._upload_dir / "file-2").exists()
+        assert (
+            target._repository.upload_dir / "file-1"
+        ).read_bytes() == b"content"
+        assert not (target._repository.upload_dir / "file-2").exists()
 
     asyncio.run(run())
 
 
 def test_attachment_write_failure_removes_partial_import_only(tmp_path):
     store = archive_store(tmp_path)
-    (store._upload_dir / "conflict").write_bytes(b"keep")
+    (store._repository.upload_dir / "conflict").write_bytes(b"keep")
 
     with pytest.raises(FileExistsError):
-        store._write_attachment_files(
+        store._repository._write_attachment_files(
             {"new-file": b"new", "conflict": b"replacement"}
         )
 
-    assert not (store._upload_dir / "new-file").exists()
-    assert (store._upload_dir / "conflict").read_bytes() == b"keep"
+    assert not (store._repository.upload_dir / "new-file").exists()
+    assert (
+        store._repository.upload_dir / "conflict"
+    ).read_bytes() == b"keep"
 
 
 def test_attachment_write_streams_staged_file(tmp_path):
@@ -188,9 +200,11 @@ def test_attachment_write_streams_staged_file(tmp_path):
     staged_file = tmp_path / "staged-attachment"
     staged_file.write_bytes(b"staged content")
 
-    store._write_attachment_files({"file-2": staged_file})
+    store._repository._write_attachment_files({"file-2": staged_file})
 
-    assert (store._upload_dir / "file-2").read_bytes() == b"staged content"
+    assert (
+        store._repository.upload_dir / "file-2"
+    ).read_bytes() == b"staged content"
 
 
 @pytest.mark.parametrize("file_id", ["", ".", "..", "../file", r"..\file"])

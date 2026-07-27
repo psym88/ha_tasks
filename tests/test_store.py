@@ -17,10 +17,10 @@ def _store(task):
     store._lock = asyncio.Lock()
     store._data = {"tasks": [task], "history": {}, "attachments": []}
 
-    async def save():
-        return None
+    async def commit(data):
+        store._data = data
 
-    store._save = save
+    store._commit = commit
     return store
 
 
@@ -40,6 +40,26 @@ def _weekly_task():
         "schedule_day": 29,
         "schedule_month": 7,
     }
+
+
+def test_failed_save_keeps_current_snapshot():
+    class FailingRepository:
+        async def async_save(self, data):
+            raise RuntimeError("save failed")
+
+    async def run():
+        store = _store(_weekly_task())
+        store._repository = FailingRepository()
+        del store._commit
+        before = store._data
+
+        with pytest.raises(RuntimeError, match="save failed"):
+            await store.async_update_task("task", {"task_name": "Changed"})
+
+        assert store._data is before
+        assert store.tasks[0]["task_name"] == "Task"
+
+    asyncio.run(run())
 
 
 def test_new_sliding_task_starts_due_after_its_first_interval():

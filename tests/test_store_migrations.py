@@ -8,7 +8,7 @@ import pytest
 
 from custom_components.tasks.const import STORAGE_KEY, STORAGE_VERSION
 from custom_components.tasks.migrations import STORE_UPGRADES, upgrade_store_data
-from custom_components.tasks.task_store import _TasksDataStore
+from custom_components.tasks.repository import _TasksDataStore
 
 
 FIXTURES = Path(__file__).parent / "fixtures"

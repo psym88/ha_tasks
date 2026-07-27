@@ -3,22 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-import shutil
 from typing import Any
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
+from .const import DOMAIN
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
-from .migrations import upgrade_store_data
 from .models import (
     Attachment,
     Completion,
@@ -29,6 +25,7 @@ from .models import (
     trigger_from_mapping,
 )
 from .recurrence import occurrences
+from .repository import TasksRepository
 
 def get_store(hass: HomeAssistant):
     """Return the loaded singleton store."""
@@ -39,28 +36,21 @@ def get_store(hass: HomeAssistant):
     return getattr(data, "store", None)
 
 
-class _TasksDataStore(Store[dict[str, Any]]):
-    """Home Assistant store with Tasks schema migrations."""
-
-    async def _async_migrate_func(
-        self,
-        old_major_version: int,
-        old_minor_version: int,
-        old_data: dict[str, Any],
-    ) -> dict[str, Any]:
-        del old_minor_version
-        return upgrade_store_data(old_major_version, old_data)
-
-
 class TasksStore:
     """Serialize mutations and persist one compact snapshot."""
 
-    def __init__(self, hass: HomeAssistant, upload_dir: Path) -> None:
-        self._hass = hass
-        self._store: Store[dict[str, Any]] = _TasksDataStore(
-            hass, STORAGE_VERSION, STORAGE_KEY
-        )
-        self._upload_dir = upload_dir
+    def __init__(
+        self,
+        hass: HomeAssistant | None = None,
+        upload_dir: Path | None = None,
+        *,
+        repository: TasksRepository | None = None,
+    ) -> None:
+        if repository is None:
+            if hass is None or upload_dir is None:
+                raise TypeError("TasksRepository is required")
+            repository = TasksRepository(hass, upload_dir)
+        self._repository = repository
         self._lock = asyncio.Lock()
         self._data: dict[str, Any] = {
             "tasks": [],
@@ -69,8 +59,7 @@ class TasksStore:
         }
 
     async def async_load(self) -> None:
-        if stored := await self._store.async_load():
-            self._data = {key: stored.get(key, default) for key, default in self._data.items()}
+        self._data = await self._repository.async_load(self._data)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -82,18 +71,10 @@ class TasksStore:
         """Return a consistent copy of all persisted data and attachment content."""
         async with self._lock:
             data = deepcopy(self._data)
-            files = await self._hass.async_add_executor_job(
-                self._read_attachment_files, data["attachments"]
+            files = await self._repository.async_read_attachment_files(
+                data["attachments"]
             )
             return data, files
-
-    def _read_attachment_files(
-        self, attachments: list[dict[str, Any]]
-    ) -> dict[str, bytes]:
-        return {
-            item["attachment_id"]: self.file_path(item["attachment_id"]).read_bytes()
-            for item in attachments
-        }
 
     async def async_import_archive(
         self, data: Any, files: dict[str, bytes | Path]
@@ -101,10 +82,9 @@ class TasksStore:
         """Add new archive records without overwriting existing data."""
         imported = deepcopy(data)
         async with self._lock:
-            old_data = self._data
-            existing_task_ids = {task["task_id"] for task in old_data["tasks"]}
+            existing_task_ids = {task["task_id"] for task in self._data["tasks"]}
             existing_attachment_ids = {
-                attachment["attachment_id"] for attachment in old_data["attachments"]
+                attachment["attachment_id"] for attachment in self._data["attachments"]
             }
             new_tasks = [
                 task for task in imported["tasks"]
@@ -119,12 +99,14 @@ class TasksStore:
                 attachment for attachment in imported["attachments"]
                 if attachment["task_id"] in new_task_ids
                 and attachment["attachment_id"] not in existing_attachment_ids
-                and not self.file_path(attachment["attachment_id"]).exists()
+                and not self._repository.file_path(
+                    attachment["attachment_id"]
+                ).exists()
             ]
             new_attachment_ids = {
                 attachment["attachment_id"] for attachment in new_attachments
             }
-            merged = deepcopy(old_data)
+            merged = deepcopy(self._data)
             merged["tasks"].extend(new_tasks)
             merged["attachments"].extend(new_attachments)
             merged["history"].update({
@@ -132,20 +114,18 @@ class TasksStore:
                 for task_id, entries in imported["history"].items()
                 if task_id in new_task_ids
             })
-            created_files = await self._hass.async_add_executor_job(
-                self._write_attachment_files,
+            created_files = await self._repository.async_write_attachment_files(
                 {
-                    file_id: content for file_id, content in files.items()
+                    file_id: content
+                    for file_id, content in files.items()
                     if file_id in new_attachment_ids
-                },
+                }
             )
-            self._data = merged
             try:
-                await self._save()
+                await self._commit(merged)
             except Exception:
-                self._data = old_data
-                await self._hass.async_add_executor_job(
-                    self._remove_attachment_files, created_files
+                await self._repository.async_remove_attachment_files(
+                    created_files
                 )
                 raise
             return {
@@ -163,49 +143,33 @@ class TasksStore:
                 - len(new_attachments),
             }
 
-    def _write_attachment_files(
-        self, files: dict[str, bytes | Path]
-    ) -> list[Path]:
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
-        created: list[Path] = []
-        try:
-            for file_id, content in files.items():
-                path = self._upload_dir / file_id
-                with path.open("xb") as output:
-                    created.append(path)
-                    if isinstance(content, Path):
-                        with content.open("rb") as source:
-                            shutil.copyfileobj(source, output)
-                    else:
-                        output.write(content)
-            return created
-        except Exception:
-            self._remove_attachment_files(created)
-            raise
-
-    @staticmethod
-    def _remove_attachment_files(files: list[Path]) -> None:
-        for path in files:
-            path.unlink(missing_ok=True)
-
     @property
     def tasks(self) -> list[dict[str, Any]]:
         return list(self._data["tasks"])
 
-    def _find(self, kind: str, item_id: str) -> dict[str, Any]:
+    @staticmethod
+    def _find_in(
+        data: dict[str, Any], kind: str, item_id: str
+    ) -> dict[str, Any]:
         id_key = {"tasks": "task_id", "attachments": "attachment_id"}[kind]
-        item = next((x for x in self._data[kind] if x[id_key] == item_id), None)
+        item = next((x for x in data[kind] if x[id_key] == item_id), None)
         if item is None:
             raise ValueError(f"unknown_{kind[:-1]}")
         return item
 
+    def _find(self, kind: str, item_id: str) -> dict[str, Any]:
+        return self._find_in(self._data, kind, item_id)
+
     def _normalize_nfc_tag_id(
-        self, value: Any, exclude_task_id: str | None = None
+        self,
+        value: Any,
+        exclude_task_id: str | None = None,
+        data: dict[str, Any] | None = None,
     ) -> str | None:
         tag_id = str(value or "").strip() or None
         if tag_id and any(
             task["task_id"] != exclude_task_id and task.get("nfc_tag_id") == tag_id
-            for task in self._data["tasks"]
+            for task in (data or self._data)["tasks"]
         ):
             raise ValueError("nfc_tag_already_assigned")
         return tag_id
@@ -214,8 +178,9 @@ class TasksStore:
         """Return one task for validation by the API layer."""
         return dict(self._find("tasks", task_id))
 
-    async def _save(self) -> None:
-        await self._store.async_save(self._data)
+    async def _commit(self, data: dict[str, Any]) -> None:
+        await self._repository.async_save(data)
+        self._data = data
 
     async def async_add_task(
         self, payload: dict[str, Any], now: datetime | None = None
@@ -231,7 +196,10 @@ class TasksStore:
             )
         )
         async with self._lock:
-            nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
+            data = deepcopy(self._data)
+            nfc_tag_id = self._normalize_nfc_tag_id(
+                payload.get("nfc_tag_id"), data=data
+            )
             values = {
                 key: payload[key]
                 for key in TASK_MUTABLE_FIELDS
@@ -244,8 +212,8 @@ class TasksStore:
                 "nfc_tag_id": nfc_tag_id,
                 "task_due": task_due,
             }).storage_fields()
-            self._data["tasks"].append(task)
-            await self._save()
+            data["tasks"].append(task)
+            await self._commit(data)
             return task
 
     async def async_update_task(
@@ -255,7 +223,8 @@ class TasksStore:
         now: datetime | None = None,
     ) -> dict[str, Any]:
         async with self._lock:
-            task = self._find("tasks", task_id)
+            data = deepcopy(self._data)
+            task = self._find_in(data, "tasks", task_id)
             current = Task.from_mapping(task)
             values = {
                 key: payload[key]
@@ -264,7 +233,7 @@ class TasksStore:
             }
             if "nfc_tag_id" in values:
                 values["nfc_tag_id"] = self._normalize_nfc_tag_id(
-                    values["nfc_tag_id"], task_id
+                    values["nfc_tag_id"], task_id, data
                 )
             schedule_update = any(
                 key in payload for key in TRIGGER_FIELDS
@@ -300,19 +269,30 @@ class TasksStore:
                     )
             task.clear()
             task.update(updated.storage_fields())
-            await self._save()
+            await self._commit(data)
             return task
 
     async def async_delete_task(self, task_id: str) -> None:
         async with self._lock:
-            self._find("tasks", task_id)
-            file_ids = [a["attachment_id"] for a in self._data["attachments"] if a["task_id"] == task_id]
-            self._data["tasks"] = [t for t in self._data["tasks"] if t["task_id"] != task_id]
-            self._data["attachments"] = [a for a in self._data["attachments"] if a["task_id"] != task_id]
-            self._data["history"].pop(task_id, None)
+            data = deepcopy(self._data)
+            self._find_in(data, "tasks", task_id)
+            file_ids = [
+                attachment["attachment_id"]
+                for attachment in data["attachments"]
+                if attachment["task_id"] == task_id
+            ]
+            data["tasks"] = [
+                task for task in data["tasks"] if task["task_id"] != task_id
+            ]
+            data["attachments"] = [
+                attachment
+                for attachment in data["attachments"]
+                if attachment["task_id"] != task_id
+            ]
+            data["history"].pop(task_id, None)
+            await self._commit(data)
             for file_id in file_ids:
-                await self._unlink(file_id)
-            await self._save()
+                await self._repository.async_delete_attachment(file_id)
 
     async def async_complete_task(
         self,
@@ -323,7 +303,8 @@ class TasksStore:
         notes: str | None = None,
     ) -> dict[str, Any]:
         async with self._lock:
-            task = self._find("tasks", task_id)
+            data = deepcopy(self._data)
+            task = self._find_in(data, "tasks", task_id)
             completion = parse_aware_datetime(completed_at)
             if task.get("schedule_type") == "sensor":
                 task_due_after = None
@@ -339,8 +320,8 @@ class TasksStore:
                 "notes": str(notes or "").strip() or None,
             }).storage_fields()
             task["task_due"] = task_due_after
-            self._data["history"].setdefault(task_id, []).append(record)
-            await self._save()
+            data["history"].setdefault(task_id, []).append(record)
+            await self._commit(data)
             return task
 
     def history(self, task_id: str) -> list[dict[str, Any]]:
@@ -353,19 +334,20 @@ class TasksStore:
 
     async def async_delete_history(self, task_id: str, history_entry_id: str) -> dict[str, Any]:
         async with self._lock:
-            task = self._find("tasks", task_id)
-            entries = self._data["history"].get(task_id, [])
+            data = deepcopy(self._data)
+            task = self._find_in(data, "tasks", task_id)
+            entries = data["history"].get(task_id, [])
             if not any(
                 entry["history_entry_id"] == history_entry_id
                 for entry in entries
             ):
                 raise ValueError("unknown_history_entry")
-            self._data["history"][task_id] = [
+            data["history"][task_id] = [
                 entry
                 for entry in entries
                 if entry["history_entry_id"] != history_entry_id
             ]
-            await self._save()
+            await self._commit(data)
             return task
 
     def attachment(self, attachment_id: str) -> dict[str, Any] | None:
@@ -373,7 +355,8 @@ class TasksStore:
 
     async def async_add_attachment(self, task_id: str, filename: str, content_type: str, data: bytes) -> dict[str, Any]:
         async with self._lock:
-            self._find("tasks", task_id)
+            snapshot = deepcopy(self._data)
+            self._find_in(snapshot, "tasks", task_id)
             attachment = Attachment(
                 id=uuid4().hex,
                 task_id=task_id,
@@ -382,40 +365,33 @@ class TasksStore:
                 size=len(data),
                 uploaded_at=dt_util.utcnow(),
             ).storage_fields()
-            await self._hass.async_add_executor_job(self._write, attachment["attachment_id"], data)
-            self._data["attachments"].append(attachment)
-            await self._save()
+            await self._repository.async_write_attachment(
+                attachment["attachment_id"], data
+            )
+            snapshot["attachments"].append(attachment)
+            try:
+                await self._commit(snapshot)
+            except Exception:
+                await self._repository.async_delete_attachment(
+                    attachment["attachment_id"]
+                )
+                raise
             return attachment
 
     async def async_delete_attachment(self, attachment_id: str) -> None:
         async with self._lock:
-            if self.attachment(attachment_id) is None:
-                raise ValueError("unknown_attachment")
-            self._data["attachments"] = [x for x in self._data["attachments"] if x["attachment_id"] != attachment_id]
-            await self._unlink(attachment_id)
-            await self._save()
-
-    def _write(self, file_id: str, data: bytes) -> None:
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
-        (self._upload_dir / file_id).write_bytes(data)
-
-    async def _unlink(self, file_id: str) -> None:
-        await self._hass.async_add_executor_job(self._unlink_sync, file_id)
-
-    def _unlink_sync(self, file_id: str) -> None:
-        with contextlib.suppress(FileNotFoundError):
-            (self._upload_dir / file_id).unlink()
+            data = deepcopy(self._data)
+            self._find_in(data, "attachments", attachment_id)
+            data["attachments"] = [
+                attachment
+                for attachment in data["attachments"]
+                if attachment["attachment_id"] != attachment_id
+            ]
+            await self._commit(data)
+            await self._repository.async_delete_attachment(attachment_id)
 
     def file_path(self, file_id: str) -> Path:
-        if (
-            not isinstance(file_id, str)
-            or not file_id
-            or file_id in {".", ".."}
-            or "/" in file_id
-            or "\\" in file_id
-        ):
-            raise ValueError("invalid_attachment_id")
-        return self._upload_dir / file_id
+        return self._repository.file_path(file_id)
 
     @staticmethod
     def is_due(task: dict[str, Any], now: datetime) -> bool:
@@ -430,7 +406,8 @@ class TasksStore:
     ) -> dict[str, Any] | None:
         """Make one waiting sensor task due exactly once."""
         async with self._lock:
-            task = self._find("tasks", task_id)
+            data = deepcopy(self._data)
+            task = self._find_in(data, "tasks", task_id)
             if (
                 not task.get("active", True)
                 or task.get("schedule_type") != "sensor"
@@ -438,5 +415,5 @@ class TasksStore:
             ):
                 return None
             task["task_due"] = normalize_utc_datetime(triggered_at)
-            await self._save()
+            await self._commit(data)
             return dict(task)

@@ -10,7 +10,7 @@ from custom_components.tasks import nfc_completion as nfc
 from custom_components.tasks.task_store import TasksStore
 
 
-class MemoryStore:
+class MemoryRepository:
     async def async_save(self, data):
         self.data = data
 
@@ -18,7 +18,7 @@ class MemoryStore:
 def _store(tasks):
     store = TasksStore.__new__(TasksStore)
     store._lock = asyncio.Lock()
-    store._store = MemoryStore()
+    store._repository = MemoryRepository()
     store._data = {
         "tasks": tasks,
         "history": {},

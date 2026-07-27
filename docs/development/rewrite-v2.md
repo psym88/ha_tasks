@@ -194,8 +194,8 @@ not replaced the path yet.
 
 ### Phase 2 - Repository and manager
 
-- [ ] Isolate Home Assistant Store access in the repository.
-- [ ] Add atomic in-memory mutation semantics.
+- [x] Isolate Home Assistant Store access in the repository.
+- [x] Add atomic in-memory mutation semantics.
 - [ ] Route task CRUD and completion through `TaskManager`.
 - [x] Simplify history deletion.
 - [ ] Route attachment mutations through `TaskManager`.
@@ -262,8 +262,15 @@ not replaced the path yet.
   scheduling snapshots and deletion no longer recalculates the task.
 - Preserved legacy scheduling snapshot fields through migrations and archives.
 - Removed 51 production lines and verified all 123 backend tests.
+- Extracted Home Assistant Store access, migrations, and attachment-file I/O
+  into `TasksRepository`.
+- Made mutations copy-on-write so failed persistence leaves the active snapshot
+  unchanged; attachment creation also removes its file when persistence fails.
+- Reduced `task_store.py` from 404 to 389 lines. The explicit repository
+  boundary and rollback behavior add 112 production lines in this phase.
+- Verified all 124 backend and 121 frontend tests.
 
 ## Next action
 
-Extract schema-3 persistence and attachment-file operations from `TasksStore`
-into a repository without changing its public methods.
+Introduce `TaskManager` as the single task CRUD and completion entry point,
+while retaining the current WebSocket protocol and schema-3 representation.

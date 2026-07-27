@@ -164,10 +164,10 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         store._lock = asyncio.Lock()
         store._data = {"tasks": [task], "history": {}, "attachments": []}
 
-        async def save():
-            return None
+        async def commit(data):
+            store._data = data
 
-        store._save = save
+        store._commit = commit
         hass = SimpleNamespace(
             async_create_task=lambda coroutine: pending.append(
                 asyncio.create_task(coroutine)
@@ -210,6 +210,6 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         await asyncio.gather(*pending)
 
         assert fired == [first.isoformat(), second.isoformat()]
-        assert task["task_due"] == second.isoformat()
+        assert store.tasks[0]["task_due"] == second.isoformat()
 
     asyncio.run(run())

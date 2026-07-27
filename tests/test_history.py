@@ -10,8 +10,8 @@ def date(year, month, day):
     return datetime(year, month, day, 10, 15, tzinfo=timezone.utc)
 
 
-class MemoryStore:
-    """Minimal Home Assistant Store replacement."""
+class MemoryRepository:
+    """Minimal Tasks repository replacement."""
 
     async def async_save(self, data):
         self.data = data
@@ -21,7 +21,7 @@ def test_completion_notes_are_trimmed_and_optional():
     async def run():
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
-        store._store = MemoryStore()
+        store._repository = MemoryRepository()
         store._data = {
             "tasks": [
                 {
@@ -55,7 +55,7 @@ def test_completing_task_sets_next_task_due_from_completion_datetime():
     async def run():
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
-        store._store = MemoryStore()
+        store._repository = MemoryRepository()
         store._data = {
             "tasks": [
                 {
@@ -77,7 +77,7 @@ def test_completing_task_sets_next_task_due_from_completion_datetime():
         assert completed["task_due"] == "2026-08-25T10:15:00+00:00"
         assert "task_due_before" not in store.history("task-1")[0]
         assert "task_due_after" not in store.history("task-1")[0]
-        assert store._store.data["tasks"][0]["task_due"] == "2026-08-25T10:15:00+00:00"
+        assert store._repository.data["tasks"][0]["task_due"] == "2026-08-25T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -86,7 +86,7 @@ def test_completing_calendar_task_early_keeps_upcoming_task_due():
     async def run():
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
-        store._store = MemoryStore()
+        store._repository = MemoryRepository()
         store._data = {
             "tasks": [
                 {
@@ -114,7 +114,7 @@ def test_completing_calendar_task_early_keeps_upcoming_task_due():
 def _history_store(schedule_type="sliding"):
     store = TasksStore.__new__(TasksStore)
     store._lock = asyncio.Lock()
-    store._store = MemoryStore()
+    store._repository = MemoryRepository()
     task = {
         "task_id": "task-1",
         "task_due": "2026-07-21T10:15:00+00:00",
@@ -175,7 +175,7 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
     async def run():
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
-        store._store = MemoryStore()
+        store._repository = MemoryRepository()
         store._data = {
             "tasks": [],
             "history": {},
