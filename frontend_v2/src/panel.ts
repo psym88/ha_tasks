@@ -1,7 +1,13 @@
 import { LitElement, css, html, nothing } from "lit";
+import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { subscribeTasks } from "./api";
-import type { HomeAssistant, TasksSnapshot } from "./types";
+import type { HomeAssistant, Task, TasksSnapshot } from "./types";
+import { openTasksDialog } from "./ui/dialog";
+import { expandableElementName } from "./ui/expandable";
+import { elementName } from "./version";
+
+const expandableTag = unsafeStatic(expandableElementName);
 
 class TasksPanelV2 extends LitElement {
   static properties = {
@@ -44,8 +50,23 @@ class TasksPanelV2 extends LitElement {
     }
 
     li {
-      padding: 12px 0;
       border-bottom: 1px solid var(--divider-color);
+    }
+
+    .task {
+      width: 100%;
+      padding: 12px 0;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .task:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
 
     .error {
@@ -101,6 +122,22 @@ class TasksPanelV2 extends LitElement {
     }
   }
 
+  private openTask(task: Task): void {
+    void openTasksDialog({
+      heading: task.task_name,
+      content: staticHtml`
+        ${task.task_description
+          ? html`<p>${task.task_description}</p>`
+          : nothing}
+        <${expandableTag} heading="Planning" open>
+          <p>Due: ${task.due || "Not scheduled"}</p>
+          <p>Trigger: ${task.schedule_type || "Unknown"}</p>
+        </${expandableTag}>
+      `,
+      actions: [{ label: "Close", value: "close" }],
+    });
+  }
+
   protected render() {
     const snapshot = this.snapshot;
     return html`
@@ -118,7 +155,17 @@ class TasksPanelV2 extends LitElement {
             : html`
                 <ul>
                   ${snapshot.tasks.map(
-                    (task) => html`<li>${task.task_name}</li>`,
+                    (task) => html`
+                      <li>
+                        <button
+                          class="task"
+                          type="button"
+                          @click=${() => this.openTask(task)}
+                        >
+                          ${task.task_name}
+                        </button>
+                      </li>
+                    `,
                   )}
                 </ul>
               `}
@@ -127,4 +174,7 @@ class TasksPanelV2 extends LitElement {
   }
 }
 
-customElements.define("ha-tasks-panel-v2", TasksPanelV2);
+const panelElementName = elementName("panel-v2");
+if (!customElements.get(panelElementName)) {
+  customElements.define(panelElementName, TasksPanelV2);
+}

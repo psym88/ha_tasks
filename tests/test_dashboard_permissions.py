@@ -1,6 +1,7 @@
 """Dashboard card API and registration guardrail tests."""
 
 import ast
+import re
 from pathlib import Path
 
 
@@ -65,8 +66,9 @@ def test_v2_panel_is_registered_alongside_the_legacy_panel():
         encoding="utf-8"
     )
     assert 'webcomponent_name="tasks-panel"' in source
-    assert 'webcomponent_name="ha-tasks-panel-v2"' in source
-    assert 'f"{base_url}/v2/panel.js"' in source
+    assert "webcomponent_name=v2_panel_element" in source
+    assert 'f"{base_url}/v2/{v2_panel_asset}"' in source
+    assert "await hass.async_add_executor_job(_v2_panel_asset)" in source
     assert (
         'frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))'
         in source
@@ -90,8 +92,16 @@ def test_frontend_and_consolidated_translations_are_registered_as_static_paths()
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "StaticPathConfig(frontend_url, str(frontend_dir), False)" in source
     assert 'base_url = f"{FRONTEND_URL}/{version}"' in source
-    assert "StaticPathConfig(ENGLISH_TRANSLATIONS_URL, str(english_translations), False)" in source
-    assert "StaticPathConfig(TRANSLATIONS_URL, str(translations_dir), False)" in source
+    assert re.search(
+        r"StaticPathConfig\(\s*ENGLISH_TRANSLATIONS_URL,\s*"
+        r"str\(english_translations\),\s*False",
+        source,
+    )
+    assert re.search(
+        r"StaticPathConfig\(\s*TRANSLATIONS_URL,\s*"
+        r"str\(translations_dir\),\s*False",
+        source,
+    )
     component=ROOT / "custom_components/tasks"
     assert set(component.rglob("de.json")) == {
         component / "translations/de.json",

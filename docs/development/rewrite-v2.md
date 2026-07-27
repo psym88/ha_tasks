@@ -171,7 +171,7 @@ not replaced the path yet.
 | Table selection and bulk actions | legacy | pending | one backend mutation |
 | Table column visibility | legacy | pending | persisted local preference |
 | English and German UI | legacy | pending | English fallback |
-| Cache-safe frontend update | legacy | pending | version and asset hash change |
+| Cache-safe frontend update | legacy | complete | version and asset hash change |
 | Native `todo.tasks` entity | absent | pending | CRUD and completion adapter |
 
 ## Delivery phases
@@ -348,11 +348,23 @@ not replaced the path yet.
   `tasks/subscribe` snapshot protocol; the 16,890-byte bundle includes its own
   Lit runtime and has no runtime package imports.
 - Verified the bundle is served by Home Assistant 2026.7.4 after restart.
-- Verified all 145 backend and 123 frontend tests. Authenticated visual
-  verification remains pending because the test browser is not signed in.
+- Verified all 145 backend and 123 frontend tests and the authenticated V2
+  panel in Home Assistant 2026.7.4.
+- Added owned native-dialog and details/summary primitives with their styles
+  encapsulated beside their behavior.
+- Used the dialog for the first V2 task viewer path and the expandable for its
+  planning section.
+- Reproduced the stale-asset problem in a real browser, then changed the V2
+  build to content-hashed asset filenames and hash-scoped `ha-tasks-*`
+  element names. New bundles can load beside already registered old elements
+  without a custom-element collision.
+- Verified all 145 backend and 126 frontend tests. Home Assistant 2026.7.4
+  serves the new 23,302-byte hashed bundle without startup errors or blocking
+  event-loop I/O.
+- Verified the task dialog, all three close paths, background modality,
+  expandable behavior, and cache-free update path in the authenticated panel.
 
 ## Next action
 
-Validate `/tasks-v2` in an authenticated browser, then add the owned dialog,
-menu, field, combobox, and expandable primitives before rebuilding the task
-viewer and form.
+Add pills and the anchored action menu before building the first editable form
+fields.

@@ -1,7 +1,10 @@
 export interface Task {
   task_id: string;
   task_name: string;
+  task_description?: string;
+  active?: boolean;
   due?: string | null;
+  schedule_type?: string;
 }
 
 export interface Attachment {

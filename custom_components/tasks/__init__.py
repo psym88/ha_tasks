@@ -1,5 +1,6 @@
 """Tasks integration."""
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,17 +36,35 @@ class TasksData:
     manager: TaskManager
 
 
+def _v2_panel_asset() -> str:
+    """Return the validated generated V2 panel filename."""
+    assets = json.loads(
+        (Path(__file__).parent / "frontend/v2/assets.json").read_text()
+    )
+    panel = assets.get("panel")
+    if (
+        not isinstance(panel, str)
+        or not panel.startswith("panel-")
+        or not panel.endswith(".js")
+        or "/" in panel
+        or "\\" in panel
+    ):
+        raise RuntimeError("Invalid Tasks V2 panel asset")
+    return panel
+
+
 async def _frontend_urls(hass: HomeAssistant) -> tuple[str, str, str, str]:
     """Return frontend URLs derived from the manifest version."""
     version = (await async_get_integration(hass, DOMAIN)).version
     if version is None:
         raise RuntimeError("Tasks manifest version is required")
     base_url = f"{FRONTEND_URL}/{version}"
+    v2_panel_asset = await hass.async_add_executor_job(_v2_panel_asset)
     return (
         base_url,
         f"{base_url}/panel.js",
         f"{base_url}/dashboard-card.js",
-        f"{base_url}/v2/panel.js",
+        f"{base_url}/v2/{v2_panel_asset}",
     )
 
 
@@ -87,6 +106,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _, panel_js_url, card_js_url, v2_panel_js_url = await _frontend_urls(hass)
+    v2_panel_element = (
+        f"ha-tasks-panel-v2-"
+        f"{Path(v2_panel_js_url).stem.removeprefix('panel-').lower()}"
+    )
     frontend.add_extra_js_url(hass, card_js_url)
     await panel_custom.async_register_panel(
         hass,
@@ -100,7 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     await panel_custom.async_register_panel(
         hass,
-        webcomponent_name="ha-tasks-panel-v2",
+        webcomponent_name=v2_panel_element,
         frontend_url_path=V2_PANEL_URL.removeprefix("/"),
         module_url=v2_panel_js_url,
         sidebar_title="Tasks V2",
