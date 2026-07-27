@@ -51,13 +51,26 @@ def test_only_sidepanel_requires_admin():
     component = ROOT / "custom_components/tasks"
     sources = "\n".join(path.read_text(encoding="utf-8") for path in component.rglob("*.py"))
     assert "websocket_api.require_admin" not in sources
-    assert sources.count("require_admin=True") == 1
+    assert sources.count("require_admin=True") == 2
 
 
 def test_dashboard_module_is_registered_and_removed_with_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "frontend.add_extra_js_url(hass, card_js_url)" in source
     assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
+
+
+def test_v2_panel_is_registered_alongside_the_legacy_panel():
+    source = (ROOT / "custom_components/tasks/__init__.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'webcomponent_name="tasks-panel"' in source
+    assert 'webcomponent_name="ha-tasks-panel-v2"' in source
+    assert 'f"{base_url}/v2/panel.js"' in source
+    assert (
+        'frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))'
+        in source
+    )
 
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():

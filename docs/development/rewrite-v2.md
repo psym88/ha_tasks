@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 5 - Aggregate persistence
+- Phase: 6 - Frontend V2
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 4
@@ -226,12 +226,13 @@ not replaced the path yet.
 
 ### Phase 6 - Frontend V2
 
-- [ ] Add TypeScript and production bundling.
+- [x] Add TypeScript and production bundling.
 - [ ] Add owned UI primitives.
 - [ ] Add V2 task form and viewer.
 - [ ] Add V2 task table without grouping or a grid dependency.
 - [ ] Add V2 dashboard card.
-- [ ] Register parallel test panel and card.
+- [x] Register a parallel test panel.
+- [ ] Register a parallel test card.
 - [ ] Verify light, dark, desktop and mobile behavior.
 
 ### Phase 7 - Native Home Assistant adapter
@@ -339,8 +340,19 @@ not replaced the path yet.
   These adapters remain measurable removal targets when the V2 frontend and
   archive format stop consuming schema-3-shaped data.
 - Verified all 144 backend and 121 frontend tests.
+- Started Phase 6 with exact TypeScript, esbuild, and Lit dependencies plus a
+  reproducible checked-in browser bundle.
+- Added the parallel admin-only `/tasks-v2` panel without changing the
+  production `/tasks` panel or `tasks-card` registrations.
+- Connected the first V2 element directly to the revisioned
+  `tasks/subscribe` snapshot protocol; the 16,890-byte bundle includes its own
+  Lit runtime and has no runtime package imports.
+- Verified the bundle is served by Home Assistant 2026.7.4 after restart.
+- Verified all 145 backend and 123 frontend tests. Authenticated visual
+  verification remains pending because the test browser is not signed in.
 
 ## Next action
 
-Establish the TypeScript build and parallel V2 frontend entry against the
-revisioned snapshot protocol without changing current production registrations.
+Validate `/tasks-v2` in an authenticated browser, then add the owned dialog,
+menu, field, combobox, and expandable primitives before rebuilding the task
+viewer and form.
