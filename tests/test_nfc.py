@@ -76,8 +76,12 @@ def test_task_labels_are_stored_and_updated_without_duplicates():
     asyncio.run(run())
 
 
-def test_matching_scan_completes_task_with_event_user():
+def test_matching_scan_completes_task_with_event_user(monkeypatch):
     async def run():
+        monkeypatch.setattr(
+            "custom_components.tasks.manager.dismiss_task_notification",
+            lambda hass, task_id: None,
+        )
         store = _store([_task(tag_id="tag-1")])
         user = SimpleNamespace(id="user-1", name="Alex")
         updates = []

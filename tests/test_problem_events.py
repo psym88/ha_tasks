@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+from custom_components.tasks.manager import TaskManager
 from custom_components.tasks.problem_events import ProblemSensorScheduler
 from custom_components.tasks.task_store import TasksStore
 
@@ -12,6 +13,12 @@ class ProblemStore:
     def __init__(self, task):
         self.tasks = [task]
         self.triggered = []
+        self.due = []
+        self.listeners = []
+
+    def subscribe(self, listener):
+        self.listeners.append(listener)
+        return lambda: self.listeners.remove(listener)
 
     def task(self, task_id):
         return next(task for task in self.tasks if task["task_id"] == task_id)
@@ -22,12 +29,13 @@ class ProblemStore:
             return None
         task["task_due"] = triggered_at
         self.triggered.append(task_id)
-        return dict(task)
+        result = dict(task)
+        self.due.append(result)
+        return result
 
 
-def test_problem_sensor_triggers_only_when_state_becomes_on(monkeypatch):
+def test_problem_sensor_triggers_only_when_state_becomes_on():
     async def run():
-        fired = []
         pending = []
         task = {
             "task_id": "pump",
@@ -43,10 +51,6 @@ def test_problem_sensor_triggers_only_when_state_becomes_on(monkeypatch):
             )
         )
         scheduler = ProblemSensorScheduler(hass, store)
-        monkeypatch.setattr(
-            "custom_components.tasks.problem_events.fire_task_due",
-            lambda received_hass, received_task: fired.append(received_task),
-        )
         fired_at = datetime(2026, 7, 25, 10, tzinfo=timezone.utc)
 
         scheduler._handle_state_event(
@@ -63,7 +67,7 @@ def test_problem_sensor_triggers_only_when_state_becomes_on(monkeypatch):
 
         assert store.triggered == ["pump"]
         assert task["task_due"] == fired_at.isoformat()
-        assert [item["task_id"] for item in fired] == ["pump"]
+        assert [item["task_id"] for item in store.due] == ["pump"]
 
         pending.clear()
         scheduler._handle_state_event(
@@ -81,9 +85,8 @@ def test_problem_sensor_triggers_only_when_state_becomes_on(monkeypatch):
     asyncio.run(run())
 
 
-def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
+def test_problem_sensor_catches_up_active_problem_on_start():
     async def run():
-        fired = []
         listeners = []
         task = {
             "task_id": "pump",
@@ -107,21 +110,17 @@ def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
             ),
         )
         scheduler = ProblemSensorScheduler(hass, store)
-        monkeypatch.setattr(
-            "custom_components.tasks.problem_events.fire_task_due",
-            lambda received_hass, received_task: fired.append(received_task),
-        )
-
         await scheduler.async_start()
 
-        assert len(listeners) == 2
+        assert len(listeners) == 1
+        assert len(store.listeners) == 1
         assert store.triggered == ["pump"]
-        assert [item["task_id"] for item in fired] == ["pump"]
+        assert [item["task_id"] for item in store.due] == ["pump"]
 
     asyncio.run(run())
 
 
-def test_problem_sensor_ignores_inactive_task(monkeypatch):
+def test_problem_sensor_ignores_inactive_task():
     async def run():
         task = {
             "task_id": "pump",
@@ -137,11 +136,6 @@ def test_problem_sensor_ignores_inactive_task(monkeypatch):
             states=SimpleNamespace(is_state=lambda *_args: True),
         )
         scheduler = ProblemSensorScheduler(hass, store)
-        monkeypatch.setattr(
-            "custom_components.tasks.problem_events.fire_task_due",
-            lambda *_args: None,
-        )
-
         await scheduler.async_start()
 
         assert store.triggered == []
@@ -149,10 +143,16 @@ def test_problem_sensor_ignores_inactive_task(monkeypatch):
     asyncio.run(run())
 
 
-def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypatch):
+def test_problem_sensor_retriggers_after_completion_and_new_transition(
+    monkeypatch,
+):
     async def run():
-        fired = []
+        monkeypatch.setattr(
+            "custom_components.tasks.manager.dismiss_task_notification",
+            lambda hass, task_id: None,
+        )
         pending = []
+        events = []
         task = {
             "task_id": "pump",
             "task_name": "Check pump",
@@ -171,15 +171,15 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         hass = SimpleNamespace(
             async_create_task=lambda coroutine: pending.append(
                 asyncio.create_task(coroutine)
-            )
-        )
-        scheduler = ProblemSensorScheduler(hass, store)
-        monkeypatch.setattr(
-            "custom_components.tasks.problem_events.fire_task_due",
-            lambda received_hass, received_task: fired.append(
-                received_task["task_due"]
+            ),
+            bus=SimpleNamespace(
+                async_fire=lambda event_type, data, context=None: events.append(
+                    data
+                )
             ),
         )
+        manager = TaskManager(hass, store)
+        scheduler = ProblemSensorScheduler(hass, manager)
 
         def change(old_state, new_state, fired_at):
             scheduler._handle_state_event(
@@ -198,7 +198,7 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         await asyncio.gather(*pending)
         pending.clear()
 
-        await store.async_complete_task(
+        await manager.async_complete_task(
             "pump", "2026-07-25T10:00:00+00:00", "user-1", "Marco"
         )
         change("on", "on", first)
@@ -209,7 +209,11 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(monkeypat
         change("off", "on", second)
         await asyncio.gather(*pending)
 
-        assert fired == [first.isoformat(), second.isoformat()]
-        assert store.tasks[0]["task_due"] == second.isoformat()
+        assert [
+            event["task_due"]
+            for event in events
+            if event["action"] == "task_due"
+        ] == [first.isoformat(), second.isoformat()]
+        assert manager.tasks[0]["task_due"] == second.isoformat()
 
     asyncio.run(run())

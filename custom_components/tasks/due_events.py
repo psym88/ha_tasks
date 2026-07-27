@@ -2,48 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
 
-from .const import EVENT_TASKS
 from .datetime_utils import parse_aware_datetime
-from .notifications import async_notify_task_due, has_due_notification
-from .task_events import async_fire_tasks_event
-
-
-@callback
-def fire_task_due(hass: HomeAssistant, task: dict[str, Any]) -> None:
-    """Fire the shared due event and configured notifications for one task."""
-    async_fire_tasks_event(
-        hass,
-        "task_due",
-        "task",
-        task["task_id"],
-        resource_name=task["task_name"],
-        task_due=task["task_due"],
-    )
-    if has_due_notification(task):
-        hass.async_create_task(async_notify_task_due(hass, task))
+from .manager import TaskChange, TaskManager
 
 
 class TaskDueEventScheduler:
     """Fire one Tasks event for every task as it becomes due."""
 
-    def __init__(self, hass: HomeAssistant, store: Any) -> None:
+    def __init__(self, hass: HomeAssistant, manager: TaskManager) -> None:
         self._hass = hass
-        self._store = store
+        self._manager = manager
         self._cancel_timer = None
         self._cancel_listener = None
 
     @callback
     def start(self) -> None:
         """Start listening for task changes and schedule the next due time."""
-        self._cancel_listener = self._hass.bus.async_listen(
-            EVENT_TASKS, self._handle_event
-        )
+        self._cancel_listener = self._manager.subscribe(self._handle_change)
         self.reschedule()
 
     @callback
@@ -57,8 +36,8 @@ class TaskDueEventScheduler:
             self._cancel_listener = None
 
     @callback
-    def _handle_event(self, event: Event) -> None:
-        if event.data.get("action") != "task_due":
+    def _handle_change(self, change: TaskChange) -> None:
+        if change.affects_tasks and change.action != "task_due":
             self.reschedule()
 
     @callback
@@ -70,7 +49,7 @@ class TaskDueEventScheduler:
         now = dt_util.utcnow()
         future = [
             due
-            for task in self._store.tasks
+            for task in self._manager.tasks
             if task.get("active", True)
             and task.get("task_due")
             and (due := parse_aware_datetime(task["task_due"])) > now
@@ -92,10 +71,10 @@ class TaskDueEventScheduler:
     def _fire_due(self, target: datetime, fired_at: datetime) -> None:
         """Fire each task due at the scheduled time and plan the next one."""
         self._cancel_timer = None
-        for task in self._store.tasks:
+        for task in self._manager.tasks:
             if not task.get("active", True) or not task.get("task_due"):
                 continue
             due = parse_aware_datetime(task["task_due"])
             if target <= due <= fired_at:
-                fire_task_due(self._hass, task)
+                self._manager.task_became_due(task)
         self.reschedule()

@@ -2,15 +2,35 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from homeassistant.core import Context, HomeAssistant
+from homeassistant.core import Context, HomeAssistant, callback
 
 from .const import DOMAIN
+from .notifications import (
+    async_notify_task_due,
+    dismiss_task_notification,
+    has_due_notification,
+)
 from .task_events import async_fire_tasks_event
 from .task_store import TasksStore
+
+
+@dataclass(frozen=True, slots=True)
+class TaskChange:
+    """One committed internal application change."""
+
+    action: str
+    resource_type: str
+    resource_id: str | None = None
+    data: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def affects_tasks(self) -> bool:
+        return self.resource_type in {"task", "archive"}
 
 
 def get_manager(hass: HomeAssistant):
@@ -27,6 +47,20 @@ class TaskManager:
     def __init__(self, hass: HomeAssistant, store: TasksStore) -> None:
         self._hass = hass
         self._store = store
+        self._listeners: set[Callable[[TaskChange], None]] = set()
+
+    @callback
+    def subscribe(
+        self, listener: Callable[[TaskChange], None]
+    ) -> Callable[[], None]:
+        """Subscribe to committed internal changes."""
+        self._listeners.add(listener)
+
+        @callback
+        def unsubscribe() -> None:
+            self._listeners.discard(listener)
+
+        return unsubscribe
 
     @property
     def tasks(self) -> list[dict[str, Any]]:
@@ -115,6 +149,7 @@ class TaskManager:
     ) -> None:
         task = self._store.task(task_id)
         await self._store.async_delete_task(task_id)
+        dismiss_task_notification(self._hass, task_id)
         self._changed(
             "deleted",
             "task",
@@ -137,6 +172,7 @@ class TaskManager:
         task = await self._store.async_complete_task(
             task_id, completed_at, user_id, user_name, notes
         )
+        dismiss_task_notification(self._hass, task_id)
         data = {"resource_name": task.get("task_name")}
         if source:
             data["source"] = source
@@ -206,9 +242,27 @@ class TaskManager:
     async def async_trigger_problem_task(
         self, task_id: str, triggered_at: str
     ) -> dict[str, Any] | None:
-        return await self._store.async_trigger_problem_task(
+        task = await self._store.async_trigger_problem_task(
             task_id, triggered_at
         )
+        if task is not None:
+            self.task_became_due(task)
+        return task
+
+    @callback
+    def task_became_due(self, task: dict[str, Any]) -> None:
+        """Publish and handle a task reaching its due time."""
+        self._changed(
+            "task_due",
+            "task",
+            task["task_id"],
+            resource_name=task["task_name"],
+            task_due=task["task_due"],
+        )
+        if has_due_notification(task):
+            self._hass.async_create_task(
+                async_notify_task_due(self._hass, task)
+            )
 
     def _changed(
         self,
@@ -219,6 +273,9 @@ class TaskManager:
         context: Context | None = None,
         **data: Any,
     ) -> None:
+        change = TaskChange(action, resource_type, resource_id, data)
+        for listener in tuple(self._listeners):
+            listener(change)
         async_fire_tasks_event(
             self._hass,
             action,

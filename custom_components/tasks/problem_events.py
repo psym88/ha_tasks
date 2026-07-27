@@ -9,16 +9,15 @@ from homeassistant.const import EVENT_STATE_CHANGED, STATE_ON
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
-from .const import EVENT_TASKS
-from .due_events import fire_task_due
+from .manager import TaskChange, TaskManager
 
 
 class ProblemSensorScheduler:
     """Make sensor-triggered tasks due when their binary sensor turns on."""
 
-    def __init__(self, hass: HomeAssistant, store: Any) -> None:
+    def __init__(self, hass: HomeAssistant, manager: TaskManager) -> None:
         self._hass = hass
-        self._store = store
+        self._manager = manager
         self._cancel_state_listener = None
         self._cancel_task_listener = None
 
@@ -27,10 +26,10 @@ class ProblemSensorScheduler:
         self._cancel_state_listener = self._hass.bus.async_listen(
             EVENT_STATE_CHANGED, self._handle_state_event
         )
-        self._cancel_task_listener = self._hass.bus.async_listen(
-            EVENT_TASKS, self._handle_task_event
+        self._cancel_task_listener = self._manager.subscribe(
+            self._handle_task_change
         )
-        for task in self._store.tasks:
+        for task in self._manager.tasks:
             if self._is_active_problem(task):
                 await self._trigger(task["task_id"])
 
@@ -69,7 +68,7 @@ class ProblemSensorScheduler:
         ):
             return
         entity_id = event.data.get("entity_id")
-        for task in self._store.tasks:
+        for task in self._manager.tasks:
             if (
                 self._is_problem_task(task)
                 and task.get("problem_sensor") == entity_id
@@ -79,23 +78,23 @@ class ProblemSensorScheduler:
                 )
 
     @callback
-    def _handle_task_event(self, event: Event) -> None:
+    def _handle_task_change(self, change: TaskChange) -> None:
         if (
-            event.data.get("resource_type") != "task"
-            or event.data.get("action") not in {"created", "updated"}
+            change.resource_type != "task"
+            or change.action not in {"created", "updated"}
             or (
-                event.data.get("action") == "updated"
-                and not event.data.get("problem_trigger_changed")
+                change.action == "updated"
+                and not change.data.get("problem_trigger_changed")
             )
         ):
             return
-        task_id = event.data.get("resource_id")
+        task_id = change.resource_id
         if task_id:
             self._hass.async_create_task(self._reconcile(task_id))
 
     async def _reconcile(self, task_id: str) -> None:
         try:
-            task = self._store.task(task_id)
+            task = self._manager.task(task_id)
         except ValueError:
             return
         if self._is_active_problem(task):
@@ -104,8 +103,6 @@ class ProblemSensorScheduler:
     async def _trigger(
         self, task_id: str, triggered_at: datetime | None = None
     ) -> None:
-        task = await self._store.async_trigger_problem_task(
+        await self._manager.async_trigger_problem_task(
             task_id, (triggered_at or dt_util.utcnow()).isoformat()
         )
-        if task is not None:
-            fire_task_due(self._hass, task)

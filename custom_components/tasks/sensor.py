@@ -2,12 +2,13 @@
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import TasksData
-from .const import EVENT_TASKS, TASKS_DEVICE_INFO
+from .const import TASKS_DEVICE_INFO
+from .manager import TaskChange
 
 
 async def async_setup_entry(
@@ -15,13 +16,16 @@ async def async_setup_entry(
     entry: ConfigEntry[TasksData],
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    entity = TasksDueSensor(entry.runtime_data.manager)
+    manager = entry.runtime_data.manager
+    entity = TasksDueSensor(manager)
     async_add_entities([entity])
 
-    async def refresh(_event: Event) -> None:
-        entity.async_write_ha_state()
+    @callback
+    def refresh(change: TaskChange) -> None:
+        if change.affects_tasks:
+            entity.async_write_ha_state()
 
-    entry.async_on_unload(hass.bus.async_listen(EVENT_TASKS, refresh))
+    entry.async_on_unload(manager.subscribe(refresh))
 
 
 class TasksDueSensor(SensorEntity):
@@ -35,8 +39,8 @@ class TasksDueSensor(SensorEntity):
     _attr_icon = "mdi:clipboard-alert-outline"
     _attr_should_poll = False
 
-    def __init__(self, store) -> None:
-        self._store = store
+    def __init__(self, manager) -> None:
+        self._manager = manager
 
     @property
     def suggested_object_id(self) -> str:
@@ -46,4 +50,6 @@ class TasksDueSensor(SensorEntity):
     @property
     def native_value(self) -> int:
         now = dt_util.utcnow()
-        return sum(self._store.is_due(task, now) for task in self._store.tasks)
+        return sum(
+            self._manager.is_due(task, now) for task in self._manager.tasks
+        )

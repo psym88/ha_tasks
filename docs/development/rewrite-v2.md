@@ -202,11 +202,11 @@ not replaced the path yet.
 
 ### Phase 3 - Runtime adapters
 
-- [ ] Replace public-event internal coordination with direct callbacks.
+- [x] Replace public-event internal coordination with direct callbacks.
 - [ ] Consolidate due and problem trigger scheduling.
 - [ ] Track only configured binary sensors.
-- [ ] Route NFC and notifications through `TaskManager`.
-- [ ] Update the due sensor from relevant domain changes only.
+- [x] Route NFC and notifications through `TaskManager`.
+- [x] Update the due sensor from relevant domain changes only.
 
 ### Phase 4 - Protocol
 
@@ -276,8 +276,16 @@ not replaced the path yet.
 - Reduced `task_api.py` by 42 lines and `task_store.py` by another 8 lines.
   The explicit application boundary adds a net 147 production lines.
 - Verified all 127 backend and 121 frontend tests.
+- Replaced four internal `tasks_event` listeners with synchronous
+  `TaskManager` change callbacks while retaining the public event contract.
+- Routed due notification creation and completion/deletion dismissal directly
+  through the manager.
+- Limited due-sensor refreshes to task, archive, and due changes instead of
+  every public Tasks event.
+- Added 24 net production lines for the typed internal change contract and
+  verified all 128 backend plus 121 frontend tests.
 
 ## Next action
 
-Replace the public Home Assistant event bus as the internal scheduler
-coordination mechanism with direct `TaskManager` change callbacks.
+Consolidate due-time and problem-sensor runtime scheduling, then subscribe only
+to binary sensors referenced by active problem-trigger tasks.

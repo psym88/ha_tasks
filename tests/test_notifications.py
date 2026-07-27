@@ -166,18 +166,9 @@ def test_notification_falls_back_to_english(monkeypatch):
     ]
 
 
-def test_completed_and_deleted_tasks_dismiss_panel_notification(monkeypatch):
-    listeners = []
+def test_task_notification_can_be_dismissed_directly(monkeypatch):
     dismissed = []
-    unsubscribe = object()
-    hass = SimpleNamespace(
-        bus=SimpleNamespace(
-            async_listen=lambda event_type, callback: (
-                listeners.append((event_type, callback)),
-                unsubscribe,
-            )[1]
-        )
-    )
+    hass = SimpleNamespace()
     monkeypatch.setattr(
         notifications.persistent_notification,
         "async_dismiss",
@@ -186,26 +177,7 @@ def test_completed_and_deleted_tasks_dismiss_panel_notification(monkeypatch):
         ),
     )
 
-    assert notifications.async_setup_listener(hass) is unsubscribe
-    callback = listeners[0][1]
-    callback(
-        SimpleNamespace(
-            data={
-                "action": "completed",
-                "resource_type": "task",
-                "resource_id": "task",
-            }
-        )
-    )
-    callback(
-        SimpleNamespace(
-            data={
-                "action": "updated",
-                "resource_type": "task",
-                "resource_id": "task",
-            }
-        )
-    )
+    notifications.dismiss_task_notification(hass, "task")
 
     assert dismissed == [(hass, "tasks_due_task")]
 

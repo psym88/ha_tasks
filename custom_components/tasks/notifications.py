@@ -11,9 +11,9 @@ from typing import Any
 from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, EVENT_TASKS
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,17 +116,6 @@ async def async_notify_task_due(
             )
 
 
-@callback
-def async_setup_listener(hass: HomeAssistant):
-    """Dismiss panel notifications when their task is completed or deleted."""
-
-    @callback
-    def _handle_event(event: Event) -> None:
-        if (
-            event.data.get("resource_type") == "task"
-            and event.data.get("action") in {"completed", "deleted"}
-            and (task_id := event.data.get("resource_id"))
-        ):
-            persistent_notification.async_dismiss(hass, notification_id(task_id))
-
-    return hass.bus.async_listen(EVENT_TASKS, _handle_event)
+def dismiss_task_notification(hass: HomeAssistant, task_id: str) -> None:
+    """Dismiss the persistent due notification for one task."""
+    persistent_notification.async_dismiss(hass, notification_id(task_id))

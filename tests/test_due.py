@@ -29,15 +29,9 @@ def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
 
 
 def test_due_scheduler_fires_one_event_per_task(monkeypatch):
-    events = []
-    hass = SimpleNamespace(
-        bus=SimpleNamespace(
-            async_fire=lambda event_type, data, context=None: events.append(
-                (event_type, data)
-            )
-        )
-    )
-    store = SimpleNamespace(
+    due = []
+    hass = SimpleNamespace()
+    manager = SimpleNamespace(
         tasks=[
             {
                 "task_id": "waiting",
@@ -65,9 +59,10 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
                 "task_name": "Later",
                 "task_due": "2026-07-25T09:00:00+00:00",
             },
-        ]
+        ],
+        task_became_due=lambda task: due.append(task),
     )
-    scheduler = TaskDueEventScheduler(hass, store)
+    scheduler = TaskDueEventScheduler(hass, manager)
     monkeypatch.setattr(scheduler, "reschedule", lambda: None)
 
     scheduler._fire_due(
@@ -75,8 +70,7 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
         datetime(2026, 7, 25, 8, 0, 1, tzinfo=timezone.utc),
     )
 
-    assert [data["resource_id"] for _, data in events] == ["one", "two"]
-    assert all(data["action"] == "task_due" for _, data in events)
+    assert [task["task_id"] for task in due] == ["one", "two"]
 
 
 def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):

@@ -42,12 +42,17 @@ def test_update_publishes_one_committed_domain_change():
         hass, events = _hass()
         context = object()
         manager = TaskManager(hass, Store())
+        changes = []
+        unsubscribe = manager.subscribe(changes.append)
 
         task = await manager.async_update_task(
             "task-1", {"active": True}, context=context
         )
 
         assert task["active"] is True
+        assert changes[0].action == "updated"
+        assert changes[0].resource_id == "task-1"
+        assert changes[0].data["problem_trigger_changed"] is True
         assert events == [
             (
                 EVENT_TASKS,
@@ -61,6 +66,9 @@ def test_update_publishes_one_committed_domain_change():
                 context,
             )
         ]
+        unsubscribe()
+        await manager.async_update_task("task-1", {"active": True})
+        assert len(changes) == 1
 
     asyncio.run(run())
 
@@ -105,5 +113,32 @@ def test_attachment_delete_event_uses_pre_delete_task_id():
             "resource_id": "file-1",
             "task_id": "task-1",
         }
+
+    asyncio.run(run())
+
+
+def test_problem_trigger_notifies_internal_and_public_consumers():
+    class Store:
+        async def async_trigger_problem_task(self, task_id, triggered_at):
+            return {
+                "task_id": task_id,
+                "task_name": "Pump",
+                "task_due": triggered_at,
+                "schedule_type": "sensor",
+            }
+
+    async def run():
+        hass, events = _hass()
+        manager = TaskManager(hass, Store())
+        changes = []
+        manager.subscribe(changes.append)
+
+        await manager.async_trigger_problem_task(
+            "task-1", "2026-07-27T10:00:00+00:00"
+        )
+
+        assert [change.action for change in changes] == ["task_due"]
+        assert events[0][1]["action"] == "task_due"
+        assert events[0][1]["task_due"] == "2026-07-27T10:00:00+00:00"
 
     asyncio.run(run())
