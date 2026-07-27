@@ -501,3 +501,104 @@ def test_failed_bulk_save_keeps_files_and_metadata():
         assert deleted == []
 
     asyncio.run(run())
+
+
+def test_editor_save_commits_task_files_and_history_once(tmp_path):
+    class Repository:
+        def __init__(self):
+            self.saves = 0
+
+        def file_path(self, file_id):
+            return tmp_path / file_id
+
+        async def async_write_attachment_files(self, files):
+            paths = []
+            for file_id, content in files.items():
+                path = self.file_path(file_id)
+                path.write_bytes(content)
+                paths.append(path)
+            return paths
+
+        async def async_remove_attachment_files(self, files):
+            for path in files:
+                path.unlink(missing_ok=True)
+
+        async def async_save(self, data):
+            self.saves += 1
+
+    async def run():
+        store = _store(_weekly_task())
+        repository = Repository()
+        store._repository = repository
+        del store._commit
+        old_file = tmp_path / "old-file"
+        old_file.write_bytes(b"old")
+        store._data["attachments"] = [
+            {"attachment_id": "old-file", "task_id": "task"}
+        ]
+        store._data["history"]["task"] = [
+            {"history_entry_id": "old-history"}
+        ]
+
+        result = await store.async_save_task(
+            "task",
+            {"task_name": "Updated"},
+            [("manual.pdf", "application/pdf", b"new")],
+            ["old-file"],
+            ["old-history"],
+            date(2026, 7, 30),
+        )
+
+        assert repository.saves == 1
+        assert result["task"]["task_name"] == "Updated"
+        assert not old_file.exists()
+        assert store.history("task") == []
+        [attachment] = result["attachments"]
+        assert repository.file_path(attachment["attachment_id"]).read_bytes() == b"new"
+        assert store._data["attachments"] == [attachment]
+
+    asyncio.run(run())
+
+
+def test_failed_editor_save_rolls_back_snapshot_and_new_files(tmp_path):
+    class Repository:
+        def file_path(self, file_id):
+            return tmp_path / file_id
+
+        async def async_write_attachment_files(self, files):
+            paths = []
+            for file_id, content in files.items():
+                path = self.file_path(file_id)
+                path.write_bytes(content)
+                paths.append(path)
+            return paths
+
+        async def async_remove_attachment_files(self, files):
+            for path in files:
+                path.unlink(missing_ok=True)
+
+        async def async_save(self, data):
+            raise RuntimeError("save failed")
+
+    async def run():
+        store = _store(_weekly_task())
+        repository = Repository()
+        store._repository = repository
+        del store._commit
+        before = store._data
+
+        with pytest.raises(RuntimeError, match="save failed"):
+            await store.async_save_task(
+                "task",
+                {"task_name": "Not saved"},
+                [("manual.pdf", "application/pdf", b"new")],
+                [],
+                [],
+                date(2026, 7, 30),
+            )
+
+        assert store._data is before
+        assert store.tasks[0]["task_name"] == "Task"
+        assert list(tmp_path.iterdir()) == []
+
+    asyncio.run(run())

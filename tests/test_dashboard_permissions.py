@@ -19,6 +19,7 @@ def test_dashboard_task_commands_allow_authenticated_users():
         "ws_list",
         "ws_task_create",
         "ws_task_update",
+        "ws_task_save",
         "ws_task_bulk",
         "ws_task_delete",
         "ws_task_preview_next_due",

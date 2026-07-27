@@ -214,3 +214,67 @@ def test_bulk_mutation_publishes_one_revision(monkeypatch):
         assert [event[1]["action"] for event in events] == ["bulk_mutated"]
 
     asyncio.run(run())
+
+
+def test_editor_save_publishes_one_task_change():
+    class Store:
+        def task(self, task_id):
+            return {
+                "task_id": task_id,
+                "task_name": "Pump",
+                "schedule_type": "sensor",
+                "problem_sensor": "binary_sensor.old",
+                "active": True,
+            }
+
+        async def async_save_task(
+            self,
+            task_id,
+            payload,
+            uploads,
+            deleted_attachment_ids,
+            deleted_history_entry_ids,
+            now,
+        ):
+            self.received = (
+                task_id,
+                payload,
+                uploads,
+                deleted_attachment_ids,
+                deleted_history_entry_ids,
+                now,
+            )
+            return {
+                "task": {
+                    **self.task(task_id),
+                    **payload,
+                },
+                "attachments": [],
+            }
+
+    async def run():
+        hass, events = _hass()
+        store = Store()
+        manager = TaskManager(hass, store)
+        changes = []
+        manager.subscribe(changes.append)
+        now = datetime(2026, 7, 27, 10, tzinfo=timezone.utc)
+
+        result = await manager.async_save_task(
+            "task-1",
+            {"problem_sensor": "binary_sensor.new"},
+            [],
+            ["file-1"],
+            ["history-1"],
+            now,
+        )
+
+        assert result["task"]["problem_sensor"] == "binary_sensor.new"
+        assert manager.revision == 1
+        assert changes[0].action == "saved"
+        assert changes[0].resource_id == "task-1"
+        assert changes[0].data["created"] is False
+        assert changes[0].data["problem_trigger_changed"] is True
+        assert events[0][1]["action"] == "saved"
+
+    asyncio.run(run())

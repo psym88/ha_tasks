@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 4 - Protocol
+- Phase: 5 - Frontend V2
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 3
@@ -213,7 +213,7 @@ not replaced the path yet.
 - [x] Add an initial-snapshot WebSocket subscription.
 - [x] Add revisioned task updates.
 - [x] Add one bulk-mutation command.
-- [ ] Add transactional task and attachment saving.
+- [x] Add transactional task and attachment saving.
 - [ ] Retain legacy commands until the current frontend is retired.
 
 ### Phase 5 - Frontend V2
@@ -310,8 +310,16 @@ not replaced the path yet.
   to the transactional command.
 - The explicit schemas and transaction path add 173 backend lines and 234
   frontend bytes; all 137 backend and 121 frontend tests pass.
+- Added `tasks/task/save` as the editor's single commit boundary for creating
+  or updating a task, adding attachments, and deleting attachments or history.
+- New attachment files are removed if persistence fails; replaced files are
+  removed only after the schema-3 snapshot commits successfully.
+- Removed the editor's compensating task and attachment deletions. The
+  transaction adds 159 net production lines and 5,079 bytes overall:
+  5,887 backend bytes added and 808 legacy frontend bytes removed.
+- Verified all 141 backend and 121 frontend tests.
 
 ## Next action
 
-Add transactional task-and-attachment saving for the editor while retaining
-the existing individual task and attachment commands.
+Establish the TypeScript build and parallel V2 frontend entry without changing
+the current production panel or card registrations.

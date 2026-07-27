@@ -175,6 +175,18 @@ class TasksStore:
     async def async_add_task(
         self, payload: dict[str, Any], now: datetime | None = None
     ) -> dict[str, Any]:
+        async with self._lock:
+            data = deepcopy(self._data)
+            task = self._add_task_in(data, payload, now)
+            await self._commit(data)
+            return task
+
+    def _add_task_in(
+        self,
+        data: dict[str, Any],
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
         trigger = trigger_from_mapping(payload)
         created_at = now or dt_util.utcnow()
         task_due = (
@@ -185,26 +197,23 @@ class TasksStore:
                 or next(occurrences(payload, created_at))
             )
         )
-        async with self._lock:
-            data = deepcopy(self._data)
-            nfc_tag_id = self._normalize_nfc_tag_id(
-                payload.get("nfc_tag_id"), data=data
-            )
-            values = {
-                key: payload[key]
-                for key in TASK_MUTABLE_FIELDS
-                if key in payload
-            }
-            task = Task.from_mapping({
-                **values,
-                "task_id": uuid4().hex,
-                **trigger.storage_fields(),
-                "nfc_tag_id": nfc_tag_id,
-                "task_due": task_due,
-            }).storage_fields()
-            data["tasks"].append(task)
-            await self._commit(data)
-            return task
+        nfc_tag_id = self._normalize_nfc_tag_id(
+            payload.get("nfc_tag_id"), data=data
+        )
+        values = {
+            key: payload[key]
+            for key in TASK_MUTABLE_FIELDS
+            if key in payload
+        }
+        task = Task.from_mapping({
+            **values,
+            "task_id": uuid4().hex,
+            **trigger.storage_fields(),
+            "nfc_tag_id": nfc_tag_id,
+            "task_due": task_due,
+        }).storage_fields()
+        data["tasks"].append(task)
+        return task
 
     async def async_update_task(
         self,
@@ -413,6 +422,84 @@ class TasksStore:
             ]
             await self._commit(data)
             return task
+
+    async def async_save_task(
+        self,
+        task_id: str | None,
+        payload: dict[str, Any],
+        uploads: list[tuple[str, str, bytes]],
+        deleted_attachment_ids: list[str],
+        deleted_history_entry_ids: list[str],
+        now: datetime,
+    ) -> dict[str, Any]:
+        """Save editor task, attachment, and history changes atomically."""
+        async with self._lock:
+            data = deepcopy(self._data)
+            task = (
+                self._update_task_in(data, task_id, payload, now)
+                if task_id
+                else self._add_task_in(data, payload, now)
+            )
+            task_id = task["task_id"]
+            deleted_files = []
+            for attachment_id in deleted_attachment_ids:
+                attachment = self._find_in(
+                    data, "attachments", attachment_id
+                )
+                if attachment["task_id"] != task_id:
+                    raise ValueError("unknown_attachment")
+                deleted_files.append(
+                    self._repository.file_path(attachment_id)
+                )
+            data["attachments"] = [
+                attachment
+                for attachment in data["attachments"]
+                if attachment["attachment_id"]
+                not in deleted_attachment_ids
+            ]
+            entries = data["history"].get(task_id, [])
+            known_history_ids = {
+                entry["history_entry_id"] for entry in entries
+            }
+            if not set(deleted_history_entry_ids) <= known_history_ids:
+                raise ValueError("unknown_history_entry")
+            data["history"][task_id] = [
+                entry
+                for entry in entries
+                if entry["history_entry_id"]
+                not in deleted_history_entry_ids
+            ]
+            attachments = [
+                Attachment(
+                    id=uuid4().hex,
+                    task_id=task_id,
+                    filename=filename,
+                    content_type=content_type,
+                    size=len(content),
+                    uploaded_at=now,
+                ).storage_fields()
+                for filename, content_type, content in uploads
+            ]
+            data["attachments"].extend(attachments)
+            created_files = (
+                await self._repository.async_write_attachment_files({
+                    attachment["attachment_id"]: upload[2]
+                    for attachment, upload in zip(
+                        attachments, uploads, strict=True
+                    )
+                })
+                if attachments
+                else []
+            )
+            try:
+                await self._commit(data)
+            except Exception:
+                await self._repository.async_remove_attachment_files(
+                    created_files
+                )
+                raise
+            await self._repository.async_remove_attachment_files(deleted_files)
+            return {"task": task, "attachments": attachments}
 
     def attachment(self, attachment_id: str) -> dict[str, Any] | None:
         return next((x for x in self._data["attachments"] if x["attachment_id"] == attachment_id), None)

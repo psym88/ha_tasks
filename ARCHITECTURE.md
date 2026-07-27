@@ -30,8 +30,8 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 - `scheduling.py`: due-time scheduling, indexed problem-sensor transitions, and
   startup reconciliation
 - `notifications.py`: Mobile App and persistent panel notifications for due tasks
-- `task_api.py`: authenticated task API, snapshot subscriptions, and
-  transactional bulk commands
+- `task_api.py`: authenticated task API, snapshot subscriptions,
+  transactional bulk commands, and atomic editor saves
 - `attachment_api.py`: authenticated attachments and ZIP import/export
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution

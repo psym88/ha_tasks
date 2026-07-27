@@ -181,16 +181,16 @@ class ProblemSensorScheduler:
             or change.resource_type == "task"
             and (
                 change.action in {"created", "deleted"}
-                or change.action == "updated"
+                or change.action in {"updated", "saved"}
                 and change.data.get("problem_trigger_changed")
             )
         ):
             self._subscribe_sensors()
         if (
             change.resource_type != "task"
-            or change.action not in {"created", "updated"}
+            or change.action not in {"created", "updated", "saved"}
             or (
-                change.action == "updated"
+                change.action in {"updated", "saved"}
                 and not change.data.get("problem_trigger_changed")
             )
         ):

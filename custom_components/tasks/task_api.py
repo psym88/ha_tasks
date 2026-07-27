@@ -121,6 +121,13 @@ def _read_uploaded_file(
         return filename, content_type, file_path.read_bytes()
 
 
+def _read_uploaded_files(
+    hass: HomeAssistant, file_ids: list[str]
+) -> list[tuple[str, str, bytes]]:
+    """Consume native uploads for one editor save."""
+    return [_read_uploaded_file(hass, file_id) for file_id in file_ids]
+
+
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for command in COMMANDS:
@@ -222,6 +229,35 @@ async def ws_task_update(hass, connection, msg, manager):
     result = await manager.async_update_task(
         msg["task_id"],
         msg,
+        dt_util.utcnow(),
+        context=connection.context(msg),
+    )
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "tasks/task/save",
+        vol.Optional("task_id"): str,
+        vol.Optional("file_ids", default=[]): [ATTACHMENT_FILE_SELECTOR],
+        vol.Optional("deleted_attachment_ids", default=[]): [str],
+        vol.Optional("deleted_history_entry_ids", default=[]): [str],
+        **TASK_CREATE_FIELDS,
+    }
+)
+@websocket_api.async_response
+@require_manager
+async def ws_task_save(hass, connection, msg, manager):
+    """Commit one complete editor session."""
+    uploads = await hass.async_add_executor_job(
+        _read_uploaded_files, hass, msg["file_ids"]
+    )
+    result = await manager.async_save_task(
+        msg.get("task_id"),
+        msg,
+        uploads,
+        msg["deleted_attachment_ids"],
+        msg["deleted_history_entry_ids"],
         dt_util.utcnow(),
         context=connection.context(msg),
     )
@@ -389,4 +425,4 @@ async def ws_attachment_delete(hass, connection, msg, manager):
     connection.send_result(msg["id"])
 
 
-COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_bulk, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)
+COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_save, ws_task_bulk, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

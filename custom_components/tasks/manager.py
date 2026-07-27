@@ -234,6 +234,43 @@ class TaskManager:
         )
         return results
 
+    async def async_save_task(
+        self,
+        task_id: str | None,
+        payload: dict[str, Any],
+        uploads: list[tuple[str, str, bytes]],
+        deleted_attachment_ids: list[str],
+        deleted_history_entry_ids: list[str],
+        now: datetime,
+        *,
+        context: Context | None = None,
+    ) -> dict[str, Any]:
+        """Commit all changes made in one task editor session."""
+        previous = self._store.task(task_id) if task_id else None
+        result = await self._store.async_save_task(
+            task_id,
+            payload,
+            uploads,
+            deleted_attachment_ids,
+            deleted_history_entry_ids,
+            now,
+        )
+        task = result["task"]
+        problem_trigger_changed = previous is None or any(
+            previous.get(key) != task.get(key)
+            for key in ("schedule_type", "problem_sensor", "active")
+        )
+        self._changed(
+            "saved",
+            "task",
+            task["task_id"],
+            context=context,
+            resource_name=task["task_name"],
+            created=previous is None,
+            problem_trigger_changed=problem_trigger_changed,
+        )
+        return result
+
     async def async_delete_history(
         self,
         task_id: str,
