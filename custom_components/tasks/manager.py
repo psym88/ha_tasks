@@ -27,6 +27,7 @@ class TaskChange:
     resource_type: str
     resource_id: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
+    revision: int = 0
 
     @property
     def affects_tasks(self) -> bool:
@@ -48,6 +49,12 @@ class TaskManager:
         self._hass = hass
         self._store = store
         self._listeners: set[Callable[[TaskChange], None]] = set()
+        self._revision = 0
+
+    @property
+    def revision(self) -> int:
+        """Return the current process-local change revision."""
+        return self._revision
 
     @callback
     def subscribe(
@@ -270,7 +277,14 @@ class TaskManager:
         context: Context | None = None,
         **data: Any,
     ) -> None:
-        change = TaskChange(action, resource_type, resource_id, data)
+        self._revision += 1
+        change = TaskChange(
+            action,
+            resource_type,
+            resource_id,
+            data,
+            revision=self._revision,
+        )
         for listener in tuple(self._listeners):
             listener(change)
         async_fire_tasks_event(

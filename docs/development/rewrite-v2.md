@@ -211,7 +211,7 @@ not replaced the path yet.
 ### Phase 4 - Protocol
 
 - [x] Add an initial-snapshot WebSocket subscription.
-- [ ] Add revisioned task updates.
+- [x] Add revisioned task updates.
 - [ ] Add one bulk-mutation command.
 - [ ] Add transactional task and attachment saving.
 - [ ] Retain legacy commands until the current frontend is retired.
@@ -298,8 +298,13 @@ not replaced the path yet.
   after committed changes while the legacy list and event APIs remain active.
 - Added 36 production lines and verified all 131 backend plus 121 frontend
   tests.
+- Added a process-local monotonic revision to every committed manager change
+  and subscription snapshot; failed mutations do not advance it.
+- Kept revisions out of persisted schema 3 so no user-data migration is
+  required. The protocol change adds 14 production lines.
+- Verified all 131 backend and 121 frontend tests.
 
 ## Next action
 
-Add monotonically increasing runtime revisions to subscription snapshots and
-change notifications without changing persisted schema 3.
+Add one transactional bulk-mutation command for the existing table actions
+without changing their individual legacy commands.

@@ -118,6 +118,7 @@ def _subscription_snapshot(
 ) -> dict:
     result = {
         "type": "snapshot",
+        "revision": change.revision if change else manager.revision,
         **manager.snapshot(),
         "now": dt_util.utcnow().isoformat(),
     }

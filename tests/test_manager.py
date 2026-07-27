@@ -53,6 +53,8 @@ def test_update_publishes_one_committed_domain_change():
         assert changes[0].action == "updated"
         assert changes[0].resource_id == "task-1"
         assert changes[0].data["problem_trigger_changed"] is True
+        assert changes[0].revision == 1
+        assert manager.revision == 1
         assert events == [
             (
                 EVENT_TASKS,
@@ -69,6 +71,7 @@ def test_update_publishes_one_committed_domain_change():
         unsubscribe()
         await manager.async_update_task("task-1", {"active": True})
         assert len(changes) == 1
+        assert manager.revision == 2
 
     asyncio.run(run())
 
@@ -86,6 +89,7 @@ def test_failed_mutation_does_not_publish_a_change():
             await manager.async_add_task({"task_name": "Pump"})
 
         assert events == []
+        assert manager.revision == 0
 
     asyncio.run(run())
 
