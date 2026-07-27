@@ -120,8 +120,12 @@ test("table toolbar and scrolling keep controls and headers stable",()=>{
   assert.match(tableSource,/\.filter-menu,\.display-menu\{width:max-content;max-width:[^}]+padding:0;/);
   assert.match(tableSource,/\.settings-menu\{box-sizing:border-box;width:420px;max-width:calc\(100vw - var\(--ha-space-8\)\);padding:0;/);
   assert.match(tableSource,/\.filter-menu ha-expansion-panel,\.display-menu ha-expansion-panel,\.settings-menu slot::slotted\(\*\)\{width:100%\}/);
-  assert.match(tableSource,/\.toolbar\{position:sticky;z-index:5;top:0;/);
-  assert.match(tableSource,/thead\{position:sticky;z-index:2;top:0;/);
+  assert.match(tableSource,/:host\{display:block;position:relative;height:100vh;min-height:0;overflow:hidden/);
+  assert.match(tableSource,/\.toolbar\{position:absolute;z-index:5;top:0;inset-inline:0;/);
+  assert.match(tableSource,/\.content\{position:absolute;top:calc\(var\(--header-height,0px\) \+ var\(--safe-area-inset-top,0px\)\);bottom:0;inset-inline:0;display:flex;min-height:0;flex-direction:column/);
+  assert.doesNotMatch(tableSource,/thead\{position:sticky/);
+  assert.match(tableSource,/<div class="content">\s*<div class="selection/);
+  assert.match(tableSource,/@container \(max-width:600px\)\{[\s\S]*?\.table-wrap thead th button\{pointer-events:none;cursor:default\}/);
   assert.match(tableSource,/\.fab\{position:fixed;z-index:3;/);
   assert.match(tableSource,/row\.className="empty-row";cell\.colSpan=columns\.length\+1/);
   assert.match(tableSource,/tbody tr\.group-row,tbody tr\.empty-row\{display:table;width:100%\}/);
