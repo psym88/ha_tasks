@@ -121,7 +121,6 @@ export const withTaskList = Base => class extends Base {
     for(const row of rows)for(const option of row.filter_options[column]||[])options.set(option.id||"__unassigned__",option.label);
     return [...options].map(([value,label])=>({value,label}));
   }
-  activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
     const groupable={sortable:true,groupable:true};
     const dimension=name=>({title:t(TASK_TABLE_DIMENSIONS[name].title),filterField:TASK_TABLE_DIMENSIONS[name].values,...groupable});
@@ -150,7 +149,7 @@ export const withTaskList = Base => class extends Base {
     });
   }
   selectedTasks(){const ids=new Set(this.selectedTaskIds||[]);return this.tasks.filter(task=>ids.has(task.task_id));}
-  clearTaskSelection(){const wrapper=this.shadowRoot.querySelector("tasks-data-table");wrapper?.clearSelection();this.selectedTaskIds=[];if(wrapper)wrapper.selected=0;}
+  clearTaskSelection(){this.shadowRoot.querySelector("tasks-data-table")?.clearSelection();this.selectedTaskIds=[];}
   async runBulkAction(action,clear=false){for(const task of this.selectedTasks())await action(task);if(clear)this.clearTaskSelection();}
   async bulkAssignPerson(assigneeId){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,assignee_id:assigneeId==="__unassigned__"?null:assigneeId}));}
   async bulkAssignLabel(labelId,action="add"){await this.runBulkAction(task=>this.ws({type:"tasks/task/update",task_id:task.task_id,label_ids:action==="remove"?(task.label_ids||[]).filter(id=>id!==labelId):[...new Set([...(task.label_ids||[]),labelId])]}));}
@@ -201,7 +200,7 @@ export const withTaskList = Base => class extends Base {
       wrapper.append(settings,filterPane,fab);
       this.appendBulkActions(wrapper);
       this.shadowRoot.querySelector(".app").append(wrapper);
-      wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];wrapper.selected=this.selectedTaskIds.length;this.appendBulkActions(wrapper);});
+      wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];this.appendBulkActions(wrapper);});
       wrapper.addEventListener("row-click",event=>{const task=this.tasks.find(item=>item.task_id===event.detail?.id);if(task)this.taskViewer(task);});
       wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.persistTaskTableValue("filters",this.tableFilters);this.clearTaskSelection();this.updateTaskTable();});
       wrapper.addEventListener("search-changed",event=>this.persistTaskTableValue("search",event.detail?.value||""));
@@ -222,11 +221,7 @@ export const withTaskList = Base => class extends Base {
     wrapper.hass=this._hass;
     wrapper.tabs=[{name:"Tasks",path:""}];
     wrapper.narrow=Boolean(this.narrow);
-    wrapper.filters=this.activeFilterCount();
-    wrapper.columns=this.tableColumns();
-    wrapper.dimensionFilters=this.tableFilters;
-    wrapper.data=rows;
-    wrapper.selected=(this.selectedTaskIds||[]).length;
+    wrapper.configure({columns:this.tableColumns(),dimensionFilters:this.tableFilters,data:rows});
     if(!wrapper.querySelector('[slot="selection-bar"]')?.open)this.appendBulkActions(wrapper);
     wrapper.noDataText=t("table.empty");
     wrapper.searchLabel=t("table.search");

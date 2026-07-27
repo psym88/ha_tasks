@@ -1,5 +1,6 @@
 import {
   createTable,
+  functionalUpdate,
   getCoreRowModel,
   getExpandedRowModel,
   getFilteredRowModel,
@@ -21,6 +22,7 @@ export class TasksDataTable extends HTMLElement {
     this.attachShadow({mode:"open"});
     this._data=[];
     this._columns={};
+    this._columnDefinitions=[];
     this._columnVisibility={};
     this._sorting=[];
     this._grouping=[];
@@ -33,7 +35,6 @@ export class TasksDataTable extends HTMLElement {
     this._displayExpanded={columns:false,grouping:false};
     this._defaultColumnVisibility=undefined;
     this._defaultSorting=undefined;
-    this.filters=0;
     this.noDataText="";
     this.searchLabel="";
     this._outsideClick=event=>{
@@ -60,16 +61,17 @@ export class TasksDataTable extends HTMLElement {
 
   connectedCallback(){document.addEventListener("pointerdown",this._outsideClick,true);this.render();}
   disconnectedCallback(){document.removeEventListener("pointerdown",this._outsideClick,true);}
-  set data(value){
-    this._data=Array.isArray(value)?value:[];
+  configure({data,columns,dimensionFilters}={}){
+    this._data=Array.isArray(data)?data:[];
+    this._columns=columns||{};
+    this._columnDefinitions=this.columnDefinitions();
+    const filters=dimensionFilters&&typeof dimensionFilters==="object"?dimensionFilters:{};
+    this._columnFilters=Object.entries(filters).filter(([,selected])=>Array.isArray(selected)&&selected.length).map(([id,selected])=>({id,value:selected}));
     const ids=new Set(this._data.map(row=>row.id));
     if(this._lastSelectedRowId&&!ids.has(this._lastSelectedRowId))this._lastSelectedRowId=null;
     this.update();
     if(this.isConnected)this.emitSelection();
   }
-  get data(){return this._data;}
-  set columns(value){this._columns=value||{};this.update();}
-  get columns(){return this._columns;}
   set defaultColumnVisibility(value){this._defaultColumnVisibility=value&&typeof value==="object"?{...value}:{};}
   set initialColumnVisibility(value){this._columnVisibility=value&&typeof value==="object"?{...value}:{};}
   set defaultSorting(value){this._defaultSorting=value?.column?[{id:value.column,desc:value.direction==="desc"}]:[];}
@@ -78,13 +80,6 @@ export class TasksDataTable extends HTMLElement {
   set initialCollapsedGroups(value){this._expanded=value&&typeof value==="object"?value:{};}
   set filter(value){this._search=String(value||"");}
   get filter(){return this._search;}
-  set dimensionFilters(value){
-    const filters=value&&typeof value==="object"?value:{};
-    this._columnFilters=Object.entries(filters).filter(([,selected])=>Array.isArray(selected)&&selected.length).map(([id,selected])=>({id,value:selected}));
-    this.update();
-  }
-  set selected(value){this._selected=Number(value)||0;this.renderSelection();}
-  get selected(){return this._selected||0;}
 
   clearSelection(){this._lastSelectedRowId=null;this._table.resetRowSelection();}
   selectRow(row,selected,range=false){
@@ -137,33 +132,32 @@ export class TasksDataTable extends HTMLElement {
     this._table.setOptions(previous=>({
       ...previous,
       data:this._data,
-      columns:this.columnDefinitions(),
+      columns:this._columnDefinitions,
       state,
       globalFilterFn:"includesString",
       onSortingChange:updater=>{
-        this._sorting=typeof updater==="function"?updater(this._sorting):updater;
+        this._sorting=functionalUpdate(updater,this._sorting);
         const sorting=this._sorting[0];
         this.dispatchEvent(new CustomEvent("sorting-changed",{detail:sorting?{column:sorting.id,direction:sorting.desc?"desc":"asc"}:undefined}));
         this.update();
       },
       onGroupingChange:updater=>{
-        this._grouping=typeof updater==="function"?updater(this._grouping):updater;
+        this._grouping=functionalUpdate(updater,this._grouping);
         this.dispatchEvent(new CustomEvent("grouping-changed",{detail:{value:this._grouping[0]}}));
         this.update();
       },
       onExpandedChange:updater=>{
-        this._expanded=typeof updater==="function"?updater(this._expanded):updater;
+        this._expanded=functionalUpdate(updater,this._expanded);
         this.dispatchEvent(new CustomEvent("collapsed-changed",{detail:{value:this._expanded}}));
         this.update();
       },
       onRowSelectionChange:updater=>{
-        this._rowSelection=typeof updater==="function"?updater(this._rowSelection):updater;
-        this.syncTable();
-        this.emitSelection();
+        this._rowSelection=functionalUpdate(updater,this._rowSelection);
         this.render();
+        this.emitSelection();
       },
       onColumnVisibilityChange:updater=>{
-        this._columnVisibility=typeof updater==="function"?updater(this._columnVisibility):updater;
+        this._columnVisibility=functionalUpdate(updater,this._columnVisibility);
         this.dispatchEvent(new CustomEvent("visibility-changed",{detail:{value:this._columnVisibility}}));
         this.update();
       },
@@ -172,11 +166,12 @@ export class TasksDataTable extends HTMLElement {
 
   emitSelection(){
     const value=this._table.getSelectedRowModel().rows.map(row=>row.id);
-    this._selected=value.length;
+    if(value.length===this._emittedSelection?.length&&value.every((id,index)=>id===this._emittedSelection[index]))return;
+    this._emittedSelection=value;
     this.dispatchEvent(new CustomEvent("selection-changed",{detail:{value}}));
   }
 
-  update(){if(this.isConnected){this.syncTable();this.render();}}
+  update(){if(this.isConnected)this.render();}
 
   render(){
     const previousSearch=this.shadowRoot?.activeElement?.classList?.contains("search")
@@ -185,6 +180,8 @@ export class TasksDataTable extends HTMLElement {
     const previousScrollTop=this.shadowRoot?.querySelector(".table-wrap")?.scrollTop||0;
     this.syncTable();
     const visibleColumns=this._table.getVisibleLeafColumns();
+    const selectedCount=this._table.getSelectedRowModel().rows.length;
+    const filterCount=this._columnFilters.reduce((count,filter)=>count+(Array.isArray(filter.value)?filter.value.length:1),0);
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;position:relative;height:100vh;min-height:0;overflow:hidden;container-type:inline-size;background:var(--primary-background-color);color:var(--primary-text-color)}
       .toolbar{position:absolute;z-index:5;top:0;inset-inline:0;box-sizing:border-box;width:100%;height:calc(var(--header-height,0px) + var(--safe-area-inset-top,0px));padding-block-start:var(--safe-area-inset-top);padding-inline-end:var(--safe-area-inset-right);border-bottom:1px solid var(--divider-color);background:var(--sidebar-background-color);font-size:var(--ha-font-size-xl);font-weight:var(--ha-font-weight-normal)}
@@ -216,7 +213,7 @@ export class TasksDataTable extends HTMLElement {
         <ha-menu-button></ha-menu-button>
         <div class="main-title">${esc(this.tabs?.[0]?.name||"Tasks")}</div>
         <div class="toolbar-actions">
-        <div class="popover filter-popover"><ha-icon-button class="filter-toggle" aria-label="${esc(t("table.filters"))}"><ha-icon icon="mdi:filter-variant"></ha-icon>${this.filters?`<span class="badge">${this.filters}</span>`:""}</ha-icon-button><div class="menu filter-menu" ${this._openMenu==="filter"?"":"hidden"}><div class="filters"><slot name="filter-pane"></slot></div><div class="menu-action"><ha-button class="reset-filters" appearance="plain">${esc(t("table.reset_filters"))}</ha-button></div></div></div>
+        <div class="popover filter-popover"><ha-icon-button class="filter-toggle" aria-label="${esc(t("table.filters"))}"><ha-icon icon="mdi:filter-variant"></ha-icon>${filterCount?`<span class="badge">${filterCount}</span>`:""}</ha-icon-button><div class="menu filter-menu" ${this._openMenu==="filter"?"":"hidden"}><div class="filters"><slot name="filter-pane"></slot></div><div class="menu-action"><ha-button class="reset-filters" appearance="plain">${esc(t("table.reset_filters"))}</ha-button></div></div></div>
         <div class="popover display-popover"><ha-icon-button class="settings-toggle" aria-label="${esc(t("table.display"))}"><ha-icon icon="mdi:view-column-outline"></ha-icon></ha-icon-button><div class="menu display-menu" ${this._openMenu==="display"?"":"hidden"}>
           <ha-expansion-panel left-chevron class="columns-panel" ${this._displayExpanded.columns?"expanded":""}><span slot="header">${esc(t("table.columns"))}</span><div class="display-options">
             ${Object.entries(this._columns).filter(([,column])=>column?.hideable!==false).map(([id,column])=>`<label><ha-checkbox data-column="${esc(id)}"></ha-checkbox><span>${esc(column?.title||column?.label||id)}</span></label>`).join("")}
@@ -231,7 +228,7 @@ export class TasksDataTable extends HTMLElement {
       </div>
     </div>
     <div class="content">
-      <div class="selection${this.selected?" active":""}"><input class="search" type="search" value="${esc(this._search)}" placeholder="${esc(this.searchLabel||t("table.search"))}" aria-label="${esc(this.searchLabel||t("table.search"))}"><slot name="selection-bar"></slot></div>
+      <div class="selection${selectedCount?" active":""}"><input class="search" type="search" value="${esc(this._search)}" placeholder="${esc(this.searchLabel||t("table.search"))}" aria-label="${esc(this.searchLabel||t("table.search"))}"><slot name="selection-bar"></slot></div>
       <div class="table-wrap"><table><thead><tr><th><ha-checkbox class="select-all" aria-label="${esc(t("table.select_all"))}"></ha-checkbox></th>${visibleColumns.map(column=>`<th data-column="${esc(column.id)}"></th>`).join("")}</tr></thead><tbody></tbody></table></div>
     </div>
     <div class="fab"><slot name="fab"></slot></div>`;
@@ -241,7 +238,6 @@ export class TasksDataTable extends HTMLElement {
     this.renderHeader(visibleColumns);
     this.renderRows(visibleColumns);
     this.wire();
-    this.renderSelection();
     this.shadowRoot.querySelector(".table-wrap").scrollTop=previousScrollTop;
     if(previousSearch){
       const search=this.shadowRoot.querySelector(".search");
@@ -283,7 +279,7 @@ export class TasksDataTable extends HTMLElement {
   appendMobileDetails(content,row,columns){
     const values=[];
     for(const column of columns){
-      if(column.id==="name"||column.id==="actions")continue;
+      if(column.id==="icon"||column.id==="name"||column.id==="actions")continue;
       const definition=column.columnDef.meta.definition,value=row.original[column.id];
       if(definition.template){
         const rendered=definition.template(row.original),text=rendered?.textContent?.trim();
@@ -295,11 +291,6 @@ export class TasksDataTable extends HTMLElement {
     details.className="mobile-details";
     details.textContent=values.join(" - ");
     content.append(details);
-  }
-
-  renderSelection(){
-    const selection=this.shadowRoot?.querySelector(".selection");
-    if(selection)selection.classList.toggle("active",Boolean(this.selected));
   }
 
   wire(){

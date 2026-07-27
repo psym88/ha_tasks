@@ -98,8 +98,7 @@ test("panel uses the framework-neutral TanStack table wrapper",()=>{
   const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
   assert.match(source,/import "\.\/tasks-data-table\.js"/);
   assert.match(source,/createElement\("tasks-data-table"\)/);
-  assert.match(source,/wrapper\.dimensionFilters=this\.tableFilters/);
-  assert.match(source,/wrapper\.data=rows/);
+  assert.match(source,/wrapper\.configure\(\{columns:this\.tableColumns\(\),dimensionFilters:this\.tableFilters,data:rows\}\)/);
   assert.match(source,/wrapper\.initialSorting=view\.sorting/);
   assert.deepEqual(INITIAL_TASK_SORTING,{column:"due_ts",direction:"asc"});
   assert.match(tableSource,/from "\.\/vendor\/tanstack-table-core\.mjs"/);
@@ -130,7 +129,7 @@ test("TanStack owns table visibility selection sorting and filtering logic",()=>
 
 test("table toolbar and scrolling keep controls and headers stable",()=>{
   const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
-  assert.ok(tableSource.indexOf('<div class="toolbar-actions">')<tableSource.indexOf('<div class="selection${this.selected?" active":""}"><input class="search"'));
+  assert.ok(tableSource.indexOf('<div class="toolbar-actions">')<tableSource.indexOf('<div class="selection${selectedCount?" active":""}"><input class="search"'));
   assert.match(tableSource,/\.toolbar-actions\{display:flex;align-items:center;margin-inline-start:auto\}/);
   assert.match(tableSource,/\.search\{box-sizing:border-box;height:var\(--ha-control-height,40px\)/);
   assert.match(tableSource,/--md-assist-chip-container-height:var\(--ha-control-height,40px\)/);
@@ -167,8 +166,7 @@ test("native icon column replaces the task icon for inactive tasks",()=>{
 test("native table multi-select tracks selected task ids and count",()=>{
   assert.match(source,/wrapper\.addEventListener\("selection-changed"/);
   assert.match(source,/this\.selectedTaskIds=event\.detail\?\.value\|\|\[\]/);
-  assert.match(source,/wrapper\.selected=this\.selectedTaskIds\.length/);
-  assert.match(source,/wrapper\.selected=\(this\.selectedTaskIds\|\|\[\]\)\.length/);
+  assert.doesNotMatch(source,/wrapper\.selected=/);
 });
 
 test("native selection bar offers assignment notification completion and deletion bulk actions",()=>{
@@ -284,9 +282,7 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/querySelectorAll\(FILTER_CATEGORY_TAG\)/);
   assert.match(source,/\.filters\{box-sizing:border-box;width:100%\}/);
   assert.doesNotMatch(source,/\.filters\{[^}]*margin/);
-  assert.match(source,/wrapper\.filters=this\.activeFilterCount\(\)/);
-  assert.match(source,/wrapper\.dimensionFilters=this\.tableFilters/);
-  assert.match(source,/wrapper\.data=rows/);
+  assert.match(source,/wrapper\.configure\(\{columns:this\.tableColumns\(\),dimensionFilters:this\.tableFilters,data:rows\}\)/);
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
   assert.match(source,/value-changed"[\s\S]*?persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);
   assert.match(source,/clear-filter",\(\)=>\{this\.tableFilters=\{\};this\.persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);
@@ -306,8 +302,9 @@ test("table projection keeps stable ids separate from localized labels",()=>{
   assert.equal(row.recurrence,"translated:task.fixed");
 });
 
-test("filter badge count is set before table updates render",()=>{
-  assert.ok(source.indexOf("wrapper.filters=this.activeFilterCount()")<source.indexOf("wrapper.columns=this.tableColumns()"));
+test("table data and filter state are configured in one update",()=>{
+  assert.match(source,/wrapper\.configure\(\{columns:this\.tableColumns\(\),dimensionFilters:this\.tableFilters,data:rows\}\)/);
+  assert.doesNotMatch(source,/activeFilterCount|wrapper\.filters=|wrapper\.dimensionFilters=|wrapper\.data=/);
 });
 
 test("all filters follow Home Assistant category rows",()=>{
