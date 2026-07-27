@@ -22,18 +22,59 @@ type SortKey = "name" | "due" | "assignee" | "trigger" | "status";
 type SortDirection = "asc" | "desc";
 type FilterKey = "assignee" | "labels" | "notifications" | "trigger";
 type Filters = Record<FilterKey, string[]>;
+type ColumnKey =
+  | "due"
+  | "assignee"
+  | "labels"
+  | "notifications"
+  | "trigger"
+  | "status";
+type ColumnVisibility = Record<ColumnKey, boolean>;
 
 interface FilterOption {
   value: string;
   label: string;
 }
 
+const localStorageKey = "tasks-v2-table-state-v1";
+const sessionStorageKey = "tasks-v2-table-session-v1";
+const columnLabels: Record<ColumnKey, string> = {
+  due: "Due",
+  assignee: "Assignee",
+  labels: "Labels",
+  notifications: "Notifications",
+  trigger: "Trigger",
+  status: "Status",
+};
+const defaultColumns: ColumnVisibility = {
+  due: true,
+  assignee: true,
+  labels: false,
+  notifications: false,
+  trigger: true,
+  status: true,
+};
 const emptyFilters = (): Filters => ({
   assignee: [],
   labels: [],
   notifications: [],
   trigger: [],
 });
+
+const storedObject = (
+  storageName: "localStorage" | "sessionStorage",
+  key: string,
+): Record<string, unknown> => {
+  try {
+    const storage = globalThis[storageName];
+    const value = JSON.parse(storage?.getItem(key) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? value
+      : {};
+  } catch {
+    return {};
+  }
+};
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 const taskActions = (task: Task): ActionMenuItem[] => [
@@ -58,6 +99,7 @@ class TasksTaskTable extends LitElement {
     labels: { state: true },
     devices: { state: true },
     registryError: { state: true },
+    columns: { state: true },
   };
 
   static styles = css`
@@ -111,7 +153,7 @@ class TasksTaskTable extends LitElement {
       display: none;
     }
 
-    .filter-panel {
+    .popover-panel {
       position: absolute;
       z-index: 2;
       top: 46px;
@@ -127,6 +169,10 @@ class TasksTaskTable extends LitElement {
         --ha-card-box-shadow,
         0 6px 24px rgba(0, 0, 0, 0.28)
       );
+    }
+
+    .column-panel {
+      width: 240px;
     }
 
     .filter-grid {
@@ -305,6 +351,8 @@ class TasksTaskTable extends LitElement {
 
       .due-column,
       .assignee-column,
+      .labels-column,
+      .notifications-column,
       .trigger-column,
       .status-column {
         display: none;
@@ -318,7 +366,7 @@ class TasksTaskTable extends LitElement {
         flex: 1 1 220px;
       }
 
-      .filter-panel {
+      .popover-panel {
         position: fixed;
         top: 16px;
         right: 16px;
@@ -354,16 +402,53 @@ class TasksTaskTable extends LitElement {
   declare labels: TasksLabel[];
   declare devices: TasksDevice[];
   declare registryError: string;
+  declare columns: ColumnVisibility;
 
   private registryConnection?: HomeAssistant["connection"];
 
   constructor() {
     super();
+    const local = storedObject("localStorage", localStorageKey);
+    const session = storedObject("sessionStorage", sessionStorageKey);
     this.tasks = [];
-    this.search = "";
-    this.sortKey = "due";
-    this.sortDirection = "asc";
-    this.filters = emptyFilters();
+    this.search = typeof session.search === "string" ? session.search : "";
+    this.sortKey = ["name", "due", "assignee", "trigger", "status"].includes(
+      String(local.sortKey),
+    )
+      ? (local.sortKey as SortKey)
+      : "due";
+    this.sortDirection =
+      local.sortDirection === "desc" ? "desc" : "asc";
+    const storedFilters =
+      session.filters &&
+      typeof session.filters === "object" &&
+      !Array.isArray(session.filters)
+        ? (session.filters as Record<string, unknown>)
+        : {};
+    this.filters = Object.fromEntries(
+      (Object.keys(emptyFilters()) as FilterKey[]).map((key) => [
+        key,
+        Array.isArray(storedFilters[key])
+          ? storedFilters[key].filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      ]),
+    ) as Filters;
+    const storedColumns =
+      local.columns &&
+      typeof local.columns === "object" &&
+      !Array.isArray(local.columns)
+        ? (local.columns as Record<string, unknown>)
+        : {};
+    this.columns = Object.fromEntries(
+      (Object.keys(defaultColumns) as ColumnKey[]).map((key) => [
+        key,
+        typeof storedColumns[key] === "boolean"
+          ? storedColumns[key]
+          : defaultColumns[key],
+      ]),
+    ) as ColumnVisibility;
     this.users = [];
     this.labels = [];
     this.devices = [];
@@ -457,6 +542,21 @@ class TasksTaskTable extends LitElement {
           this.hass?.locale?.language,
         ),
       );
+  }
+
+  private labelsText(task: Task): string {
+    return this.taskLabels(task).map((label) => label.name).join(", ") || "—";
+  }
+
+  private notificationsText(task: Task): string {
+    return [
+      ...(task.notification_persistent
+        ? ["Persistent notification"]
+        : []),
+      ...this.notificationDevices(task).map((device) =>
+        this.deviceName(device),
+      ),
+    ].join(", ") || "—";
   }
 
   private filterValues(task: Task, key: FilterKey): string[] {
@@ -626,6 +726,7 @@ class TasksTaskTable extends LitElement {
       this.sortKey = key;
       this.sortDirection = "asc";
     }
+    this.storeLocalView();
   }
 
   private sortLabel(key: SortKey): string {
@@ -647,6 +748,71 @@ class TasksTaskTable extends LitElement {
         ? [...new Set([...values, value])]
         : values.filter((item) => item !== value),
     };
+    this.storeSessionView();
+  }
+
+  private toggleColumn(key: ColumnKey, visible: boolean): void {
+    this.columns = { ...this.columns, [key]: visible };
+    this.storeLocalView();
+  }
+
+  private storeLocalView(): void {
+    try {
+      globalThis.localStorage?.setItem(
+        localStorageKey,
+        JSON.stringify({
+          sortKey: this.sortKey,
+          sortDirection: this.sortDirection,
+          columns: this.columns,
+        }),
+      );
+    } catch {
+      // Storage can be unavailable in private or locked-down WebViews.
+    }
+  }
+
+  private storeSessionView(): void {
+    try {
+      globalThis.sessionStorage?.setItem(
+        sessionStorageKey,
+        JSON.stringify({
+          search: this.search,
+          filters: this.filters,
+        }),
+      );
+    } catch {
+      // Storage can be unavailable in private or locked-down WebViews.
+    }
+  }
+
+  private columnText(task: Task, key: ColumnKey): string {
+    if (key === "due") {
+      return this.due(task);
+    }
+    if (key === "assignee") {
+      return this.assignee(task);
+    }
+    if (key === "labels") {
+      return this.labelsText(task);
+    }
+    if (key === "notifications") {
+      return this.notificationsText(task);
+    }
+    return key === "trigger" ? this.trigger(task) : this.status(task);
+  }
+
+  private mobileDetails(task: Task): string {
+    return (Object.keys(this.columns) as ColumnKey[])
+      .filter(
+        (key) =>
+          this.columns[key] && this.columnText(task, key) !== "—",
+      )
+      .map((key) => this.columnText(task, key))
+      .join(" · ");
+  }
+
+  private visibleColumnCount(): number {
+    return Object.values(this.columns).filter(Boolean).length + 2;
   }
 
   private selectedFilterCount(): number {
@@ -682,6 +848,12 @@ class TasksTaskTable extends LitElement {
         )}
       </fieldset>
     `;
+  }
+
+  private closePanel(event: Event): void {
+    (event.currentTarget as HTMLElement)
+      .closest("details")
+      ?.removeAttribute("open");
   }
 
   private open(task: Task): void {
@@ -724,9 +896,30 @@ class TasksTaskTable extends LitElement {
     `;
   }
 
+  private columnHeader(key: ColumnKey) {
+    const className = `${key}-column`;
+    return key === "labels" || key === "notifications"
+      ? html`<th class=${className}>${columnLabels[key]}</th>`
+      : this.header(columnLabels[key], key, className);
+  }
+
+  private columnCell(task: Task, key: ColumnKey) {
+    const value = this.columnText(task, key);
+    return html`
+      <td class=${`${key}-column`}>
+        ${key === "status"
+          ? html`<span class="status">${value}</span>`
+          : value}
+      </td>
+    `;
+  }
+
   protected render() {
     const tasks = this.visibleTasks();
     const filterCount = this.selectedFilterCount();
+    const visibleColumns = (Object.keys(this.columns) as ColumnKey[]).filter(
+      (key) => this.columns[key],
+    );
     return staticHtml`
       <div class="toolbar">
         <input
@@ -737,11 +930,12 @@ class TasksTaskTable extends LitElement {
           .value=${this.search}
           @input=${(event: Event) => {
             this.search = (event.currentTarget as HTMLInputElement).value;
+            this.storeSessionView();
           }}
         >
         <details>
           <summary>Filters${filterCount ? ` (${filterCount})` : ""}</summary>
-          <div class="filter-panel">
+          <div class="popover-panel">
             <div class="filter-grid">
               ${this.filterGroup("Assignment", "assignee")}
               ${this.filterGroup("Labels", "labels")}
@@ -757,20 +951,46 @@ class TasksTaskTable extends LitElement {
                   type="button"
                   @click=${() => {
                     this.filters = emptyFilters();
+                    this.storeSessionView();
                   }}
                 >
                   Clear filters
                 </button>
                 <button
                   type="button"
-                  @click=${() =>
-                    this.renderRoot
-                      .querySelector("details")
-                      ?.removeAttribute("open")}
+                  @click=${this.closePanel}
                 >
                   Done
                 </button>
               </div>
+            </div>
+          </div>
+        </details>
+        <details>
+          <summary>Columns</summary>
+          <div class="popover-panel column-panel">
+            <fieldset>
+              <legend>Visible columns</legend>
+              ${(Object.keys(columnLabels) as ColumnKey[]).map(
+                (key) => html`
+                  <label>
+                    <input
+                      type="checkbox"
+                      .checked=${this.columns[key]}
+                      @change=${(event: Event) =>
+                        this.toggleColumn(
+                          key,
+                          (event.currentTarget as HTMLInputElement).checked,
+                        )}
+                    >
+                    <span>${columnLabels[key]}</span>
+                  </label>
+                `,
+              )}
+            </fieldset>
+            <div class="filter-footer">
+              <span></span>
+              <button type="button" @click=${this.closePanel}>Done</button>
             </div>
           </div>
         </details>
@@ -780,10 +1000,7 @@ class TasksTaskTable extends LitElement {
           <thead>
             <tr>
               ${this.header("Task", "name")}
-              ${this.header("Due", "due", "due-column")}
-              ${this.header("Assignee", "assignee", "assignee-column")}
-              ${this.header("Trigger", "trigger", "trigger-column")}
-              ${this.header("Status", "status", "status-column")}
+              ${visibleColumns.map((key) => this.columnHeader(key))}
               <th class="actions" aria-label="Actions"></th>
             </tr>
           </thead>
@@ -800,17 +1017,12 @@ class TasksTaskTable extends LitElement {
                         >
                           ${task.task_name}
                           <span class="mobile-details">
-                            ${this.due(task)} · ${this.assignee(task)} ·
-                            ${this.trigger(task)} · ${this.status(task)}
+                            ${this.mobileDetails(task)}
                           </span>
                         </button>
                       </td>
-                      <td class="due-column">${this.due(task)}</td>
-                      <td class="assignee-column">${this.assignee(task)}</td>
-                      <td class="trigger-column">${this.trigger(task)}</td>
-                      <td class="status-column">
-                        <span class="status">${this.status(task)}</span>
-                      </td>
+                      ${visibleColumns.map((key) =>
+                        this.columnCell(task, key))}
                       <td class="actions">
                         <${actionMenuTag}
                           label="Actions for ${task.task_name}"
@@ -824,7 +1036,7 @@ class TasksTaskTable extends LitElement {
                 )
               : html`
                   <tr>
-                    <td class="empty" colspan="6">
+                    <td class="empty" colspan=${this.visibleColumnCount()}>
                       ${this.search ? "No matching tasks" : "No tasks"}
                     </td>
                   </tr>

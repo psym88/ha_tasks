@@ -169,7 +169,7 @@ not replaced the path yet.
 | Table filters | legacy | complete | assignee, label, notification, trigger |
 | Table sorting | legacy | complete | missing due values sort last |
 | Table selection and bulk actions | legacy | pending | one backend mutation |
-| Table column visibility | legacy | pending | persisted local preference |
+| Table column visibility | legacy | complete | persisted local preference |
 | English and German UI | legacy | pending | English fallback |
 | Cache-safe frontend update | legacy | complete | version and asset hash change |
 | Native `todo.tasks` entity | absent | pending | CRUD and completion adapter |
@@ -482,7 +482,19 @@ not replaced the path yet.
   projections, and device-name search in a browser.
 - The hash-scoped bundle grew from 84,640 to 91,735 bytes. Verified all 145
   backend and 152 frontend tests.
+- Added owned visibility controls for due, assignee, label, notification,
+  trigger, and status columns; task and action columns remain fixed.
+- Added the previously hidden label and notification projections without
+  introducing grouping or a column framework.
+- Persisted sorting and column visibility across browser sessions while
+  keeping search and active filters scoped to the current tab. Invalid or
+  unavailable browser storage safely falls back to the default view.
+- Verified in a browser that search, filters, sorting, and optional columns
+  survive table reconstruction and that label and mobile-device values use
+  their resolved registry names.
+- The hash-scoped bundle grew from 91,735 to 94,525 bytes. Verified all 145
+  backend and 154 frontend tests.
 
 ## Next action
 
-Add V2 table column visibility and persist the table view.
+Add V2 table selection and transactional bulk actions.

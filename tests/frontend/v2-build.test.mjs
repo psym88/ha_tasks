@@ -212,7 +212,8 @@ test("V2 task table resolves registry names and excludes deleted references", ()
     taskTable,
     /this\.devices\s*\.filter\(\(device\) => ids\.has\(device\.id\)\)/,
   );
-  assert.match(taskTable, /this\.header\("Assignee", "assignee"/);
+  assert.match(taskTable, /assignee: "Assignee"/);
+  assert.match(taskTable, /this\.columnHeader\(key\)/);
 });
 
 test("V2 task filters combine dimensions and values without grouping", () => {
@@ -230,6 +231,29 @@ test("V2 task filters combine dimensions and values without grouping", () => {
   assert.match(taskTable, /selected\.includes\(value\)/);
   assert.match(taskTable, /this\.filters = emptyFilters\(\)/);
   assert.doesNotMatch(taskTable, /grouping|group_by|groupColumn/i);
+});
+
+test("V2 table owns optional column visibility without grouping", () => {
+  assert.match(taskTable, /type ColumnKey =/);
+  assert.match(taskTable, /labels: false/);
+  assert.match(taskTable, /notifications: false/);
+  assert.match(taskTable, /this\.toggleColumn/);
+  assert.match(taskTable, /visibleColumns\.map\(\(key\) => this\.columnHeader\(key\)\)/);
+  assert.match(taskTable, /visibleColumns\.map\(\(key\) =>\s*this\.columnCell\(task, key\)\)/);
+});
+
+test("V2 table persists durable and per-tab view state separately", () => {
+  assert.match(taskTable, /tasks-v2-table-state-v1/);
+  assert.match(taskTable, /tasks-v2-table-session-v1/);
+  assert.match(
+    taskTable,
+    /localStorage\?\.setItem\([\s\S]*sortKey:[\s\S]*columns:/,
+  );
+  assert.match(
+    taskTable,
+    /sessionStorage\?\.setItem\([\s\S]*search:[\s\S]*filters:/,
+  );
+  assert.match(taskTable, /catch \{[\s\S]*Storage can be unavailable/);
 });
 
 test("V2 planning uses the authoritative preview API for every recurrence", () => {
