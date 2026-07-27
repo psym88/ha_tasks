@@ -4,7 +4,10 @@ import type {
   ScheduleType,
   ScheduleUnit,
   Task,
+  TasksLabel,
   TasksSnapshot,
+  TasksTag,
+  TasksUser,
 } from "./types";
 
 export const subscribeTasks = (
@@ -19,6 +22,19 @@ export interface TaskDetails {
   active: boolean;
   icon: string;
   schedule?: ScheduleDetails;
+  assignment?: AssignmentDetails;
+}
+
+export interface AssignmentDetails {
+  assigneeId: string;
+  labelIds: string[];
+  nfcTagId: string;
+}
+
+export interface AssignmentOptions {
+  users: TasksUser[];
+  labels: TasksLabel[];
+  tags: TasksTag[];
 }
 
 export interface RecurrenceScheduleDetails {
@@ -83,10 +99,40 @@ export const saveTaskDetails = (
     ...(details.schedule
       ? schedulePayload(details.schedule)
       : { schedule_type: task.schedule_type }),
+    ...(details.assignment
+      ? {
+          assignee_id: details.assignment.assigneeId || null,
+          label_ids: details.assignment.labelIds,
+          nfc_tag_id: details.assignment.nfcTagId || null,
+        }
+      : {}),
     file_ids: [],
     deleted_attachment_ids: [],
     deleted_history_entry_ids: [],
   });
+
+export const loadAssignmentOptions = async (
+  hass: HomeAssistant,
+): Promise<AssignmentOptions> => {
+  const [tasks, tags, labels] = await Promise.all([
+    hass.connection.sendMessagePromise<{ users?: TasksUser[] }>({
+      type: "tasks/list",
+    }),
+    hass.connection
+      .sendMessagePromise<TasksTag[]>({ type: "tag/list" })
+      .catch(() => []),
+    hass.connection
+      .sendMessagePromise<TasksLabel[]>({
+        type: "config/label_registry/list",
+      })
+      .catch(() => []),
+  ]);
+  return {
+    users: tasks.users || [],
+    tags: Array.isArray(tags) ? tags : [],
+    labels: Array.isArray(labels) ? labels : [],
+  };
+};
 
 export const previewTaskSchedule = (
   hass: HomeAssistant,

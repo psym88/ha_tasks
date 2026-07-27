@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
+  loadAssignmentOptions,
   previewTaskSchedule,
   saveTaskDetails,
   type RecurrenceScheduleDetails,
@@ -13,11 +14,15 @@ import type {
   ScheduleType,
   ScheduleUnit,
   Task,
+  TasksLabel,
+  TasksTag,
+  TasksUser,
 } from "./types";
 import { openTasksDialog } from "./ui/dialog";
 import { expandableElementName } from "./ui/expandable";
 import {
   comboboxFieldElementName,
+  multiSelectFieldElementName,
   selectFieldElementName,
   textFieldElementName,
   type FieldOption,
@@ -27,6 +32,7 @@ import { elementName } from "./version";
 const textFieldTag = unsafeStatic(textFieldElementName);
 const selectFieldTag = unsafeStatic(selectFieldElementName);
 const comboboxFieldTag = unsafeStatic(comboboxFieldElementName);
+const multiSelectFieldTag = unsafeStatic(multiSelectFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
 
 const statusOptions: FieldOption[] = [
@@ -90,6 +96,14 @@ class TasksTaskForm extends LitElement {
     description: { state: true },
     status: { state: true },
     icon: { state: true },
+    assigneeId: { state: true },
+    labelIds: { state: true },
+    nfcTagId: { state: true },
+    users: { state: true },
+    labels: { state: true },
+    tags: { state: true },
+    assignmentLoading: { state: true },
+    assignmentError: { state: true },
     scheduleType: { state: true },
     scheduleUnit: { state: true },
     scheduleInterval: { state: true },
@@ -206,6 +220,14 @@ class TasksTaskForm extends LitElement {
   declare description: string;
   declare status: "active" | "inactive";
   declare icon: string;
+  declare assigneeId: string;
+  declare labelIds: string[];
+  declare nfcTagId: string;
+  declare users: TasksUser[];
+  declare labels: TasksLabel[];
+  declare tags: TasksTag[];
+  declare assignmentLoading: boolean;
+  declare assignmentError: string;
   declare scheduleType: ScheduleType;
   declare scheduleUnit: ScheduleUnit;
   declare scheduleInterval: number;
@@ -226,6 +248,7 @@ class TasksTaskForm extends LitElement {
   private hass?: HomeAssistant;
   private task?: Task;
   private scheduleDirty = false;
+  private assignmentDirty = false;
   private previewRequest = 0;
 
   constructor() {
@@ -234,6 +257,14 @@ class TasksTaskForm extends LitElement {
     this.description = "";
     this.status = "active";
     this.icon = "";
+    this.assigneeId = "";
+    this.labelIds = [];
+    this.nfcTagId = "";
+    this.users = [];
+    this.labels = [];
+    this.tags = [];
+    this.assignmentLoading = false;
+    this.assignmentError = "";
     this.scheduleType = "sliding";
     this.scheduleUnit = "monthly";
     this.scheduleInterval = 1;
@@ -264,6 +295,9 @@ class TasksTaskForm extends LitElement {
     this.description = task.task_description || "";
     this.status = task.active === false ? "inactive" : "active";
     this.icon = task.task_icon || "";
+    this.assigneeId = task.assignee_id || "";
+    this.labelIds = [...(task.label_ids || [])];
+    this.nfcTagId = task.nfc_tag_id || "";
     this.scheduleType = task.schedule_type;
     this.scheduleUnit = task.schedule_unit || "monthly";
     this.scheduleInterval = task.schedule_interval || 1;
@@ -276,7 +310,46 @@ class TasksTaskForm extends LitElement {
       task.schedule_time || `${parts.hour || "09"}:${parts.minute || "00"}`;
     this.problemSensor = task.problem_sensor || "";
     this.scheduleDirty = false;
+    this.assignmentDirty = false;
+    void this.loadAssignments();
     void this.updateComplete.then(() => this.loadPreview());
+  }
+
+  private async loadAssignments(): Promise<void> {
+    const hass = this.hass;
+    if (!hass) {
+      return;
+    }
+    this.assignmentLoading = true;
+    this.assignmentError = "";
+    try {
+      const options = await loadAssignmentOptions(hass);
+      this.users = [...options.users].sort((left, right) =>
+        left.name.localeCompare(right.name, this.hass?.locale?.language),
+      );
+      this.labels = [...options.labels].sort((left, right) =>
+        left.name.localeCompare(right.name, this.hass?.locale?.language),
+      );
+      this.tags = [...options.tags].sort((left, right) =>
+        (left.name || left.id).localeCompare(
+          right.name || right.id,
+          this.hass?.locale?.language,
+        ),
+      );
+      this.assigneeId = this.users.some((user) => user.id === this.assigneeId)
+        ? this.assigneeId
+        : "";
+      this.labelIds = this.labelIds.filter((id) =>
+        this.labels.some((label) => label.label_id === id),
+      );
+      this.nfcTagId = this.tags.some((tag) => tag.id === this.nfcTagId)
+        ? this.nfcTagId
+        : "";
+    } catch {
+      this.assignmentError = "Assignments could not be loaded";
+    } finally {
+      this.assignmentLoading = false;
+    }
   }
 
   private monthOptions(): FieldOption[] {
@@ -358,6 +431,11 @@ class TasksTaskForm extends LitElement {
     void this.loadPreview();
   }
 
+  private assignmentChanged(change: () => void): void {
+    this.assignmentDirty = true;
+    change();
+  }
+
   private async loadPreview(): Promise<void> {
     const hass = this.hass;
     const task = this.task;
@@ -422,6 +500,13 @@ class TasksTaskForm extends LitElement {
         active: this.status === "active",
         icon: this.icon,
         schedule: this.scheduleDirty ? schedule : undefined,
+        assignment: this.assignmentDirty
+          ? {
+              assigneeId: this.assigneeId,
+              labelIds: this.labelIds,
+              nfcTagId: this.nfcTagId,
+            }
+          : undefined,
       });
       return true;
     } catch (error) {
@@ -645,6 +730,66 @@ class TasksTaskForm extends LitElement {
     `;
   }
 
+  private renderAssignment() {
+    if (this.assignmentLoading) {
+      return html`<p class="hint" aria-live="polite">
+        Loading assignments…
+      </p>`;
+    }
+    if (this.assignmentError) {
+      return html`<p class="error" role="alert">${this.assignmentError}</p>`;
+    }
+    const userOptions: FieldOption[] = [
+      { label: "Unassigned", value: "" },
+      ...this.users.map((user) => ({ label: user.name, value: user.id })),
+    ];
+    const tagOptions: FieldOption[] = [
+      { label: "No NFC tag", value: "" },
+      ...this.tags.map((tag) => ({
+        label: tag.name || tag.id,
+        value: tag.id,
+      })),
+    ];
+    const labelOptions = this.labels.map((label) => ({
+      label: label.name,
+      value: label.label_id,
+    }));
+    return staticHtml`
+      <div class="planning">
+        <${selectFieldTag}
+          label="Assignee"
+          .value=${this.assigneeId}
+          .options=${userOptions}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string>) =>
+            this.assignmentChanged(() => {
+              this.assigneeId = event.detail;
+            })}
+        ></${selectFieldTag}>
+        <${selectFieldTag}
+          label="NFC tag"
+          .value=${this.nfcTagId}
+          .options=${tagOptions}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string>) =>
+            this.assignmentChanged(() => {
+              this.nfcTagId = event.detail;
+            })}
+        ></${selectFieldTag}>
+        <${multiSelectFieldTag}
+          label="Labels"
+          .value=${this.labelIds}
+          .options=${labelOptions}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string[]>) =>
+            this.assignmentChanged(() => {
+              this.labelIds = event.detail;
+            })}
+        ></${multiSelectFieldTag}>
+      </div>
+    `;
+  }
+
   protected render() {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
@@ -686,6 +831,9 @@ class TasksTaskForm extends LitElement {
             this.icon = event.detail;
           }}
         ></${comboboxFieldTag}>
+        <${expandableTag} heading="Assignment">
+          ${this.renderAssignment()}
+        </${expandableTag}>
         <${expandableTag} heading="Planning" open>
           ${this.renderPlanning()}
         </${expandableTag}>

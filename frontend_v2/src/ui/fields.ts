@@ -19,7 +19,7 @@ const fieldStyles = css`
     font-size: 13px;
   }
 
-  input,
+  input:not([type="checkbox"]),
   textarea,
   select {
     width: 100%;
@@ -39,13 +39,13 @@ const fieldStyles = css`
     resize: vertical;
   }
 
-  input:hover,
+  input:not([type="checkbox"]):hover,
   textarea:hover,
   select:hover {
     border-color: var(--secondary-text-color);
   }
 
-  input:focus,
+  input:not([type="checkbox"]):focus,
   textarea:focus,
   select:focus {
     border-color: var(--primary-color);
@@ -58,6 +58,42 @@ const fieldStyles = css`
 
   .error {
     color: var(--error-color);
+  }
+
+  fieldset {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  legend {
+    margin-bottom: 6px;
+    color: var(--secondary-text-color);
+    font-size: 13px;
+  }
+
+  .choices {
+    display: grid;
+    gap: 4px;
+  }
+
+  .choice {
+    display: flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 10px;
+    color: var(--primary-text-color);
+    font-size: 14px;
+  }
+
+  .choice input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--primary-color);
   }
 `;
 
@@ -241,9 +277,73 @@ class TasksComboboxField extends TasksField {
   }
 }
 
+class TasksMultiSelectField extends LitElement {
+  static properties = {
+    label: {},
+    value: { attribute: false },
+    options: { attribute: false },
+    disabled: { type: Boolean },
+  };
+
+  static styles = fieldStyles;
+
+  declare label: string;
+  declare value: string[];
+  declare options: FieldOption[];
+  declare disabled: boolean;
+
+  constructor() {
+    super();
+    this.label = "";
+    this.value = [];
+    this.options = [];
+    this.disabled = false;
+  }
+
+  private toggle(value: string, selected: boolean): void {
+    this.value = selected
+      ? [...new Set([...this.value, value])]
+      : this.value.filter((item) => item !== value);
+    this.dispatchEvent(
+      new CustomEvent("value-changed", {
+        bubbles: true,
+        composed: true,
+        detail: this.value,
+      }),
+    );
+  }
+
+  protected render() {
+    return html`
+      <fieldset ?disabled=${this.disabled}>
+        <legend>${this.label}</legend>
+        <div class="choices">
+          ${this.options.map(
+            (option) => html`
+              <label class="choice">
+                <input
+                  type="checkbox"
+                  .checked=${this.value.includes(option.value)}
+                  @change=${(event: Event) =>
+                    this.toggle(
+                      option.value,
+                      (event.target as HTMLInputElement).checked,
+                    )}
+                />
+                <span>${option.label}</span>
+              </label>
+            `,
+          )}
+        </div>
+      </fieldset>
+    `;
+  }
+}
+
 export const textFieldElementName = elementName("text-field");
 export const selectFieldElementName = elementName("select-field");
 export const comboboxFieldElementName = elementName("combobox-field");
+export const multiSelectFieldElementName = elementName("multi-select-field");
 
 if (!customElements.get(textFieldElementName)) {
   customElements.define(textFieldElementName, TasksTextField);
@@ -253,4 +353,7 @@ if (!customElements.get(selectFieldElementName)) {
 }
 if (!customElements.get(comboboxFieldElementName)) {
   customElements.define(comboboxFieldElementName, TasksComboboxField);
+}
+if (!customElements.get(multiSelectFieldElementName)) {
+  customElements.define(multiSelectFieldElementName, TasksMultiSelectField);
 }

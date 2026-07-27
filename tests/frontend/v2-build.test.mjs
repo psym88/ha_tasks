@@ -116,6 +116,8 @@ test("V2 owns its text textarea select and combobox controls", () => {
   assert.match(fields, /<select/);
   assert.match(fields, /role="combobox"/);
   assert.match(fields, /<datalist/);
+  assert.match(fields, /type="checkbox"/);
+  assert.match(fields, /elementName\("multi-select-field"\)/);
   assert.doesNotMatch(fields, /ha-textfield|ha-selector|ha-combo-box/);
 });
 
@@ -146,4 +148,30 @@ test("V2 planning sends only fields used by the selected trigger", () => {
   assert.match(api, /if \(schedule\.type === "fixed"\)/);
   assert.match(api, /schedule_weekdays = schedule\.weekdays/);
   assert.match(api, /schedule_month = schedule\.month/);
+});
+
+test("V2 assignment loads registries and saves only after editing", () => {
+  assert.match(api, /type: "tasks\/list"/);
+  assert.match(api, /type: "tag\/list"/);
+  assert.match(api, /type: "config\/label_registry\/list"/);
+  assert.match(api, /assignee_id: details\.assignment\.assigneeId \|\| null/);
+  assert.match(api, /label_ids: details\.assignment\.labelIds/);
+  assert.match(api, /nfc_tag_id: details\.assignment\.nfcTagId \|\| null/);
+  assert.match(taskForm, /this\.assignmentDirty/);
+  assert.match(taskForm, /this\.assignmentDirty[\s\S]*?assignment:/);
+});
+
+test("V2 assignment excludes deleted registry references", () => {
+  assert.match(
+    taskForm,
+    /this\.users\.some\(\(user\) => user\.id === this\.assigneeId\)/,
+  );
+  assert.match(
+    taskForm,
+    /this\.labels\.some\(\(label\) => label\.label_id === id\)/,
+  );
+  assert.match(
+    taskForm,
+    /this\.tags\.some\(\(tag\) => tag\.id === this\.nfcTagId\)/,
+  );
 });

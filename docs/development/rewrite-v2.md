@@ -398,8 +398,18 @@ not replaced the path yet.
   with exact preview and save payloads in a browser.
 - The hash-scoped bundle grew from 36,448 to 47,873 bytes. Verified all 145
   backend and 133 frontend tests.
+- Added the V2 assignment section with owned single-select controls for active
+  users and NFC tags plus an owned checkbox-based label multi-select.
+- Loaded assignment choices only when the editor opens from the existing
+  `tasks/list`, `tag/list`, and label-registry WebSocket APIs.
+- Removed deleted user, tag, and label references from the visible choices
+  while preserving the stored task values unless the user edits assignment.
+- Verified unchanged, changed, multi-label, and deleted-reference paths with
+  exact save payloads in a browser.
+- The hash-scoped bundle grew from 47,873 to 52,650 bytes. Verified all 145
+  backend and 135 frontend tests.
 
 ## Next action
 
-Add the V2 assignment section for assignee, labels, and NFC tags using owned
-controls and snapshot-derived options.
+Add the V2 notification section for mobile devices, persistent notifications,
+critical delivery, and navigation targets.

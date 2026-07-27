@@ -8,6 +8,9 @@ export interface Task {
   task_icon?: string | null;
   task_description?: string | null;
   active: boolean;
+  assignee_id?: string | null;
+  label_ids?: string[];
+  nfc_tag_id?: string | null;
   task_due?: string | null;
   schedule_type: ScheduleType;
   schedule_unit?: ScheduleUnit | null;
@@ -37,6 +40,21 @@ export interface TasksSnapshot {
   attachments: Attachment[];
   now: string;
   change?: TasksChange;
+}
+
+export interface TasksUser {
+  id: string;
+  name: string;
+}
+
+export interface TasksTag {
+  id: string;
+  name: string;
+}
+
+export interface TasksLabel {
+  label_id: string;
+  name: string;
 }
 
 type Unsubscribe = () => void;
