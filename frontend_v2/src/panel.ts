@@ -192,7 +192,11 @@ class TasksPanelV2 extends LitElement {
                             if (event.detail === "open") {
                               this.openTask(task);
                             } else if (event.detail === "edit" && this.hass) {
-                              void openTaskEditor(this.hass, task);
+                              void openTaskEditor(
+                                this.hass,
+                                task,
+                                snapshot.attachments,
+                              );
                             }
                           }}
                         ></${actionMenuTag}>

@@ -129,7 +129,7 @@ test("V2 editor saves task details and planning in one transaction", () => {
   assert.match(api, /type: "tasks\/task\/save"/);
   assert.match(api, /schedulePayload\(details\.schedule\)/);
   assert.match(api, /schedule_type: task\.schedule_type/);
-  assert.match(api, /deleted_attachment_ids: \[\]/);
+  assert.match(api, /deleted_attachment_ids: details\.files\?/);
   assert.match(taskForm, /run: \(\) => form\.save\(\)/);
   assert.match(taskForm, /if \(!name\)/);
   assert.match(taskForm, /this\.scheduleDirty \? schedule : undefined/);
@@ -207,4 +207,29 @@ test("V2 notification editor excludes deleted and non-mobile devices", () => {
     /this\.devices\.some\(\(device\) => device\.id === id\)/,
   );
   assert.match(taskForm, /loadNotificationDevices/);
+});
+
+test("V2 stages attachments and commits file changes transactionally", () => {
+  assert.match(api, /hass\.fetchWithAuth\("\/api\/file_upload"/);
+  assert.match(api, /file_ids: fileIds/);
+  assert.match(
+    api,
+    /deleted_attachment_ids: details\.files\?\.deletedAttachmentIds/,
+  );
+  assert.match(taskForm, /type="file"/);
+  assert.match(taskForm, /this\.stagedFiles/);
+  assert.match(taskForm, /this\.deletedAttachmentIds/);
+  assert.match(source, /snapshot\.attachments/);
+  assert.doesNotMatch(taskForm, /ha-file-upload|ha-selector/);
+});
+
+test("V2 loads completion history and stages deletion until save", () => {
+  assert.match(api, /type: "tasks\/history\/list"/);
+  assert.match(
+    api,
+    /deleted_history_entry_ids: details\.files\?\.deletedHistoryEntryIds/,
+  );
+  assert.match(taskForm, /loadTaskHistory/);
+  assert.match(taskForm, /this\.deletedHistoryEntryIds/);
+  assert.match(taskForm, /Completed via NFC/);
 });

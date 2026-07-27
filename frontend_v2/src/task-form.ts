@@ -4,12 +4,15 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 import {
   loadAssignmentOptions,
   loadNotificationDevices,
+  loadTaskHistory,
   previewTaskSchedule,
   saveTaskDetails,
   type RecurrenceScheduleDetails,
   type ScheduleDetails,
 } from "./api";
 import type {
+  Attachment,
+  Completion,
   HomeAssistant,
   ScheduleDay,
   ScheduleType,
@@ -116,6 +119,13 @@ class TasksTaskForm extends LitElement {
     notificationLoading: { state: true },
     notificationError: { state: true },
     notificationRouteError: { state: true },
+    attachments: { state: true },
+    stagedFiles: { state: true },
+    deletedAttachmentIds: { state: true },
+    history: { state: true },
+    deletedHistoryEntryIds: { state: true },
+    historyLoading: { state: true },
+    historyError: { state: true },
     scheduleType: { state: true },
     scheduleUnit: { state: true },
     scheduleInterval: { state: true },
@@ -221,6 +231,73 @@ class TasksTaskForm extends LitElement {
       color: var(--error-color);
     }
 
+    .records {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .record {
+      display: grid;
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .record.pending {
+      opacity: 0.55;
+      text-decoration: line-through;
+    }
+
+    .record-copy {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .record-title,
+    .record-detail {
+      overflow-wrap: anywhere;
+    }
+
+    .record-detail {
+      color: var(--secondary-text-color);
+      font-size: 13px;
+    }
+
+    .record-action {
+      min-width: 40px;
+      min-height: 40px;
+      padding: 0 10px;
+      color: var(--error-color);
+      background: transparent;
+      border: 0;
+      border-radius: 20px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .pending .record-action {
+      color: var(--primary-color);
+    }
+
+    .file-picker {
+      display: grid;
+      gap: 6px;
+      color: var(--secondary-text-color);
+      font-size: 13px;
+    }
+
+    .file-picker input {
+      color: var(--primary-text-color);
+      font: inherit;
+    }
+
     @media (max-width: 520px) {
       .row {
         grid-template-columns: 1fr;
@@ -248,6 +325,13 @@ class TasksTaskForm extends LitElement {
   declare notificationLoading: boolean;
   declare notificationError: string;
   declare notificationRouteError: string;
+  declare attachments: Attachment[];
+  declare stagedFiles: File[];
+  declare deletedAttachmentIds: string[];
+  declare history: Completion[];
+  declare deletedHistoryEntryIds: string[];
+  declare historyLoading: boolean;
+  declare historyError: string;
   declare scheduleType: ScheduleType;
   declare scheduleUnit: ScheduleUnit;
   declare scheduleInterval: number;
@@ -294,6 +378,13 @@ class TasksTaskForm extends LitElement {
     this.notificationLoading = false;
     this.notificationError = "";
     this.notificationRouteError = "";
+    this.attachments = [];
+    this.stagedFiles = [];
+    this.deletedAttachmentIds = [];
+    this.history = [];
+    this.deletedHistoryEntryIds = [];
+    this.historyLoading = false;
+    this.historyError = "";
     this.scheduleType = "sliding";
     this.scheduleUnit = "monthly";
     this.scheduleInterval = 1;
@@ -312,7 +403,11 @@ class TasksTaskForm extends LitElement {
     this.saving = false;
   }
 
-  configure(hass: HomeAssistant, task: Task): void {
+  configure(
+    hass: HomeAssistant,
+    task: Task,
+    attachments: Attachment[] = [],
+  ): void {
     const parts = localDateParts(hass, task.task_due);
     const year = Number(parts.year);
     const month = Number(parts.month);
@@ -337,6 +432,13 @@ class TasksTaskForm extends LitElement {
     this.notificationPersistent = Boolean(task.notification_persistent);
     this.notificationCritical = Boolean(task.notification_critical);
     this.notificationRoute = task.notification_route || "";
+    this.attachments = attachments.filter(
+      (attachment) => attachment.task_id === task.task_id,
+    );
+    this.stagedFiles = [];
+    this.deletedAttachmentIds = [];
+    this.history = [];
+    this.deletedHistoryEntryIds = [];
     this.scheduleType = task.schedule_type;
     this.scheduleUnit = task.schedule_unit || "monthly";
     this.scheduleInterval = task.schedule_interval || 1;
@@ -353,6 +455,7 @@ class TasksTaskForm extends LitElement {
     this.notificationDirty = false;
     void this.loadAssignments();
     void this.loadNotifications();
+    void this.loadHistory();
     void this.updateComplete.then(() => this.loadPreview());
   }
 
@@ -423,6 +526,24 @@ class TasksTaskForm extends LitElement {
       this.notificationError = "Notification devices could not be loaded";
     } finally {
       this.notificationLoading = false;
+    }
+  }
+
+  private async loadHistory(): Promise<void> {
+    const hass = this.hass;
+    const task = this.task;
+    if (!hass || !task) {
+      return;
+    }
+    this.historyLoading = true;
+    this.historyError = "";
+    try {
+      const result = await loadTaskHistory(hass, task.task_id);
+      this.history = Array.isArray(result.history) ? result.history : [];
+    } catch {
+      this.historyError = "Completion history could not be loaded";
+    } finally {
+      this.historyLoading = false;
     }
   }
 
@@ -603,6 +724,11 @@ class TasksTaskForm extends LitElement {
               route: notificationRoute,
             }
           : undefined,
+        files: {
+          staged: this.stagedFiles,
+          deletedAttachmentIds: this.deletedAttachmentIds,
+          deletedHistoryEntryIds: this.deletedHistoryEntryIds,
+        },
       });
       return true;
     } catch (error) {
@@ -949,6 +1075,161 @@ class TasksTaskForm extends LitElement {
     `;
   }
 
+  private formatSize(size: number): string {
+    if (size < 1024) {
+      return `${size} B`;
+    }
+    if (size < 1024 * 1024) {
+      return `${Math.round(size / 1024)} KB`;
+    }
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  private toggleId(id: string, values: string[]): string[] {
+    return values.includes(id)
+      ? values.filter((value) => value !== id)
+      : [...values, id];
+  }
+
+  private renderAttachments() {
+    return html`
+      <div class="planning">
+        ${this.attachments.length || this.stagedFiles.length
+          ? html`
+              <ul class="records">
+                ${this.attachments.map((attachment) => {
+                  const pending = this.deletedAttachmentIds.includes(
+                    attachment.attachment_id,
+                  );
+                  return html`
+                    <li class="record ${pending ? "pending" : ""}">
+                      <span class="record-copy">
+                        <span class="record-title">${attachment.filename}</span>
+                        <span class="record-detail"
+                          >${this.formatSize(attachment.size)}</span
+                        >
+                      </span>
+                      <button
+                        class="record-action"
+                        type="button"
+                        aria-label=${pending
+                          ? `Undo removal of ${attachment.filename}`
+                          : `Remove ${attachment.filename}`}
+                        ?disabled=${this.saving}
+                        @click=${() => {
+                          this.deletedAttachmentIds = this.toggleId(
+                            attachment.attachment_id,
+                            this.deletedAttachmentIds,
+                          );
+                        }}
+                      >
+                        ${pending ? "Undo" : "Remove"}
+                      </button>
+                    </li>
+                  `;
+                })}
+                ${this.stagedFiles.map(
+                  (file, index) => html`
+                    <li class="record">
+                      <span class="record-copy">
+                        <span class="record-title">${file.name}</span>
+                        <span class="record-detail"
+                          >${this.formatSize(file.size)} · New</span
+                        >
+                      </span>
+                      <button
+                        class="record-action"
+                        type="button"
+                        aria-label=${`Remove new file ${file.name}`}
+                        ?disabled=${this.saving}
+                        @click=${() => {
+                          this.stagedFiles = this.stagedFiles.filter(
+                            (_, fileIndex) => fileIndex !== index,
+                          );
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  `,
+                )}
+              </ul>
+            `
+          : html`<p class="hint">No attachments.</p>`}
+        <label class="file-picker">
+          <span>Add files</span>
+          <input
+            type="file"
+            multiple
+            ?disabled=${this.saving}
+            @change=${(event: Event) => {
+              const input = event.target as HTMLInputElement;
+              this.stagedFiles = [
+                ...this.stagedFiles,
+                ...Array.from(input.files || []),
+              ];
+              input.value = "";
+            }}
+          />
+        </label>
+      </div>
+    `;
+  }
+
+  private renderHistory() {
+    if (this.historyLoading) {
+      return html`<p class="hint" aria-live="polite">
+        Loading completion history…
+      </p>`;
+    }
+    if (this.historyError) {
+      return html`<p class="error" role="alert">${this.historyError}</p>`;
+    }
+    if (!this.history.length) {
+      return html`<p class="hint">No completion history.</p>`;
+    }
+    return html`
+      <ul class="records">
+        ${this.history.map((entry) => {
+          const pending = this.deletedHistoryEntryIds.includes(
+            entry.history_entry_id,
+          );
+          const notes =
+            entry.notes === "tasks.history.completed_via_nfc"
+              ? "Completed via NFC"
+              : entry.notes || "No notes";
+          return html`
+            <li class="record ${pending ? "pending" : ""}">
+              <span class="record-copy">
+                <span class="record-title"
+                  >${this.formatDue(entry.completed_at)} ·
+                  ${entry.user_name || "System"}</span
+                >
+                <span class="record-detail">${notes}</span>
+              </span>
+              <button
+                class="record-action"
+                type="button"
+                aria-label=${pending
+                  ? "Undo removal of completion"
+                  : "Remove completion"}
+                ?disabled=${this.saving}
+                @click=${() => {
+                  this.deletedHistoryEntryIds = this.toggleId(
+                    entry.history_entry_id,
+                    this.deletedHistoryEntryIds,
+                  );
+                }}
+              >
+                ${pending ? "Undo" : "Remove"}
+              </button>
+            </li>
+          `;
+        })}
+      </ul>
+    `;
+  }
+
   protected render() {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
@@ -999,6 +1280,12 @@ class TasksTaskForm extends LitElement {
         <${expandableTag} heading="Planning" open>
           ${this.renderPlanning()}
         </${expandableTag}>
+        <${expandableTag} heading="Attachments">
+          ${this.renderAttachments()}
+        </${expandableTag}>
+        <${expandableTag} heading="Completion history">
+          ${this.renderHistory()}
+        </${expandableTag}>
         ${this.saveError
           ? html`<p class="error" role="alert">${this.saveError}</p>`
           : nothing}
@@ -1016,9 +1303,10 @@ if (!customElements.get(taskFormElementName)) {
 export const openTaskEditor = async (
   hass: HomeAssistant,
   task: Task,
+  attachments: Attachment[] = [],
 ): Promise<boolean> => {
   const form = document.createElement(taskFormElementName) as TasksTaskForm;
-  form.configure(hass, task);
+  form.configure(hass, task, attachments);
   const result = await openTasksDialog({
     heading: `Edit ${task.task_name}`,
     content: form,

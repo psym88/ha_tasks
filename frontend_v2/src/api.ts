@@ -1,4 +1,5 @@
 import type {
+  Completion,
   HomeAssistant,
   ScheduleDay,
   ScheduleType,
@@ -25,6 +26,7 @@ export interface TaskDetails {
   schedule?: ScheduleDetails;
   assignment?: AssignmentDetails;
   notification?: NotificationDetails;
+  files?: FileChanges;
 }
 
 export interface AssignmentDetails {
@@ -44,6 +46,12 @@ export interface NotificationDetails {
   persistent: boolean;
   critical: boolean;
   route: string;
+}
+
+export interface FileChanges {
+  staged: File[];
+  deletedAttachmentIds: string[];
+  deletedHistoryEntryIds: string[];
 }
 
 export interface RecurrenceScheduleDetails {
@@ -93,12 +101,31 @@ const schedulePayload = (
   return payload;
 };
 
-export const saveTaskDetails = (
+const uploadFile = async (
+  hass: HomeAssistant,
+  file: File,
+): Promise<string> => {
+  const data = new FormData();
+  data.append("file", file);
+  const response = await hass.fetchWithAuth("/api/file_upload", {
+    method: "POST",
+    body: data,
+  });
+  if (!response.ok) {
+    throw new Error(`File upload failed (${response.status})`);
+  }
+  return (await response.json() as { file_id: string }).file_id;
+};
+
+export const saveTaskDetails = async (
   hass: HomeAssistant,
   task: Task,
   details: TaskDetails,
-): Promise<{ task: Task }> =>
-  hass.connection.sendMessagePromise({
+): Promise<{ task: Task }> => {
+  const fileIds = await Promise.all(
+    (details.files?.staged || []).map((file) => uploadFile(hass, file)),
+  );
+  return hass.connection.sendMessagePromise({
     type: "tasks/task/save",
     task_id: task.task_id,
     task_name: details.name.trim(),
@@ -125,10 +152,11 @@ export const saveTaskDetails = (
           notification_route: details.notification.route.trim() || null,
         }
       : {}),
-    file_ids: [],
-    deleted_attachment_ids: [],
-    deleted_history_entry_ids: [],
+    file_ids: fileIds,
+    deleted_attachment_ids: details.files?.deletedAttachmentIds || [],
+    deleted_history_entry_ids: details.files?.deletedHistoryEntryIds || [],
   });
+};
 
 export const loadAssignmentOptions = async (
   hass: HomeAssistant,
@@ -163,6 +191,15 @@ export const loadNotificationDevices = async (
     device.identifiers?.some((identifier) => identifier?.[0] === "mobile_app"),
   );
 };
+
+export const loadTaskHistory = (
+  hass: HomeAssistant,
+  taskId: string,
+): Promise<{ history: Completion[] }> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/history/list",
+    task_id: taskId,
+  });
 
 export const previewTaskSchedule = (
   hass: HomeAssistant,

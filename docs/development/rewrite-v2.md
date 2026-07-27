@@ -420,8 +420,19 @@ not replaced the path yet.
   with exact save payloads in a browser.
 - The hash-scoped bundle grew from 52,650 to 57,985 bytes. Verified all 145
   backend and 137 frontend tests.
+- Added owned V2 editor sections for attachments and completion history.
+- New files remain browser-local until save, stored attachments and completion
+  records can be marked for removal or restored with Undo, and every change is
+  committed by the existing transactional task-save command.
+- Kept the removed upload limit absent and used Home Assistant's authenticated
+  native file-upload endpoint without importing any Home Assistant frontend
+  component.
+- Verified unchanged, staged-upload, attachment-removal, history-removal, and
+  Undo presentation paths with exact HTTP and WebSocket payloads in a browser.
+- The hash-scoped bundle grew from 57,985 to 64,653 bytes. Verified all 145
+  backend and 139 frontend tests.
 
 ## Next action
 
-Add the V2 editor sections for task attachments and completion history,
-including staged uploads and transactional deletion.
+Complete the V2 task viewer with assignment metadata, attachments, completion
+history, completion notes, and confirmation.

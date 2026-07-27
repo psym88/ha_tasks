@@ -31,6 +31,18 @@ export interface Task {
 export interface Attachment {
   attachment_id: string;
   task_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  uploaded_at: string;
+}
+
+export interface Completion {
+  history_entry_id: string;
+  completed_at: string;
+  user_id?: string | null;
+  user_name: string;
+  notes?: string | null;
 }
 
 export interface TasksChange {
@@ -84,6 +96,10 @@ export interface HomeAssistantConnection {
 
 export interface HomeAssistant {
   connection: HomeAssistantConnection;
+  fetchWithAuth(
+    path: string,
+    init?: RequestInit,
+  ): Promise<Response>;
   config?: {
     time_zone?: string;
   };
