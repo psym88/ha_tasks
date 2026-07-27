@@ -144,7 +144,7 @@ not replaced the path yet.
 | Create task | legacy | complete | API, persistence, panel |
 | Update task metadata | legacy | complete | partial update compatibility |
 | Delete task | legacy | complete | history and attachment cleanup |
-| Pause and resume | legacy | pending | stored due value remains stable |
+| Pause and resume | legacy | complete | stored due value remains stable |
 | Fixed daily recurrence | legacy | complete | local wall time and DST |
 | Fixed weekly recurrence | legacy | complete | weekdays and interval anchor |
 | Fixed monthly recurrence | legacy | complete | clamping and last day |
@@ -454,7 +454,15 @@ not replaced the path yet.
   in a browser.
 - The hash-scoped bundle grew from 76,186 to 77,823 bytes. Verified all 145
   backend and 147 frontend tests.
+- Added V2 pause and resume actions through the existing minimal task-update
+  contract without introducing another backend command.
+- Kept the subscribed snapshot authoritative and verified in a browser that
+  both directions send only `active`, update the opposing menu action, and
+  preserve the exact stored due timestamp.
+- The hash-scoped bundle grew from 77,823 to 78,043 bytes. Verified all 145
+  backend and 148 frontend tests.
 
 ## Next action
 
-Add V2 pause and resume actions while preserving the stored due value.
+Replace the temporary V2 task list with the owned task table without grouping
+or a grid dependency.

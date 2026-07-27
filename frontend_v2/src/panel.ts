@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
-import { deleteTask, subscribeTasks } from "./api";
+import { deleteTask, setTaskActive, subscribeTasks } from "./api";
 import { openTaskEditor } from "./task-form";
 import { openTaskViewer } from "./task-viewer";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
@@ -13,9 +13,13 @@ import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
-const taskActions: ActionMenuItem[] = [
+const taskActions = (task: Task): ActionMenuItem[] => [
   { label: "Open", value: "open" },
   { label: "Edit", value: "edit" },
+  {
+    label: task.active === false ? "Resume" : "Pause",
+    value: "active",
+  },
   { label: "Delete", value: "delete", destructive: true },
 ];
 
@@ -240,7 +244,7 @@ class TasksPanelV2 extends LitElement {
                         </button>
                         <${actionMenuTag}
                           label="Actions for ${task.task_name}"
-                          .items=${taskActions}
+                          .items=${taskActions(task)}
                           @tasks-action=${(event: CustomEvent<string>) => {
                             if (event.detail === "open") {
                               this.openTask(task);
@@ -249,6 +253,15 @@ class TasksPanelV2 extends LitElement {
                                 this.hass,
                                 task,
                                 snapshot.attachments,
+                              );
+                            } else if (
+                              event.detail === "active" &&
+                              this.hass
+                            ) {
+                              void setTaskActive(
+                                this.hass,
+                                task.task_id,
+                                task.active === false,
                               );
                             } else if (event.detail === "delete") {
                               void this.confirmDelete(task);

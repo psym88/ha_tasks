@@ -162,6 +162,17 @@ test("V2 deletes tasks only after its owned confirmation", () => {
   );
 });
 
+test("V2 pauses and resumes tasks through the minimal update contract", () => {
+  assert.match(api, /type: "tasks\/task\/update"/);
+  assert.match(api, /task_id: taskId,\s*active,/);
+  assert.match(source, /task\.active === false \? "Resume" : "Pause"/);
+  assert.match(source, /value: "active"/);
+  assert.match(
+    source,
+    /setTaskActive\(\s*this\.hass,\s*task\.task_id,\s*task\.active === false/,
+  );
+});
+
 test("V2 planning uses the authoritative preview API for every recurrence", () => {
   assert.match(api, /type: "tasks\/task\/preview_next_due"/);
   assert.match(taskForm, /previewTaskSchedule/);

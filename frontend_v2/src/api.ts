@@ -232,6 +232,17 @@ export const deleteTask = (
     task_id: taskId,
   });
 
+export const setTaskActive = (
+  hass: HomeAssistant,
+  taskId: string,
+  active: boolean,
+): Promise<Task> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/task/update",
+    task_id: taskId,
+    active,
+  });
+
 export const previewTaskSchedule = (
   hass: HomeAssistant,
   schedule: RecurrenceScheduleDetails,
