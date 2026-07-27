@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
-from .manager import get_manager
+from .manager import TaskChange, get_manager
 from .recurrence import occurrences
 
 TEXT = vol.Any(str, None)
@@ -111,6 +111,46 @@ def require_manager(func):
         except (ValueError, KeyError) as err:
             connection.send_error(msg["id"], str(err), str(err))
     return wrapper
+
+
+def _subscription_snapshot(
+    manager, change: TaskChange | None = None
+) -> dict:
+    result = {
+        "type": "snapshot",
+        **manager.snapshot(),
+        "now": dt_util.utcnow().isoformat(),
+    }
+    if change is not None:
+        result["change"] = {
+            "action": change.action,
+            "resource_type": change.resource_type,
+            "resource_id": change.resource_id,
+            **change.data,
+        }
+    return result
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "tasks/subscribe"}
+)
+@callback
+def ws_subscribe(hass, connection, msg):
+    """Subscribe with an immediate consistent Tasks snapshot."""
+    manager = get_manager(hass)
+    if manager is None:
+        connection.send_error(
+            msg["id"], "not_loaded", "Integration not loaded"
+        )
+        return
+    snapshot = _subscription_snapshot(manager)
+    connection.subscriptions[msg["id"]] = manager.subscribe(
+        lambda change: connection.send_event(
+            msg["id"], _subscription_snapshot(manager, change)
+        )
+    )
+    connection.send_result(msg["id"])
+    connection.send_event(msg["id"], snapshot)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "tasks/list"})
@@ -297,4 +337,4 @@ async def ws_attachment_delete(hass, connection, msg, manager):
     connection.send_result(msg["id"])
 
 
-COMMANDS = (ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)
+COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

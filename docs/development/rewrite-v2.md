@@ -210,7 +210,7 @@ not replaced the path yet.
 
 ### Phase 4 - Protocol
 
-- [ ] Add an initial-snapshot WebSocket subscription.
+- [x] Add an initial-snapshot WebSocket subscription.
 - [ ] Add revisioned task updates.
 - [ ] Add one bulk-mutation command.
 - [ ] Add transactional task and attachment saving.
@@ -291,8 +291,15 @@ not replaced the path yet.
 - Eliminated one production module; the indexed subscription behavior adds 20
   net production lines.
 - Verified all 129 backend and 121 frontend tests.
+- Added an authenticated `tasks/subscribe` command following the synchronous
+  Home Assistant 2026.7.4 subscription pattern, avoiding a snapshot/listener
+  race.
+- The subscription sends a complete initial snapshot and consistent snapshots
+  after committed changes while the legacy list and event APIs remain active.
+- Added 36 production lines and verified all 131 backend plus 121 frontend
+  tests.
 
 ## Next action
 
-Add one initial-snapshot WebSocket subscription while retaining the legacy
-request and public-event APIs for the current frontend.
+Add monotonically increasing runtime revisions to subscription snapshots and
+change notifications without changing persisted schema 3.

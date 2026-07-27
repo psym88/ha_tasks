@@ -15,6 +15,7 @@ def _decorators(function_name: str) -> set[str]:
 
 def test_dashboard_task_commands_allow_authenticated_users():
     for function_name in (
+        "ws_subscribe",
         "ws_list",
         "ws_task_create",
         "ws_task_update",
