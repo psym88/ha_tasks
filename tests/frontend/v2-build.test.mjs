@@ -30,6 +30,14 @@ const pill = await readFile(
   new URL("../../frontend_v2/src/ui/pill.ts", import.meta.url),
   "utf8",
 );
+const fields = await readFile(
+  new URL("../../frontend_v2/src/ui/fields.ts", import.meta.url),
+  "utf8",
+);
+const taskForm = await readFile(
+  new URL("../../frontend_v2/src/task-form.ts", import.meta.url),
+  "utf8",
+);
 const assets = JSON.parse(
   await readFile(
     new URL(
@@ -100,4 +108,21 @@ test("V2 pill owns its presentation", () => {
   assert.match(pill, /border-radius: 999px/);
   assert.match(pill, /elementName\("pill"\)/);
   assert.doesNotMatch(pill, /ha-chip|ha-assist-chip/);
+});
+
+test("V2 owns its text textarea select and combobox controls", () => {
+  assert.match(fields, /<input/);
+  assert.match(fields, /<textarea/);
+  assert.match(fields, /<select/);
+  assert.match(fields, /role="combobox"/);
+  assert.match(fields, /<datalist/);
+  assert.doesNotMatch(fields, /ha-textfield|ha-selector|ha-combo-box/);
+});
+
+test("V2 editor saves only safe task details in one transaction", () => {
+  assert.match(api, /type: "tasks\/task\/save"/);
+  assert.match(api, /schedule_type: task\.schedule_type/);
+  assert.match(api, /deleted_attachment_ids: \[\]/);
+  assert.match(taskForm, /run: \(\) => form\.save\(\)/);
+  assert.match(taskForm, /if \(!name\)/);
 });

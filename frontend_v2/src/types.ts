@@ -1,10 +1,11 @@
 export interface Task {
   task_id: string;
   task_name: string;
-  task_description?: string;
-  active?: boolean;
-  due?: string | null;
-  schedule_type?: string;
+  task_icon?: string | null;
+  task_description?: string | null;
+  active: boolean;
+  task_due?: string | null;
+  schedule_type: "fixed" | "sliding" | "sensor";
 }
 
 export interface Attachment {
@@ -34,6 +35,7 @@ export interface HomeAssistantConnection {
     callback: (message: T) => void,
     message: { type: string },
   ): Promise<Unsubscribe>;
+  sendMessagePromise<T>(message: Record<string, unknown>): Promise<T>;
 }
 
 export interface HomeAssistant {

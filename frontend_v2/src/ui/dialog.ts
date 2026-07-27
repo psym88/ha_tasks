@@ -6,6 +6,7 @@ export interface DialogAction {
   label: string;
   value: string;
   destructive?: boolean;
+  run?: () => boolean | void | Promise<boolean | void>;
 }
 
 export interface DialogOptions {
@@ -117,6 +118,7 @@ class TasksDialog extends LitElement {
   declare content: unknown;
   declare actions: DialogAction[];
   declare open: boolean;
+  private running = false;
 
   constructor() {
     super();
@@ -140,6 +142,20 @@ class TasksDialog extends LitElement {
 
   private close(value = ""): void {
     this.renderRoot.querySelector("dialog")?.close(value);
+  }
+
+  private async run(action: DialogAction): Promise<void> {
+    if (this.running) {
+      return;
+    }
+    this.running = true;
+    try {
+      if ((await action.run?.()) !== false) {
+        this.close(action.value);
+      }
+    } finally {
+      this.running = false;
+    }
   }
 
   protected render() {
@@ -180,7 +196,7 @@ class TasksDialog extends LitElement {
                           ? "destructive"
                           : nothing}
                         type="button"
-                        @click=${() => this.close(action.value)}
+                        @click=${() => void this.run(action)}
                       >
                         ${action.label}
                       </button>

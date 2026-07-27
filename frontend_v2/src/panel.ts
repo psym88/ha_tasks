@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { subscribeTasks } from "./api";
+import { openTaskEditor } from "./task-form";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
 import {
   actionMenuElementName,
@@ -15,7 +16,10 @@ import { elementName } from "./version";
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 const expandableTag = unsafeStatic(expandableElementName);
 const pillTag = unsafeStatic(pillElementName);
-const taskActions: ActionMenuItem[] = [{ label: "Open", value: "open" }];
+const taskActions: ActionMenuItem[] = [
+  { label: "Open", value: "open" },
+  { label: "Edit", value: "edit" },
+];
 
 class TasksPanelV2 extends LitElement {
   static properties = {
@@ -147,7 +151,7 @@ class TasksPanelV2 extends LitElement {
           ? html`<p>${task.task_description}</p>`
           : nothing}
         <${expandableTag} heading="Planning" open>
-          <p>Due: ${task.due || "Not scheduled"}</p>
+          <p>Due: ${task.task_due || "Not scheduled"}</p>
           <p>Trigger: ${task.schedule_type || "Unknown"}</p>
         </${expandableTag}>
       `,
@@ -187,6 +191,8 @@ class TasksPanelV2 extends LitElement {
                           @tasks-action=${(event: CustomEvent<string>) => {
                             if (event.detail === "open") {
                               this.openTask(task);
+                            } else if (event.detail === "edit" && this.hass) {
+                              void openTaskEditor(this.hass, task);
                             }
                           }}
                         ></${actionMenuTag}>

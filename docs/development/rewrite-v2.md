@@ -227,7 +227,7 @@ not replaced the path yet.
 ### Phase 6 - Frontend V2
 
 - [x] Add TypeScript and production bundling.
-- [ ] Add owned UI primitives.
+- [x] Add owned UI primitives.
 - [ ] Add V2 task form and viewer.
 - [ ] Add V2 task table without grouping or a grid dependency.
 - [ ] Add V2 dashboard card.
@@ -374,8 +374,19 @@ not replaced the path yet.
   runtime, then confirmed its placement and behavior in the authenticated
   Home Assistant panel.
 - Verified all 145 backend and 129 frontend tests.
+- Added owned text, textarea, select, and free-text combobox fields in one
+  module and used them for the first real V2 editor section.
+- The editor updates only task name, description, active state, and icon
+  through the existing transactional `tasks/task/save` command; schedule,
+  notification, completion, and attachment data remain untouched.
+- Corrected the V2 viewer to consume the protocol's `task_due` field.
+- Verified validation, all four controls, and the exact save payload in an
+  isolated browser runtime, then confirmed the editor in the authenticated
+  Home Assistant panel.
+- The hash-scoped bundle grew from 29,320 to 36,448 bytes. Verified all 145
+  backend and 131 frontend tests.
 
 ## Next action
 
-Build the first owned text, textarea, select, and combobox fields and use them
-in a minimal V2 task editor.
+Add the V2 planning form section and recurrence preview while retaining the
+existing authoritative scheduling behavior.
