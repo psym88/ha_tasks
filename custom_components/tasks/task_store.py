@@ -102,7 +102,6 @@ class TasksStore:
                         or self._repository.file_path(file_id).exists()
                     ):
                         continue
-                    Attachment.from_record(attachment)
                     new_attachment_ids.add(file_id)
                     accepted.append(Attachment.from_record(attachment).record())
                 completions = [

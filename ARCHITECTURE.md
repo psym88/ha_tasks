@@ -23,8 +23,8 @@ Persistent data is stored in Home Assistant; attachment files live under
 - Removing completion records recalculates fixed and sliding `due` from the
   newest remaining completion. Sensor tasks and tasks without remaining
   completions preserve their current `due`.
-- Date-times are timezone-aware Python values internally and UTC ISO strings at
-  persistence and transport boundaries.
+- Date-times are validated as timezone-aware values and normalized to UTC ISO
+  strings. Recurrence calculations parse them into aware Python values.
 - Store schema 6 nests completion and attachment metadata under each task and
   removes fields not defined by the aggregate. The sequential
   `1 -> 2 -> 3 -> 4 -> 5 -> 6` migration chain is the only Store
@@ -50,7 +50,7 @@ Persistent data is stored in Home Assistant; attachment files live under
 - `migrations.py`: sequential Store migrations
 - `recurrence.py`: schedule validation and recurring local date-time
   calculations
-- `scheduling.py`: timer scheduling, indexed sensor transitions, and startup
+- `scheduling.py`: timer scheduling, tracked sensor transitions, and startup
   reconciliation
 - `notifications.py`: Mobile App and persistent notifications for due tasks
 - `task_api.py`: authenticated commands, subscriptions, bulk operations, and
@@ -59,7 +59,6 @@ Persistent data is stored in Home Assistant; attachment files live under
   import/export
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution
-- `task_events.py`: public Tasks event helper
 - `config_flow.py` and `__init__.py`: setup and integration lifecycle
 
 The ZIP archive contains a versioned Store snapshot in `tasks.json` and

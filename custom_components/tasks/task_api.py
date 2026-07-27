@@ -344,7 +344,7 @@ async def ws_history_list(hass, connection, msg, manager):
 @websocket_api.async_response
 @require_manager
 async def ws_attachment_urls(hass, connection, msg, manager):
-    manager.task(msg["task_id"])
+    task = manager.task(msg["task_id"])
     connection.send_result(
         msg["id"],
         {
@@ -355,7 +355,7 @@ async def ws_attachment_urls(hass, connection, msg, manager):
                     timedelta(hours=1),
                     refresh_token_id=connection.refresh_token_id,
                 )
-                for item in manager.task(msg["task_id"])["attachments"]
+                for item in task["attachments"]
             }
         },
     )

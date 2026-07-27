@@ -9,13 +9,12 @@ from typing import Any, Callable
 
 from homeassistant.core import Context, HomeAssistant, callback
 
-from .const import DOMAIN
+from .const import DOMAIN, EVENT_TASKS
 from .notifications import (
     async_notify_task_due,
     dismiss_task_notification,
     has_due_notification,
 )
-from .task_events import async_fire_tasks_event
 from .task_store import TasksStore
 
 
@@ -296,11 +295,13 @@ class TaskManager:
         )
         for listener in tuple(self._listeners):
             listener(change)
-        async_fire_tasks_event(
-            self._hass,
-            action,
-            resource_type,
-            resource_id,
+        self._hass.bus.async_fire(
+            EVENT_TASKS,
+            {
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                **data,
+            },
             context=context,
-            **data,
         )
