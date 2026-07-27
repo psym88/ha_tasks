@@ -363,8 +363,19 @@ not replaced the path yet.
   event-loop I/O.
 - Verified the task dialog, all three close paths, background modality,
   expandable behavior, and cache-free update path in the authenticated panel.
+- Added owned status pills and a native-popover action menu which measures its
+  actual trigger and keeps itself inside the visual viewport.
+- Added arrow-key, Home, and End navigation plus native outside-click and
+  Escape dismissal to the menu.
+- The first authenticated check exposed that a hash-scoped menu tag inside a
+  normal Lit template was omitted from the DOM. Switched task rows to static
+  templates and added a regression guard for the required template type.
+- Verified the corrected menu host, popover, and item in an isolated browser
+  runtime, then confirmed its placement and behavior in the authenticated
+  Home Assistant panel.
+- Verified all 145 backend and 129 frontend tests.
 
 ## Next action
 
-Add pills and the anchored action menu before building the first editable form
-fields.
+Build the first owned text, textarea, select, and combobox fields and use them
+in a minimal V2 task editor.

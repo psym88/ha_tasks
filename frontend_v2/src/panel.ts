@@ -3,11 +3,19 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { subscribeTasks } from "./api";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
+import {
+  actionMenuElementName,
+  type ActionMenuItem,
+} from "./ui/action-menu";
 import { openTasksDialog } from "./ui/dialog";
 import { expandableElementName } from "./ui/expandable";
+import { pillElementName } from "./ui/pill";
 import { elementName } from "./version";
 
+const actionMenuTag = unsafeStatic(actionMenuElementName);
 const expandableTag = unsafeStatic(expandableElementName);
+const pillTag = unsafeStatic(pillElementName);
+const taskActions: ActionMenuItem[] = [{ label: "Open", value: "open" }];
 
 class TasksPanelV2 extends LitElement {
   static properties = {
@@ -50,10 +58,13 @@ class TasksPanelV2 extends LitElement {
     }
 
     li {
+      display: flex;
+      align-items: center;
       border-bottom: 1px solid var(--divider-color);
     }
 
     .task {
+      flex: 1;
       width: 100%;
       padding: 12px 0;
       color: inherit;
@@ -126,6 +137,12 @@ class TasksPanelV2 extends LitElement {
     void openTasksDialog({
       heading: task.task_name,
       content: staticHtml`
+        <p>
+          <${pillTag} tone=${task.active === false ? "muted" : "positive"}>
+            ${task.active === false ? "Inactive" : "Active"}
+          </${pillTag}>
+          <${pillTag}>${task.schedule_type || "Unknown trigger"}</${pillTag}>
+        </p>
         ${task.task_description
           ? html`<p>${task.task_description}</p>`
           : nothing}
@@ -155,7 +172,7 @@ class TasksPanelV2 extends LitElement {
             : html`
                 <ul>
                   ${snapshot.tasks.map(
-                    (task) => html`
+                    (task) => staticHtml`
                       <li>
                         <button
                           class="task"
@@ -164,6 +181,15 @@ class TasksPanelV2 extends LitElement {
                         >
                           ${task.task_name}
                         </button>
+                        <${actionMenuTag}
+                          label="Actions for ${task.task_name}"
+                          .items=${taskActions}
+                          @tasks-action=${(event: CustomEvent<string>) => {
+                            if (event.detail === "open") {
+                              this.openTask(task);
+                            }
+                          }}
+                        ></${actionMenuTag}>
                       </li>
                     `,
                   )}

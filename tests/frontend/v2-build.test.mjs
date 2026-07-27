@@ -22,6 +22,14 @@ const version = await readFile(
   new URL("../../frontend_v2/src/version.ts", import.meta.url),
   "utf8",
 );
+const actionMenu = await readFile(
+  new URL("../../frontend_v2/src/ui/action-menu.ts", import.meta.url),
+  "utf8",
+);
+const pill = await readFile(
+  new URL("../../frontend_v2/src/ui/pill.ts", import.meta.url),
+  "utf8",
+);
 const assets = JSON.parse(
   await readFile(
     new URL(
@@ -67,4 +75,29 @@ test("V2 expandable uses native disclosure semantics", () => {
 test("V2 assets and elements are isolated by the bundle hash", () => {
   assert.match(version, /new URL\(import\.meta\.url\)/);
   assert.match(version, /`ha-tasks-\${name}-\${bundleHash}`/);
+});
+
+test("V2 action menu anchors to its trigger and stays in the viewport", () => {
+  assert.match(actionMenu, /trigger\.getBoundingClientRect\(\)/);
+  assert.match(actionMenu, /menu\.getBoundingClientRect\(\)/);
+  assert.match(actionMenu, /window\.visualViewport/);
+  assert.match(actionMenu, /popover="auto"/);
+  assert.match(actionMenu, /role="menuitem"/);
+  assert.doesNotMatch(actionMenu, /ha-menu|ha-dropdown/);
+  assert.match(
+    source,
+    /snapshot\.tasks\.map\(\s*\(task\) => staticHtml`/,
+  );
+});
+
+test("V2 action menu follows keyboard menu navigation", () => {
+  for (const key of ["ArrowDown", "ArrowUp", "Home", "End"]) {
+    assert.match(actionMenu, new RegExp(`event\\.key === "${key}"`));
+  }
+});
+
+test("V2 pill owns its presentation", () => {
+  assert.match(pill, /border-radius: 999px/);
+  assert.match(pill, /elementName\("pill"\)/);
+  assert.doesNotMatch(pill, /ha-chip|ha-assist-chip/);
 });
