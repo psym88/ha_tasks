@@ -14,12 +14,23 @@ for (const language of ["en", "de"]) {
   languages[language] = JSON.parse(
     await readFile(
       new URL(
-        `custom_components/tasks/frontend_translations/${language}.json`,
+        `custom_components/tasks/translations/${language}.json`,
         root,
       ),
       "utf8",
     ),
-  ).frontend;
+  ).common;
+  languages[language] = Object.fromEntries(
+    Object.entries(languages[language])
+      .filter(([key]) => key.startsWith("ui_"))
+      .map(([key, value]) => {
+        const separator = key.indexOf("_", 3);
+        return [
+          `${key.slice(3, separator)}.${key.slice(separator + 1)}`,
+          value,
+        ];
+      }),
+  );
 }
 
 const sourceFiles = await readdir(
@@ -61,7 +72,14 @@ test("V2 localizes Home Assistant WebSocket error objects", async () => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
     ok: true,
-    json: async () => ({ frontend: languages.en }),
+    json: async () => ({
+      common: Object.fromEntries(
+        Object.entries(languages.en).map(([key, value]) => [
+          `ui_${key.replace(".", "_")}`,
+          value,
+        ]),
+      ),
+    }),
   });
   try {
     const moduleUrl = `data:text/javascript;base64,${Buffer.from(

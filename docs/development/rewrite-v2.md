@@ -78,10 +78,8 @@ embedded in the aggregate.
 
 Current application code does not detect, accept, project, or preserve flat
 task records. Field names such as `task_name`, `task_due`, `schedule_type`, and
-`notification_target` exist only in:
-
-1. Store migration converters and their versioned fixtures.
-2. Archive import converters and their import tests.
+`notification_target` exist only in Store migration converters and their
+versioned fixtures.
 
 No runtime fallback selects between old and current shapes.
 
@@ -90,7 +88,7 @@ No runtime fallback selects between old and current shapes.
 The maintained checks cover:
 
 - every Store migration step and fixture,
-- every archive import conversion and current-format export,
+- Store-snapshot archive import and export,
 - recurrence and DST behavior,
 - fixed, sliding, and sensor due behavior,
 - manager changes and public events,

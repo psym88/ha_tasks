@@ -16,17 +16,28 @@ from homeassistant.core import HomeAssistant
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"
-FRONTEND_TRANSLATIONS = Path(__file__).parent / "frontend_translations"
+TRANSLATIONS = Path(__file__).parent / "translations"
+
+
+def _frontend_key(key: str) -> str:
+    """Convert a Home Assistant common key to a frontend key."""
+    namespace, name = key.removeprefix("ui_").split("_", 1)
+    return f"{namespace}.{name}"
 
 
 @cache
 def _load_translations(language: str) -> dict[str, str]:
-    """Load a frontend translation catalog, falling back to English."""
+    """Load UI translations from the Home Assistant catalog."""
     language = language.lower().replace("_", "-").split("-", 1)[0]
-    path = FRONTEND_TRANSLATIONS / f"{language}.json"
+    path = TRANSLATIONS / f"{language}.json"
     if not path.is_file():
-        path = FRONTEND_TRANSLATIONS / "en.json"
-    return json.loads(path.read_text(encoding="utf-8"))["frontend"]
+        path = TRANSLATIONS / "en.json"
+    common = json.loads(path.read_text(encoding="utf-8"))["common"]
+    return {
+        _frontend_key(key): value
+        for key, value in common.items()
+        if key.startswith("ui_")
+    }
 
 
 def notification_id(task_id: str) -> str:

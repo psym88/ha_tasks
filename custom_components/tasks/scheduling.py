@@ -154,23 +154,25 @@ class TaskEngine:
                 for task_id in change.data.get("problem_task_ids", []):
                     self._hass.async_create_task(self._reconcile(task_id))
             return
+        problem_trigger_changed = bool(
+            change.data.get("problem_trigger_changed")
+        )
         if (
             change.resource_type == "archive"
-            or change.resource_type == "task"
-            and (
-                change.action in {"created", "deleted"}
-                or change.action in {"updated", "saved"}
-                and change.data.get("problem_trigger_changed")
+            or (
+                change.resource_type == "task"
+                and (
+                    change.action == "deleted"
+                    or change.action in {"updated", "saved"}
+                    and problem_trigger_changed
+                )
             )
         ):
             self._subscribe_sensors()
         if (
             change.resource_type != "task"
-            or change.action not in {"created", "updated", "saved"}
-            or (
-                change.action in {"updated", "saved"}
-                and not change.data.get("problem_trigger_changed")
-            )
+            or change.action not in {"updated", "saved"}
+            or not problem_trigger_changed
         ):
             return
         if change.resource_id:

@@ -19,7 +19,7 @@ def async_fire_tasks_event(
     context: Context | None = None,
     **data: Any,
 ) -> None:
-    """Notify Home Assistant and frontend consumers about a stored change."""
+    """Publish a stored change to Home Assistant users and automations."""
     hass.bus.async_fire(
         EVENT_TASKS,
         {

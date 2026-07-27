@@ -7,6 +7,7 @@ const versionQuery = version
 
 type Messages = Record<string, string>;
 type Variables = Record<string, string | number>;
+type Catalog = { common?: Messages };
 
 let messages: Messages = {};
 let language = "";
@@ -20,6 +21,19 @@ const normalizeLanguage = (value?: string): string => {
   return /^[a-z]{2,3}$/.test(code) ? code : "en";
 };
 
+const frontendMessages = (catalog: Catalog): Messages =>
+  Object.fromEntries(
+    Object.entries(catalog.common || {})
+      .filter(([key]) => key.startsWith("ui_"))
+      .map(([key, value]) => {
+        const separator = key.indexOf("_", 3);
+        return [
+          `${key.slice(3, separator)}.${key.slice(separator + 1)}`,
+          value,
+        ];
+      }),
+  );
+
 const loadCatalog = (code: string): Promise<Messages> => {
   if (!catalogs.has(code)) {
     const path =
@@ -29,10 +43,10 @@ const loadCatalog = (code: string): Promise<Messages> => {
     catalogs.set(
       code,
       fetch(`${path}${versionQuery}`)
-        .then(async (response): Promise<{ frontend?: Messages }> =>
+        .then(async (response): Promise<Catalog> =>
           response.ok ? response.json() : {},
         )
-        .then((catalog) => catalog.frontend || {})
+        .then(frontendMessages)
         .catch(() => ({})),
     );
   }

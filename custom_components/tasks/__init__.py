@@ -76,7 +76,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     task_api.async_register(hass)
     attachment_api.async_register_views(hass)
     frontend_dir = Path(__file__).parent / "frontend"
-    translations_dir = Path(__file__).parent / "frontend_translations"
+    translations_dir = Path(__file__).parent / "translations"
     english_translations = translations_dir / "en.json"
     frontend_url, _, _ = await _frontend_urls(hass)
     await hass.http.async_register_static_paths(

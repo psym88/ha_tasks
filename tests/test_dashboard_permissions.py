@@ -97,7 +97,7 @@ def test_native_tag_integration_is_loaded_as_a_dependency():
     assert "file_upload" not in manifest["dependencies"]
 
 
-def test_frontend_and_consolidated_translations_are_registered_as_static_paths():
+def test_consolidated_translations_are_registered_as_static_paths():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "StaticPathConfig(frontend_url, str(frontend_dir), False)" in source
     assert 'base_url = f"{FRONTEND_URL}/{version}"' in source
@@ -114,9 +114,7 @@ def test_frontend_and_consolidated_translations_are_registered_as_static_paths()
     component=ROOT / "custom_components/tasks"
     assert set(component.rglob("de.json")) == {
         component / "translations/de.json",
-        component / "frontend_translations/de.json",
     }
     assert set(component.rglob("en.json")) == {
         component / "translations/en.json",
-        component / "frontend_translations/en.json",
     }

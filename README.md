@@ -92,7 +92,7 @@ To complete a task with NFC, create a tag under **Settings → Tags** and assign
 
 ### Dashboard card
 
-Add the **Tasks** card from the dashboard card picker. Its visual editor controls view/edit mode, the due-date range, and assignee filters. The assignee dropdown can dynamically target the logged-in user or selected users. Open panels and cards update immediately when Tasks emits an event.
+Add the **Tasks** card from the dashboard card picker. Its visual editor controls view/edit mode, the due-date range, and assignee filters. The assignee dropdown can dynamically target the logged-in user or selected users. Open panels and cards update immediately through the Tasks WebSocket subscription.
 
 | Light | Dark |
 | --- | --- |
@@ -124,7 +124,7 @@ badge:
 
 ## Home Assistant events
 
-Tasks fires `tasks_event` after every stored change and when a task reaches its due time. Automations can filter its `resource_type` and `action` data. Resource types are `task`, `history`, `attachment`, and `archive`; actions are `created`, `updated`, `deleted`, `completed`, `imported`, and `task_due` where applicable.
+Tasks fires `tasks_event` after every committed operation and when a task reaches its due time. Automations can filter its `resource_type` and `action` data. Resource types are `task` and `archive`. Task actions are `saved`, `updated`, `deleted`, `completed`, `bulk_mutated`, and `due`; archive imports use `imported`. A newly saved task has `created: true`.
 
 To receive a notification when a task becomes due, create an automation, open **Edit in YAML**, and paste:
 
@@ -135,7 +135,7 @@ triggers:
     event_type: tasks_event
     event_data:
       resource_type: task
-      action: task_due
+      action: due
 actions:
   - action: notify.notify
     data:
@@ -143,7 +143,7 @@ actions:
       message: "{{ trigger.event.data.resource_name }} is due."
 ```
 
-Every event includes `resource_id` when the changed resource has one. Task events also include `resource_name`; related identifiers such as `task_id` are included when available.
+Every event includes `resource_id` when the changed resource has one. Single-task events also include `resource_name`; bulk operations describe their task IDs in `operations`.
 
 ## Data and support
 
