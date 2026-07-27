@@ -10,7 +10,6 @@
     "common.loading": "Laden…",
     "common.system": "System",
     "common.error": "Fehler: {message}",
-    "error.archive_too_large": "Das Archiv ist zu groß.",
     "error.invalid_archive": "Die ausgewählte Datei ist kein gültiges Tasks-Archiv.",
     "error.invalid_archive_integration": "Das Archiv gehört zu einer anderen Integration.",
     "error.invalid_attachment_id": "Der Anhang ist ungültig.",

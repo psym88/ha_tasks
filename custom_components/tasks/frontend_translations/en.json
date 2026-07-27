@@ -10,7 +10,6 @@
     "common.loading": "Loading…",
     "common.system": "system",
     "common.error": "Error: {message}",
-    "error.archive_too_large": "The archive is too large.",
     "error.invalid_archive": "The selected file is not a valid Tasks archive.",
     "error.invalid_archive_integration": "The archive belongs to a different integration.",
     "error.invalid_attachment_id": "The attachment is invalid.",

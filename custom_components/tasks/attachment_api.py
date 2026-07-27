@@ -17,7 +17,6 @@ from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
 from .task_events import async_fire_tasks_event
 from .task_store import get_store
 
-MAX_ARCHIVE_SIZE = 100 * 1024 * 1024
 ARCHIVE_MANIFEST_SCHEMA = vol.Schema(
     {
         vol.Required("integration"): str,
@@ -49,60 +48,38 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _parse_archive_with_report(
-    content: bytes,
-) -> tuple[dict, dict[str, bytes], dict[str, list[tuple[int, int]]]]:
-    """Parse and decompress an archive outside the Home Assistant event loop."""
+def _parse_archive_manifest(
+    archive: zipfile.ZipFile,
+) -> tuple[dict, list[zipfile.ZipInfo], list[tuple[int, int]]]:
+    """Validate the archive envelope and return its migrated data."""
+    items = archive.infolist()
+    names = [item.filename for item in items]
+    if len(names) != len(set(names)) or "tasks.json" not in names or any(
+        name != "tasks.json" and not name.startswith("attachments/")
+        for name in names
+    ):
+        raise ValueError("invalid_archive")
     conversions: list[tuple[int, int]] = []
-    with zipfile.ZipFile(BytesIO(content)) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)) or "tasks.json" not in names or any(
-            name != "tasks.json" and not name.startswith("attachments/")
-            for name in names
-        ):
-            raise ValueError("invalid_archive")
-        if sum(item.file_size for item in archive.infolist()) > MAX_ARCHIVE_SIZE:
-            raise ValueError("archive_too_large")
-        try:
-            manifest = upgrade_archive_manifest(
-                json.loads(archive.read("tasks.json")), conversions
-            )
-            manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
-        except vol.Invalid as err:
-            raise ValueError("invalid_archive") from err
-        if manifest["integration"] != DOMAIN:
-            raise ValueError("invalid_archive_integration")
-        files = {
-            name.removeprefix("attachments/"): archive.read(name)
-            for name in names
-            if name.startswith("attachments/") and not name.endswith("/")
-        }
-    return manifest["data"], files, {"conversions": conversions}
+    try:
+        manifest = upgrade_archive_manifest(
+            json.loads(archive.read("tasks.json")), conversions
+        )
+        manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
+    except vol.Invalid as err:
+        raise ValueError("invalid_archive") from err
+    if manifest["integration"] != DOMAIN:
+        raise ValueError("invalid_archive_integration")
+    return manifest["data"], items, conversions
 
 
 def _parse_archive_file_with_report(
     archive_path: Path, staging_dir: Path
 ) -> tuple[dict, dict[str, Path], dict[str, list[tuple[int, int]]]]:
     """Parse an archive and stream attachments into a staging directory."""
-    conversions: list[tuple[int, int]] = []
     files: dict[str, Path] = {}
     with zipfile.ZipFile(archive_path) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)) or "tasks.json" not in names or any(
-            name != "tasks.json" and not name.startswith("attachments/")
-            for name in names
-        ):
-            raise ValueError("invalid_archive")
-        try:
-            manifest = upgrade_archive_manifest(
-                json.loads(archive.read("tasks.json")), conversions
-            )
-            manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
-        except vol.Invalid as err:
-            raise ValueError("invalid_archive") from err
-        if manifest["integration"] != DOMAIN:
-            raise ValueError("invalid_archive_integration")
-        for index, item in enumerate(archive.infolist()):
+        data, items, conversions = _parse_archive_manifest(archive)
+        for index, item in enumerate(items):
             if not item.filename.startswith("attachments/") or item.is_dir():
                 continue
             file_id = item.filename.removeprefix("attachments/")
@@ -117,14 +94,13 @@ def _parse_archive_file_with_report(
             with archive.open(item) as source, target.open("xb") as output:
                 shutil.copyfileobj(source, output)
             files[file_id] = target
-    return manifest["data"], files, {"conversions": conversions}
+    return data, files, {"conversions": conversions}
 
 
 def archive_error_code(error: Exception) -> str:
     """Return a safe translated error code for an archive failure."""
     code = str(error)
     return code if code in {
-        "archive_too_large",
         "invalid_archive",
         "invalid_archive_integration",
     } else "invalid_archive"

@@ -23,7 +23,6 @@ def test_dashboard_task_commands_allow_authenticated_users():
         "ws_task_complete",
         "ws_history_list",
         "ws_history_delete",
-        "ws_archive_import",
         "ws_attachment_urls",
         "ws_attachment_create",
         "ws_attachment_delete",
@@ -40,6 +39,7 @@ def test_attachments_use_native_upload_while_archives_use_streaming_endpoint():
     assert "request.content.readany()" in http_source
     assert "process_uploaded_file" in websocket_source
     assert "FileSelector(FileSelectorConfig(accept=\"*/*\"))" in websocket_source
+    assert '"tasks/archive/import"' not in websocket_source
     assert 'result["signed_files"]' not in websocket_source
     assert '"tasks/attachment/urls"' in websocket_source
 

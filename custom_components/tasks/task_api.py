@@ -3,10 +3,8 @@
 from datetime import timedelta
 from functools import wraps
 from itertools import islice
-import json
 import mimetypes
 from typing import Any
-import zipfile
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
@@ -18,7 +16,6 @@ from homeassistant.helpers.selector import FileSelector, FileSelectorConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DOWNLOAD_URL
-from .attachment_api import archive_error_code, _parse_archive_with_report
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .recurrence import occurrences
 from .task_events import async_fire_tasks_event
@@ -84,9 +81,6 @@ PREVIEW_FIELDS = {
 }
 PREVIEW_COUNT = 24
 ATTACHMENT_FILE_SELECTOR = FileSelector(FileSelectorConfig(accept="*/*"))
-ARCHIVE_FILE_SELECTOR = FileSelector(
-    FileSelectorConfig(accept=".zip,application/zip")
-)
 
 
 def _read_uploaded_file(
@@ -99,14 +93,6 @@ def _read_uploaded_file(
             mimetypes.guess_type(filename)[0] or "application/octet-stream"
         )
         return filename, content_type, file_path.read_bytes()
-
-
-def _parse_uploaded_archive_with_report(
-    hass: HomeAssistant, file_id: str
-) -> tuple[dict, dict[str, bytes], dict]:
-    """Consume a native backup upload and include its conversion report."""
-    with process_uploaded_file(hass, file_id) as file_path:
-        return _parse_archive_with_report(file_path.read_bytes())
 
 
 @callback
@@ -286,33 +272,6 @@ async def ws_history_delete(hass, connection, msg, store):
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "tasks/archive/import",
-        vol.Required("file_id"): ARCHIVE_FILE_SELECTOR,
-    }
-)
-@websocket_api.async_response
-@require_store
-async def ws_archive_import(hass, connection, msg, store):
-    try:
-        data, files, archive_report = await hass.async_add_executor_job(
-            _parse_uploaded_archive_with_report, hass, msg["file_id"]
-        )
-        import_report = await store.async_import_archive(data, files)
-    except ValueError as err:
-        error_code = archive_error_code(err)
-        connection.send_error(msg["id"], error_code, error_code)
-        return
-    except (KeyError, json.JSONDecodeError, zipfile.BadZipFile) as err:
-        connection.send_error(msg["id"], "invalid_archive", str(err))
-        return
-    connection.send_result(
-        msg["id"], {"imported": True, **archive_report, **import_report}
-    )
-    updated(hass, connection, msg, "imported", "archive")
-
-
-@websocket_api.websocket_command(
-    {
         vol.Required("type"): "tasks/attachment/urls",
         vol.Required("task_id"): str,
     }
@@ -380,4 +339,4 @@ async def ws_attachment_delete(hass, connection, msg, store):
     )
 
 
-COMMANDS = (ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_archive_import, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)
+COMMANDS = (ws_list, ws_task_create, ws_task_update, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

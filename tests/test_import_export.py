@@ -17,7 +17,7 @@ from custom_components.tasks.attachment_api import (
     archive_error_code,
     _build_archive,
     _parse_archive_file_with_report,
-    _parse_archive_with_report,
+    _parse_archive_manifest,
 )
 from custom_components.tasks.task_store import TasksStore
 
@@ -37,10 +37,15 @@ class FailingStore:
         raise RuntimeError("save failed")
 
 
+def parse_archive_manifest(content: bytes):
+    with zipfile.ZipFile(BytesIO(content)) as archive:
+        data, items, conversions = _parse_archive_manifest(archive)
+    return data, [item.filename for item in items], conversions
+
+
 @pytest.mark.parametrize(
     ("error", "code"),
     [
-        ("archive_too_large", "archive_too_large"),
         ("invalid_archive_integration", "invalid_archive_integration"),
         ("unexpected_internal_detail", "invalid_archive"),
     ],
@@ -204,11 +209,6 @@ def test_archive_helpers_round_trip_and_views_offload_zip_work(tmp_path):
     }
     content = _build_archive(data, {"file-1": b"content"})
 
-    assert _parse_archive_with_report(content) == (
-        data,
-        {"file-1": b"content"},
-        {"conversions": []},
-    )
     archive_path = tmp_path / "tasks.zip"
     staging_dir = tmp_path / "staging"
     archive_path.write_bytes(content)
@@ -255,10 +255,10 @@ def test_archive_parser_treats_task_records_as_opaque():
         "attachments": [],
     }
 
-    assert _parse_archive_with_report(_build_archive(data, {})) == (
+    assert parse_archive_manifest(_build_archive(data, {})) == (
         data,
-        {},
-        {"conversions": []},
+        ["tasks.json"],
+        [],
     )
 
 
@@ -342,10 +342,10 @@ def test_archive_parser_imports_format_1():
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("tasks.json", json.dumps({"format": 1, "data": data}))
 
-    assert _parse_archive_with_report(output.getvalue()) == (
+    assert parse_archive_manifest(output.getvalue()) == (
         data,
-        {},
-        {"conversions": [(1, 2), (2, 3)]},
+        ["tasks.json"],
+        [(1, 2), (2, 3)],
     )
 
 
@@ -392,7 +392,7 @@ def test_archive_parser_validates_only_manifest_envelope(manifest, error):
         archive.writestr("tasks.json", json.dumps(manifest))
 
     with pytest.raises(ValueError, match=error):
-        _parse_archive_with_report(output.getvalue())
+        parse_archive_manifest(output.getvalue())
 
 
 def test_archive_parser_rejects_legacy_manifest_name():
@@ -405,4 +405,4 @@ def test_archive_parser_rejects_legacy_manifest_name():
         )
 
     with pytest.raises(ValueError, match="invalid_archive"):
-        _parse_archive_with_report(output.getvalue())
+        parse_archive_manifest(output.getvalue())
