@@ -117,16 +117,15 @@ rather than retained as one-file abstractions.
 
 ### Backend
 
-The domain model reads and writes aggregate store schema 5. Existing WebSocket
-commands, archive format 3, and the current frontend continue to use flat
-compatibility projections until the V2 frontend is validated.
+The domain model reads and writes aggregate store schema 5. The production
+WebSocket protocol and archive format 3 use flat compatibility projections at
+their integration boundaries.
 
 ### Frontend
 
-The V2 panel and card are registered alongside the current implementation under
-temporary names. They use the same backend data so both versions can be compared
-in one Home Assistant instance. Legacy frontend assets are removed only after
-the V2 paths pass the functional matrix.
+The V2 panel and card own the production `tasks-panel` and `tasks-card`
+registrations. Legacy frontend registrations, assets, tests, and the table
+vendor were removed after the functional cutover.
 
 ### Persistence
 

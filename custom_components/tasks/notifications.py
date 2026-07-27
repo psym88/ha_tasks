@@ -13,8 +13,6 @@ from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"

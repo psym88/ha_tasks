@@ -27,6 +27,12 @@ def _store(task):
     return store
 
 
+async def _save_new(store, payload, now):
+    return (
+        await store.async_save_task(None, payload, [], [], [], now)
+    )["task"]
+
+
 def test_completion_notes_are_trimmed_and_optional():
     async def run():
         store = _store({
@@ -119,13 +125,19 @@ def test_deleting_completions_only_removes_audit_records():
             key=lambda entry: entry["completed_at"],
         )
 
-        task = await store.async_delete_history("task-1", oldest["id"])
+        result = await store.async_save_task(
+            "task-1", {}, [], [], [oldest["id"]], date(2026, 7, 23)
+        )
+        task = result["task"]
         assert task["task_due"] == "2026-07-23T10:15:00+00:00"
         assert [
             entry["history_entry_id"] for entry in store.history("task-1")
         ] == [newest["id"]]
 
-        task = await store.async_delete_history("task-1", newest["id"])
+        result = await store.async_save_task(
+            "task-1", {}, [], [], [newest["id"]], date(2026, 7, 23)
+        )
+        task = result["task"]
         assert task["task_due"] == "2026-07-23T10:15:00+00:00"
         assert store.history("task-1") == []
 
@@ -146,7 +158,10 @@ def test_deleting_legacy_completion_context_keeps_current_due():
             }
         ]
 
-        task = await store.async_delete_history("task-1", "legacy")
+        result = await store.async_save_task(
+            "task-1", {}, [], [], ["legacy"], date(2026, 7, 23)
+        )
+        task = result["task"]
         assert task["task_due"] == "2026-07-21T10:15:00+00:00"
         assert store.history("task-1") == []
 
@@ -159,7 +174,8 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
         store._lock = asyncio.Lock()
         store._repository = MemoryRepository()
         store._data = {"tasks": []}
-        task = await store.async_add_task(
+        task = await _save_new(
+            store,
             {
                 "task_name": "Bins",
                 "task_description": None,

@@ -15,19 +15,6 @@ from .models import (
     trigger_from_mapping,
 )
 
-
-def validate_schedule(task: dict[str, Any]) -> None:
-    """Reject incomplete recurrence rules."""
-    if task.get("schedule_type") == ProblemTrigger.type:
-        raise ValueError("invalid_frequency")
-    trigger_from_mapping(task)
-
-
-def validate_trigger(task: dict[str, Any]) -> None:
-    """Reject incomplete recurrence and problem-sensor triggers."""
-    trigger_from_mapping(task)
-
-
 def _resolve_local(value: datetime) -> datetime:
     """Resolve imaginary local times and choose the first ambiguous occurrence."""
     value = value.replace(fold=0)

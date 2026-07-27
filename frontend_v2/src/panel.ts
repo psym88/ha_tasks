@@ -9,7 +9,6 @@ import { taskTableElementName } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
 import { openTasksDialog } from "./ui/dialog";
-import { elementName } from "./version";
 
 const taskTableTag = unsafeStatic(taskTableElementName);
 

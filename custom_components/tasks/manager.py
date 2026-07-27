@@ -107,23 +107,6 @@ class TaskManager:
         self._changed("imported", "archive", context=context)
         return result
 
-    async def async_add_task(
-        self,
-        payload: dict[str, Any],
-        now: datetime | None = None,
-        *,
-        context: Context | None = None,
-    ) -> dict[str, Any]:
-        task = await self._store.async_add_task(payload, now)
-        self._changed(
-            "created",
-            "task",
-            task["task_id"],
-            context=context,
-            resource_name=task["task_name"],
-        )
-        return task
-
     async def async_update_task(
         self,
         task_id: str,
@@ -270,64 +253,6 @@ class TaskManager:
             problem_trigger_changed=problem_trigger_changed,
         )
         return result
-
-    async def async_delete_history(
-        self,
-        task_id: str,
-        history_entry_id: str,
-        *,
-        context: Context | None = None,
-    ) -> dict[str, Any]:
-        task = await self._store.async_delete_history(
-            task_id, history_entry_id
-        )
-        self._changed(
-            "deleted",
-            "history",
-            history_entry_id,
-            context=context,
-            task_id=task_id,
-        )
-        return task
-
-    async def async_add_attachment(
-        self,
-        task_id: str,
-        filename: str,
-        content_type: str,
-        data: bytes,
-        *,
-        context: Context | None = None,
-    ) -> dict[str, Any]:
-        attachment = await self._store.async_add_attachment(
-            task_id, filename, content_type, data
-        )
-        self._changed(
-            "created",
-            "attachment",
-            attachment["attachment_id"],
-            context=context,
-            task_id=task_id,
-        )
-        return attachment
-
-    async def async_delete_attachment(
-        self,
-        attachment_id: str,
-        *,
-        context: Context | None = None,
-    ) -> None:
-        attachment = self._store.attachment(attachment_id)
-        if attachment is None:
-            raise ValueError("unknown_attachment")
-        await self._store.async_delete_attachment(attachment_id)
-        self._changed(
-            "deleted",
-            "attachment",
-            attachment_id,
-            context=context,
-            task_id=attachment["task_id"],
-        )
 
     async def async_trigger_problem_task(
         self, task_id: str, triggered_at: str

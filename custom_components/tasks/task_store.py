@@ -272,15 +272,6 @@ class TasksStore:
         await self._repository.async_save(data)
         self._data = data
 
-    async def async_add_task(
-        self, payload: dict[str, Any], now: datetime | None = None
-    ) -> dict[str, Any]:
-        async with self._lock:
-            data = deepcopy(self._data)
-            task = self._add_task_in(data, payload, now)
-            await self._commit(data)
-            return task
-
     def _add_task_in(
         self,
         data: dict[str, Any],
@@ -506,25 +497,6 @@ class TasksStore:
             reverse=True,
         )
 
-    async def async_delete_history(
-        self, task_id: str, history_entry_id: str
-    ) -> dict[str, Any]:
-        async with self._lock:
-            data = deepcopy(self._data)
-            task = self._find_task_in(data, task_id)
-            if not any(
-                entry["id"] == history_entry_id
-                for entry in task["completions"]
-            ):
-                raise ValueError("unknown_history_entry")
-            task["completions"] = [
-                entry
-                for entry in task["completions"]
-                if entry["id"] != history_entry_id
-            ]
-            await self._commit(data)
-            return self._task_fields(task)
-
     async def async_save_task(
         self,
         task_id: str | None,
@@ -597,7 +569,10 @@ class TasksStore:
                     created_files
                 )
                 raise
-            await self._repository.async_remove_attachment_files(deleted_files)
+            if deleted_files:
+                await self._repository.async_remove_attachment_files(
+                    deleted_files
+                )
             return {
                 "task": task_fields,
                 "attachments": [
@@ -614,47 +589,6 @@ class TasksStore:
         except ValueError:
             return None
         return self._attachment_fields(attachment, task["id"])
-
-    async def async_add_attachment(
-        self,
-        task_id: str,
-        filename: str,
-        content_type: str,
-        data: bytes,
-    ) -> dict[str, Any]:
-        async with self._lock:
-            snapshot = deepcopy(self._data)
-            task = self._find_task_in(snapshot, task_id)
-            attachment = Attachment(
-                uuid4().hex,
-                task_id,
-                filename,
-                content_type,
-                len(data),
-                dt_util.utcnow(),
-            ).record()
-            await self._repository.async_write_attachment(
-                attachment["id"], data
-            )
-            task["attachments"].append(attachment)
-            try:
-                await self._commit(snapshot)
-            except Exception:
-                await self._repository.async_delete_attachment(
-                    attachment["id"]
-                )
-                raise
-            return self._attachment_fields(attachment, task_id)
-
-    async def async_delete_attachment(self, attachment_id: str) -> None:
-        async with self._lock:
-            data = deepcopy(self._data)
-            task, attachment = self._find_attachment_in(
-                data, attachment_id
-            )
-            task["attachments"].remove(attachment)
-            await self._commit(data)
-            await self._repository.async_delete_attachment(attachment_id)
 
     def file_path(self, file_id: str) -> Path:
         return self._repository.file_path(file_id)

@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 from custom_components.tasks.recurrence import (
     add_interval,
     occurrences,
-    validate_schedule,
 )
 
 
@@ -104,16 +103,6 @@ def test_fixed_schedule_requires_calendar_selection():
             assert str(err) == expected
         else:
             raise AssertionError(f"Expected {expected}")
-
-
-def test_validate_schedule_keeps_api_validation_available():
-    value = schedule(schedule_unit="weekly", schedule_weekdays=[])
-    try:
-        validate_schedule(value)
-    except ValueError as err:
-        assert str(err) == "select_at_least_one_weekday"
-    else:
-        raise AssertionError("Expected select_at_least_one_weekday")
 
 
 def test_fixed_daily_skips_overdue_occurrences():

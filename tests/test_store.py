@@ -26,6 +26,12 @@ def _store(task):
     return store
 
 
+async def _save_new(store, payload, now):
+    return (
+        await store.async_save_task(None, payload, [], [], [], now)
+    )["task"]
+
+
 def _weekly_task():
     return {
         "task_id": "task",
@@ -68,7 +74,8 @@ def test_new_sliding_task_starts_due_after_its_first_interval():
     async def run():
         store = _store(_weekly_task())
         store._data["tasks"] = []
-        created = await store.async_add_task(
+        created = await _save_new(
+            store,
             {
                 "task_name": "Replace filter",
                 "schedule_type": "sliding",
@@ -259,7 +266,8 @@ def test_sensor_task_waits_without_due_and_discards_recurrence_fields():
         store = _store(_weekly_task())
         store._data["tasks"] = []
 
-        created = await store.async_add_task(
+        created = await _save_new(
+            store,
             {
                 "task_name": "Check heat pump",
                 "schedule_type": "sensor",
@@ -303,7 +311,7 @@ def test_store_rejects_incomplete_trigger_configurations(payload, error):
         store._data["tasks"] = []
 
         with pytest.raises(ValueError, match=error):
-            await store.async_add_task(payload, date(2026, 7, 25))
+            await _save_new(store, payload, date(2026, 7, 25))
 
     asyncio.run(run())
 

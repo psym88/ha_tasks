@@ -30,6 +30,12 @@ def _store(tasks):
     return store
 
 
+async def _save_new(store, payload, now):
+    return (
+        await store.async_save_task(None, payload, [], [], [], now)
+    )["task"]
+
+
 def _task(task_id="task-1", tag_id=None):
     return {
         "task_id": task_id,
@@ -51,7 +57,8 @@ def test_tag_id_is_trimmed_and_unique():
             "schedule_unit": "daily",
             "schedule_interval": 1,
         }
-        created = await store.async_add_task(
+        created = await _save_new(
+            store,
             payload, datetime(2026, 7, 22, 10, 15, tzinfo=timezone.utc)
         )
         assert created["nfc_tag_id"] == "tag-2"
@@ -64,7 +71,8 @@ def test_tag_id_is_trimmed_and_unique():
 def test_task_labels_are_stored_and_updated_without_duplicates():
     async def run():
         store = _store([])
-        created = await store.async_add_task(
+        created = await _save_new(
+            store,
             {**_task("new"), "label_ids": ["chores", "upstairs", "chores"]},
             datetime(2026, 7, 22, 10, 15, tzinfo=timezone.utc),
         )

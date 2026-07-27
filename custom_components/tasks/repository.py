@@ -117,16 +117,6 @@ class TasksRepository:
         for path in files:
             path.unlink(missing_ok=True)
 
-    async def async_write_attachment(self, file_id: str, data: bytes) -> None:
-        """Write one attachment outside the event loop."""
-        await self.hass.async_add_executor_job(
-            self._write_attachment, file_id, data
-        )
-
-    def _write_attachment(self, file_id: str, data: bytes) -> None:
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
-        self.file_path(file_id).write_bytes(data)
-
     async def async_delete_attachment(self, file_id: str) -> None:
         """Delete one attachment outside the event loop."""
         await self.hass.async_add_executor_job(

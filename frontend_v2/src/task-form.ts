@@ -7,7 +7,6 @@ import {
   loadTaskHistory,
   previewTaskSchedule,
   saveTaskDetails,
-  type RecurrenceScheduleDetails,
   type ScheduleDetails,
 } from "./api";
 import { t } from "./localize";

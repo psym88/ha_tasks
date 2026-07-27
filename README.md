@@ -40,7 +40,7 @@ Removing the integration does not delete exported backups. Tasks data in `<confi
 
 Administrators can open **Tasks** in the sidebar. Use **+ Add task** to create a task. Select a task to view and complete it; use its three-dot menu to pause, resume, edit, or delete it. Paused tasks remain in the task table with a red pause icon and no displayed due value.
 
-The task table supports configurable columns, search, sorting, and independent grouping and filters for assignee, labels, notification targets, recurrence calculation, and rhythm.
+The task table supports configurable columns, search, sorting, and filters for assignee, labels, notification targets, recurrence calculation, and rhythm.
 
 Task details show the due date and time, assignee, labels, attachments, completion history, and notes in one dialog.
 

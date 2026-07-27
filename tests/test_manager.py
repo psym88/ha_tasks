@@ -79,7 +79,15 @@ def test_update_publishes_one_committed_domain_change():
 
 def test_failed_mutation_does_not_publish_a_change():
     class Store:
-        async def async_add_task(self, payload, now):
+        async def async_save_task(
+            self,
+            task_id,
+            payload,
+            uploads,
+            deleted_attachment_ids,
+            deleted_history_entry_ids,
+            now,
+        ):
             raise RuntimeError("save failed")
 
     async def run():
@@ -87,37 +95,17 @@ def test_failed_mutation_does_not_publish_a_change():
         manager = TaskManager(hass, Store())
 
         with pytest.raises(RuntimeError, match="save failed"):
-            await manager.async_add_task({"task_name": "Pump"})
+            await manager.async_save_task(
+                None,
+                {"task_name": "Pump"},
+                [],
+                [],
+                [],
+                datetime(2026, 7, 27, 10, tzinfo=timezone.utc),
+            )
 
         assert events == []
         assert manager.revision == 0
-
-    asyncio.run(run())
-
-
-def test_attachment_delete_event_uses_pre_delete_task_id():
-    class Store:
-        def attachment(self, attachment_id):
-            return {
-                "attachment_id": attachment_id,
-                "task_id": "task-1",
-            }
-
-        async def async_delete_attachment(self, attachment_id):
-            return None
-
-    async def run():
-        hass, events = _hass()
-        manager = TaskManager(hass, Store())
-
-        await manager.async_delete_attachment("file-1")
-
-        assert events[0][1] == {
-            "action": "deleted",
-            "resource_type": "attachment",
-            "resource_id": "file-1",
-            "task_id": "task-1",
-        }
 
     asyncio.run(run())
 
