@@ -6,7 +6,6 @@
   "scripts": {
     "build:frontend-v2": "node scripts/build-frontend-v2.mjs",
     "typecheck:frontend-v2": "tsc -p frontend_v2/tsconfig.json",
-    "vendor:table": "node scripts/vendor-table.mjs",
     "test:frontend": "node --test \"tests/frontend/**/*.test.mjs\"",
     "screenshots": "node tests/screenshots/capture.mjs",
     "screenshots:compare": "node tests/screenshots/compare.mjs"
@@ -19,7 +18,6 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "@tanstack/table-core": "8.21.3",
     "lit": "3.3.3"
   }
 }

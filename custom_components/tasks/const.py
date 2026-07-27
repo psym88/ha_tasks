@@ -13,7 +13,6 @@ TASKS_DEVICE_INFO = DeviceInfo(
     manufacturer="Tasks",
 )
 PANEL_URL = "/tasks"
-V2_PANEL_URL = "/tasks-v2"
 PANEL_TITLE = "Tasks"
 FRONTEND_URL = f"/{DOMAIN}_frontend"
 TRANSLATIONS_URL = f"/{DOMAIN}_translations"

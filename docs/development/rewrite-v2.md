@@ -6,7 +6,7 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 8 - Cutover
+- Phase: Complete
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
 - Store schema: 4
@@ -154,23 +154,23 @@ not replaced the path yet.
 | Problem-sensor trigger | legacy | complete | startup and off-to-on behavior |
 | Completion notes | legacy | complete | trimming and attribution |
 | Delete history | legacy | complete | deletion does not alter current due |
-| NFC completion | legacy | pending | user/context attribution |
+| NFC completion | legacy | complete | user/context attribution |
 | Persistent notification | legacy | complete | create and dismiss |
 | Mobile notification | legacy | complete | device target and critical payload |
 | Task attachments | legacy | complete | upload, preview and delete |
-| ZIP export | legacy | pending | data and attachment consistency |
-| ZIP import | legacy | pending | streaming, migration and merge report |
-| Due sensor | legacy | pending | push update and active-task filtering |
-| Public Tasks events | legacy | pending | stable filterable event data |
-| Authenticated task access | legacy | pending | existing permission contract |
-| Admin-only sidebar | legacy | pending | panel registration |
+| ZIP export | legacy | complete | data and attachment consistency |
+| ZIP import | legacy | complete | streaming, migration and merge report |
+| Due sensor | legacy | complete | push update and active-task filtering |
+| Public Tasks events | legacy | complete | stable filterable event data |
+| Authenticated task access | legacy | complete | existing permission contract |
+| Admin-only sidebar | legacy | complete | panel registration |
 | Dashboard card | legacy | complete | view and edit modes |
 | Table search | legacy | complete | localized presentation |
 | Table filters | legacy | complete | assignee, label, notification, trigger |
 | Table sorting | legacy | complete | missing due values sort last |
 | Table selection and bulk actions | legacy | complete | one backend mutation |
 | Table column visibility | legacy | complete | persisted local preference |
-| English and German UI | legacy | pending | English fallback |
+| English and German UI | legacy | complete | English fallback |
 | Cache-safe frontend update | legacy | complete | version and asset hash change |
 | Native `todo.tasks` entity | absent | skipped | Explicitly out of scope |
 
@@ -215,7 +215,7 @@ not replaced the path yet.
 - [x] Add revisioned task updates.
 - [x] Add one bulk-mutation command.
 - [x] Add transactional task and attachment saving.
-- [ ] Retain legacy commands until the current frontend is retired.
+- [x] Retain legacy commands until the current frontend is retired.
 
 ### Phase 5 - Aggregate persistence
 
@@ -242,12 +242,12 @@ not replaced the path yet.
 
 ### Phase 8 - Cutover
 
-- [ ] Replace production panel and card registrations.
-- [ ] Remove legacy WebSocket commands.
-- [ ] Remove legacy frontend and TanStack vendor files.
+- [x] Replace production panel and card registrations.
+- [x] Remove legacy WebSocket commands.
+- [x] Remove legacy frontend and TanStack vendor files.
 - [x] Introduce and migrate to store schema 4.
-- [ ] Update stable architecture documentation.
-- [ ] Compare final code and bundle sizes against the baseline.
+- [x] Update stable architecture documentation.
+- [x] Compare final code and bundle sizes against the baseline.
 
 ## Work log
 
@@ -531,7 +531,44 @@ not replaced the path yet.
   build, and Home Assistant 2026.7.4 startup with the mounted integration.
 - Skipped the native `todo.tasks` adapter by project decision and advanced the
   rewrite to Phase 8.
+- Replaced the production `/tasks` panel and `custom:tasks-card` registrations
+  with the V2 bundles while preserving both stable user-facing identifiers.
+- Removed the temporary `/tasks-v2` panel and `custom:tasks-card-v2`
+  registrations without deleting the legacy implementation yet.
+- Verified all 145 backend and 162 frontend tests, TypeScript, the production
+  build, Home Assistant 2026.7.4 startup, and HTTP 200 responses for both V2
+  entry bundles, their shared chunk, and the English and German catalogs.
+- Added the owned V2 backup dialog with authenticated ZIP export and streaming
+  ZIP import through the existing archive endpoint.
+- Preserved archive conversion, imported-item, skipped-task, and skipped-file
+  reporting with localized success, warning, and error states.
+- Verified TypeScript, the production build, and all 163 frontend tests.
+- Removed all legacy JavaScript modules, their obsolete tests, the vendored
+  TanStack Table Core files, the vendor script, and the package dependency.
+- Updated the documentation screenshot workflow to target the production V2
+  panel, card, viewer, editor, and expandable sections.
+- Replaced the legacy frontend description in `ARCHITECTURE.md` with the stable
+  TypeScript, revisioned-snapshot, owned-component boundaries.
+- Verified 145 backend and 44 remaining frontend tests, TypeScript, the
+  production build, Home Assistant 2026.7.4 startup, HTTP 200 for both V2 entry
+  assets, and HTTP 404 for the removed legacy panel and card assets.
+- Removed the retired task-create, history-delete, attachment-create, and
+  attachment-delete WebSocket commands after confirming that every remaining
+  client uses task-save or another retained focused command.
+- Migrated documentation screenshot data seeding from the retired create and
+  attachment commands to the atomic task-save command.
+- The final backend contains 17 Python files, 3,488 lines, and 116,349 bytes,
+  compared with 15 files, 1,858 lines, and 78,098 bytes at baseline. The
+  increase contains the typed domain, repository, manager, migration, and
+  transactional protocol boundaries.
+- The final TypeScript source contains 16 files, 6,463 lines, and 179,176
+  bytes. Its three production JavaScript bundles total 123,289 bytes, which is
+  149,159 bytes (55%) smaller than the 272,448-byte baseline legacy frontend
+  plus vendored table engine.
+- Closed the rewrite after a final 145-backend-test and 44-frontend-test run,
+  TypeScript validation, Home Assistant 2026.7.4 restart, clean Tasks startup,
+  and HTTP 200 responses for all three production V2 assets.
 
 ## Next action
 
-Begin Phase 8 by replacing the production panel and card registrations.
+Commit the tested Phase 8 cutover.

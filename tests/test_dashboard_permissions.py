@@ -18,7 +18,6 @@ def test_dashboard_task_commands_allow_authenticated_users():
     for function_name in (
         "ws_subscribe",
         "ws_list",
-        "ws_task_create",
         "ws_task_update",
         "ws_task_save",
         "ws_task_bulk",
@@ -26,10 +25,7 @@ def test_dashboard_task_commands_allow_authenticated_users():
         "ws_task_preview_next_due",
         "ws_task_complete",
         "ws_history_list",
-        "ws_history_delete",
         "ws_attachment_urls",
-        "ws_attachment_create",
-        "ws_attachment_delete",
     ):
         assert "websocket_api.require_admin" not in _decorators(function_name)
 
@@ -46,37 +42,40 @@ def test_attachments_use_native_upload_while_archives_use_streaming_endpoint():
     assert '"tasks/archive/import"' not in websocket_source
     assert 'result["signed_files"]' not in websocket_source
     assert '"tasks/attachment/urls"' in websocket_source
+    for removed in (
+        '"tasks/task/create"',
+        '"tasks/history/delete"',
+        '"tasks/attachment/create"',
+        '"tasks/attachment/delete"',
+    ):
+        assert removed not in websocket_source
 
 
 def test_only_sidepanel_requires_admin():
     component = ROOT / "custom_components/tasks"
     sources = "\n".join(path.read_text(encoding="utf-8") for path in component.rglob("*.py"))
     assert "websocket_api.require_admin" not in sources
-    assert sources.count("require_admin=True") == 2
+    assert sources.count("require_admin=True") == 1
 
 
 def test_dashboard_module_is_registered_and_removed_with_config_entry():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
     assert "frontend.add_extra_js_url(hass, card_js_url)" in source
-    assert "frontend.add_extra_js_url(hass, v2_card_js_url)" in source
     assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
-    assert "frontend.remove_extra_js_url(hass, v2_card_js_url)" in source
 
 
-def test_v2_panel_is_registered_alongside_the_legacy_panel():
+def test_v2_assets_replace_the_legacy_panel_and_card_registrations():
     source = (ROOT / "custom_components/tasks/__init__.py").read_text(
         encoding="utf-8"
     )
     assert 'webcomponent_name="tasks-panel"' in source
-    assert 'webcomponent_name="ha-tasks-v2-panel"' in source
     assert 'f"{base_url}/v2/{v2_panel_asset}"' in source
     assert 'f"{base_url}/v2/{v2_card_asset}"' in source
+    assert 'f"{base_url}/panel.js"' not in source
+    assert 'f"{base_url}/dashboard-card.js"' not in source
     assert "await hass.async_add_executor_job(" in source
     assert "_v2_assets" in source
-    assert (
-        'frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))'
-        in source
-    )
+    assert "V2_PANEL_URL" not in source
 
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():

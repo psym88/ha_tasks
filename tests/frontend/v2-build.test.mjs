@@ -10,6 +10,10 @@ const api = await readFile(
   new URL("../../frontend_v2/src/api.ts", import.meta.url),
   "utf8",
 );
+const archive = await readFile(
+  new URL("../../frontend_v2/src/archive.ts", import.meta.url),
+  "utf8",
+);
 const dialog = await readFile(
   new URL("../../frontend_v2/src/ui/dialog.ts", import.meta.url),
   "utf8",
@@ -83,11 +87,15 @@ test("V2 subscribes to the revisioned snapshot protocol", () => {
   assert.match(source, /snapshot\.revision/);
 });
 
-test("V2 bundle owns its Lit runtime and custom element", () => {
+test("V2 bundles own their runtime and stable production elements", () => {
   assert.match(assets.panel, /^panel-[A-Z0-9]+\.js$/);
   assert.match(assets.card, /^card-[A-Z0-9]+\.js$/);
-  assert.match(version, /`ha-tasks-v2-\${name}`/);
-  assert.match(cardBundle, /tasks-card-v2/);
+  assert.match(version, /`ha-tasks-\${name}`/);
+  assert.match(source, /const panelElementName = "tasks-panel"/);
+  assert.match(bundle, /tasks-panel/);
+  assert.match(cardBundle, /tasks-card/);
+  assert.doesNotMatch(source, /tasks-v2/);
+  assert.doesNotMatch(dashboardCard, /tasks-card-v2/);
   assert.doesNotMatch(bundle, /\bfrom\s+["']lit["']/);
   assert.doesNotMatch(bundle, /\bimport\s+["']lit["']/);
 });
@@ -106,7 +114,7 @@ test("V2 expandable uses native disclosure semantics", () => {
 });
 
 test("V2 elements use an integration-owned namespace", () => {
-  assert.match(version, /`ha-tasks-v2-\${name}`/);
+  assert.match(version, /`ha-tasks-\${name}`/);
 });
 
 test("V2 action menu anchors to its trigger and stays in the viewport", () => {
@@ -336,14 +344,26 @@ test("V2 dashboard card uses live snapshots and owned task actions", () => {
 });
 
 test("V2 dashboard card follows the Lovelace custom-card contract", () => {
-  assert.match(dashboardCard, /stableCardTag = "tasks-card-v2"/);
-  assert.match(dashboardCard, /editorElementName = "tasks-card-v2-editor"/);
+  assert.match(dashboardCard, /stableCardTag = "tasks-card"/);
+  assert.match(dashboardCard, /editorElementName = "tasks-card-editor"/);
   assert.match(dashboardCard, /customElements\.define\(stableCardTag/);
   assert.match(dashboardCard, /customElements\.define\(editorElementName/);
   assert.match(dashboardCard, /card\.type === stableCardTag/);
   assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
   assert.match(dashboardCard, /const \{ type: _type, \.\.\.config \}/);
   assert.doesNotMatch(dashboardCard, /__haTasksV2CardRuntime|runtimeChangedEvent/);
+});
+
+test("V2 panel streams archive export and import through the owned backup UI", () => {
+  assert.match(source, /openArchive\(this\.hass\)/);
+  assert.match(api, /fetchWithAuth\("\/api\/tasks\/archive"/);
+  assert.match(api, /method: "POST"/);
+  assert.match(api, /"Content-Type": "application\/zip"/);
+  assert.match(api, /URL\.revokeObjectURL\(url\)/);
+  assert.match(archive, /accept="\.zip,application\/zip"/);
+  assert.match(archive, /report\.conversions/);
+  assert.match(archive, /report\.tasks_skipped/);
+  assert.match(archive, /report\.attachments_skipped/);
 });
 
 test("V2 planning uses the authoritative preview API for every recurrence", () => {

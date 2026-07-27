@@ -54,6 +54,15 @@ export interface FileChanges {
   deletedHistoryEntryIds: string[];
 }
 
+export interface ArchiveImportReport {
+  conversions?: Array<[number, number]>;
+  attachments_imported?: number;
+  attachments_skipped?: number;
+  history_entries_imported?: number;
+  tasks_imported?: number;
+  tasks_skipped?: string[];
+}
+
 export type BulkTaskOperation =
   | {
       action: "update";
@@ -131,6 +140,43 @@ const uploadFile = async (
     throw new Error(`File upload failed (${response.status})`);
   }
   return (await response.json() as { file_id: string }).file_id;
+};
+
+const responseError = async (response: Response): Promise<Error> => {
+  const result = await response.json().catch(() => ({})) as {
+    code?: string;
+  };
+  return new Error(result.code || `HTTP ${response.status}`);
+};
+
+export const exportTasksArchive = async (
+  hass: HomeAssistant,
+): Promise<void> => {
+  const response = await hass.fetchWithAuth("/api/tasks/archive");
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `tasks-${new Date().toISOString().slice(0, 10)}.zip`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+
+export const importTasksArchive = async (
+  hass: HomeAssistant,
+  file: File,
+): Promise<ArchiveImportReport> => {
+  const response = await hass.fetchWithAuth("/api/tasks/archive", {
+    method: "POST",
+    headers: { "Content-Type": "application/zip" },
+    body: file,
+  });
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  return response.json();
 };
 
 export const saveTaskDetails = async (

@@ -20,7 +20,6 @@ from .const import (
     PANEL_URL,
     PLATFORMS,
     TRANSLATIONS_URL,
-    V2_PANEL_URL,
 )
 from .manager import TaskManager
 from .scheduling import ProblemSensorScheduler, TaskDueEventScheduler
@@ -57,7 +56,7 @@ def _v2_assets() -> tuple[str, str]:
 
 async def _frontend_urls(
     hass: HomeAssistant,
-) -> tuple[str, str, str, str, str]:
+) -> tuple[str, str, str]:
     """Return frontend URLs derived from the manifest version."""
     version = (await async_get_integration(hass, DOMAIN)).version
     if version is None:
@@ -68,8 +67,6 @@ async def _frontend_urls(
     )
     return (
         base_url,
-        f"{base_url}/panel.js",
-        f"{base_url}/dashboard-card.js",
         f"{base_url}/v2/{v2_panel_asset}",
         f"{base_url}/v2/{v2_card_asset}",
     )
@@ -81,7 +78,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     frontend_dir = Path(__file__).parent / "frontend"
     translations_dir = Path(__file__).parent / "frontend_translations"
     english_translations = translations_dir / "en.json"
-    frontend_url, _, _, _, _ = await _frontend_urls(hass)
+    frontend_url, _, _ = await _frontend_urls(hass)
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(frontend_url, str(frontend_dir), False),
@@ -112,11 +109,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(problem_scheduler.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _, panel_js_url, card_js_url, v2_panel_js_url, v2_card_js_url = (
-        await _frontend_urls(hass)
-    )
+    _, panel_js_url, card_js_url = await _frontend_urls(hass)
     frontend.add_extra_js_url(hass, card_js_url)
-    frontend.add_extra_js_url(hass, v2_card_js_url)
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="tasks-panel",
@@ -127,25 +121,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         require_admin=True,
         config={},
     )
-    await panel_custom.async_register_panel(
-        hass,
-        webcomponent_name="ha-tasks-v2-panel",
-        frontend_url_path=V2_PANEL_URL.removeprefix("/"),
-        module_url=v2_panel_js_url,
-        sidebar_title="Tasks V2",
-        sidebar_icon="mdi:clipboard-check-outline",
-        require_admin=True,
-        config={},
-    )
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        _, _, card_js_url, _, v2_card_js_url = await _frontend_urls(hass)
+        _, _, card_js_url = await _frontend_urls(hass)
         frontend.remove_extra_js_url(hass, card_js_url)
-        frontend.remove_extra_js_url(hass, v2_card_js_url)
         frontend.async_remove_panel(hass, PANEL_URL.removeprefix("/"))
-        frontend.async_remove_panel(hass, V2_PANEL_URL.removeprefix("/"))
     return unloaded

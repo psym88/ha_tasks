@@ -49,7 +49,7 @@ SCHEDULE_FIELDS = {
     **SCHEDULE_DETAILS,
     vol.Optional("problem_sensor"): TEXT,
 }
-TASK_CREATE_FIELDS = {
+TASK_FIELDS = {
     vol.Required("task_name"): str,
     vol.Optional("task_icon"): TEXT,
     vol.Optional("task_description"): TEXT,
@@ -71,7 +71,7 @@ TASK_CREATE_FIELDS = {
 }
 TASK_UPDATE_FIELDS = {
     vol.Optional(key.schema): validator
-    for key, validator in TASK_CREATE_FIELDS.items()
+    for key, validator in TASK_FIELDS.items()
 }
 BULK_OPERATION = vol.Any(
     vol.Schema(
@@ -205,18 +205,6 @@ async def ws_list(hass, connection, msg, manager):
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "tasks/task/create", **TASK_CREATE_FIELDS}
-)
-@websocket_api.async_response
-@require_manager
-async def ws_task_create(hass, connection, msg, manager):
-    result = await manager.async_add_task(
-        msg, dt_util.utcnow(), context=connection.context(msg)
-    )
-    connection.send_result(msg["id"], result)
-
-
-@websocket_api.websocket_command(
     {
         vol.Required("type"): "tasks/task/update",
         vol.Required("task_id"): str,
@@ -242,7 +230,7 @@ async def ws_task_update(hass, connection, msg, manager):
         vol.Optional("file_ids", default=[]): [ATTACHMENT_FILE_SELECTOR],
         vol.Optional("deleted_attachment_ids", default=[]): [str],
         vol.Optional("deleted_history_entry_ids", default=[]): [str],
-        **TASK_CREATE_FIELDS,
+        **TASK_FIELDS,
     }
 )
 @websocket_api.async_response
@@ -353,18 +341,6 @@ async def ws_history_list(hass, connection, msg, manager):
     )
 
 
-@websocket_api.websocket_command({vol.Required("type"): "tasks/history/delete", vol.Required("task_id"): str, vol.Required("history_entry_id"): str})
-@websocket_api.async_response
-@require_manager
-async def ws_history_delete(hass, connection, msg, manager):
-    result = await manager.async_delete_history(
-        msg["task_id"],
-        msg["history_entry_id"],
-        context=connection.context(msg),
-    )
-    connection.send_result(msg["id"], result)
-
-
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "tasks/attachment/urls",
@@ -392,37 +368,15 @@ async def ws_attachment_urls(hass, connection, msg, manager):
     )
 
 
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): "tasks/attachment/create",
-        vol.Required("task_id"): str,
-        vol.Required("file_id"): ATTACHMENT_FILE_SELECTOR,
-    }
+COMMANDS = (
+    ws_subscribe,
+    ws_list,
+    ws_task_update,
+    ws_task_save,
+    ws_task_bulk,
+    ws_task_delete,
+    ws_task_preview_next_due,
+    ws_task_complete,
+    ws_history_list,
+    ws_attachment_urls,
 )
-@websocket_api.async_response
-@require_manager
-async def ws_attachment_create(hass, connection, msg, manager):
-    filename, content_type, content = await hass.async_add_executor_job(
-        _read_uploaded_file, hass, msg["file_id"]
-    )
-    record = await manager.async_add_attachment(
-        msg["task_id"],
-        filename,
-        content_type,
-        content,
-        context=connection.context(msg),
-    )
-    connection.send_result(msg["id"], record)
-
-
-@websocket_api.websocket_command({vol.Required("type"): "tasks/attachment/delete", vol.Required("attachment_id"): str})
-@websocket_api.async_response
-@require_manager
-async def ws_attachment_delete(hass, connection, msg, manager):
-    await manager.async_delete_attachment(
-        msg["attachment_id"], context=connection.context(msg)
-    )
-    connection.send_result(msg["id"])
-
-
-COMMANDS = (ws_subscribe, ws_list, ws_task_create, ws_task_update, ws_task_save, ws_task_bulk, ws_task_delete, ws_task_preview_next_due, ws_task_complete, ws_history_list, ws_history_delete, ws_attachment_urls, ws_attachment_create, ws_attachment_delete)

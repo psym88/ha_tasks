@@ -50,28 +50,24 @@ Import upgrades supported older archive manifests before validating them against
 
 ## Frontend
 
-The frontend is split into native ES modules under `custom_components/tasks/frontend`:
+The TypeScript frontend under `frontend_v2/src` builds content-hashed ES
+modules into `custom_components/tasks/frontend/v2`. Home Assistant registers
+the stable `tasks-panel` and `tasks-card` elements from those versioned assets.
+The panel and card share the task form, viewer, archive flow, localization,
+typed API client, and small integration-owned UI primitives.
 
-- `controller.js`: shared data and workflow controller used by the panel and card
-- `panel.js`: Home Assistant panel entry point and custom-element registration
-- `dashboard-card.js`: Lovelace card and visual editor
-- `sidebar-task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
-- `popup-task-editor.js`: task editor workflow and reusable file and history sections
-- `popup-*.js`: Home Assistant adaptive-dialog hosts for task viewing, attachment previews, confirmations, and settings
-- `action-menu.js`: shared native action-menu construction
-- `localize.js`: frontend localization and safe text rendering
+`task-table.ts` owns task-specific search, filters, sorting, selection, bulk
+actions, responsive rows, and persisted view preferences without a table
+framework. `dashboard-card.ts` keeps a separate compact Lovelace presentation
+and owns its visual editor. Dialogs, menus, fields, expandable sections, and
+status pills use browser primitives and Home Assistant theme variables; the
+bundle includes Lit as its only runtime UI dependency.
 
-The sidebar panel maps backend tasks and Home Assistant registry records directly to flat rows through `task-table-rows.js`; localized presentation values remain a frontend concern. Persistent and session-specific table view state is isolated in `task-table-view.js`. The framework-neutral `tasks-data-table` component uses the vendored TanStack Table Core engine for sorting, grouping, filtering, selection, and column state, while rendering its own DOM with Home Assistant theme variables. A shared dimension registry defines groupable and filterable columns; filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
-
-The sidebar panel and dashboard card share the same controller and task viewer/editor workflows. Popups use Home Assistant's composed `show-dialog` contract and `ha-adaptive-dialog`; shared file and history sections are produced by `popup-task-editor.js`. Attachments are signed anchors whose click handler opens the integration's preview popup through the same native dialog contract.
-
-Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
-
-The current frontend loads an initial snapshot and reloads it from the public
-`tasks_event`. A parallel revisioned snapshot subscription is available for the
-V2 frontend. Internal schedulers and the summary sensor receive committed
-changes directly from `TaskManager`; the public event bus is not used for
-internal coordination or polling.
+The panel and card consume the revisioned `tasks/subscribe` snapshot. Registry
+lookups and task-specific detail commands remain at the authenticated
+WebSocket boundary. Internal schedulers and the summary sensor receive
+committed changes directly from `TaskManager`; the public event bus is not used
+for internal coordination or frontend polling.
 
 ## Security and permissions
 

@@ -43,8 +43,8 @@ declare global {
   }
 }
 
-const stableCardTag = "tasks-card-v2";
-const editorElementName = "tasks-card-v2-editor";
+const stableCardTag = "tasks-card";
+const editorElementName = "tasks-card-editor";
 const secondaryOptions: Array<{
   value: SecondaryInfo;
   label: string;
@@ -801,7 +801,7 @@ let cardMetadata = window.customCards.find(
 if (!cardMetadata) {
   cardMetadata = {
     type: stableCardTag,
-    name: "Tasks V2",
+    name: "Tasks",
   };
   window.customCards.push(cardMetadata);
 }

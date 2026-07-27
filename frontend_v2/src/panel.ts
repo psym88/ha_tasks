@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";
+import { openArchive } from "./archive";
 import { setLanguage, t } from "./localize";
 import { openTaskEditor } from "./task-form";
 import { taskTableElementName } from "./task-table";
@@ -60,6 +61,19 @@ class TasksPanelV2 extends LitElement {
       cursor: pointer;
     }
 
+    .backup {
+      min-height: 40px;
+      padding: 0 16px;
+      color: var(--primary-color);
+      background: transparent;
+      border: 1px solid var(--divider-color);
+      border-radius: 20px;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .backup:focus-visible,
     .add:focus-visible {
       outline: 2px solid var(--primary-color);
       outline-offset: 2px;
@@ -207,6 +221,13 @@ class TasksPanelV2 extends LitElement {
                 })}`
               : nothing}
             <button
+              class="backup"
+              type="button"
+              @click=${() => this.hass && void openArchive(this.hass)}
+            >
+              ${t("settings.import_export")}
+            </button>
+            <button
               class="add"
               type="button"
               @click=${() => this.hass && void openTaskEditor(this.hass)}
@@ -237,7 +258,7 @@ class TasksPanelV2 extends LitElement {
   }
 }
 
-const panelElementName = elementName("panel");
+const panelElementName = "tasks-panel";
 if (!customElements.get(panelElementName)) {
   customElements.define(panelElementName, TasksPanelV2);
 }

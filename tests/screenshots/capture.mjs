@@ -16,11 +16,11 @@ const desktop = { viewport: { width: 1440, height: 1000 } };
 const mobile = { viewport: { width: 390, height: 844 }, isMobile: true };
 const themes = ["light", "dark"];
 const editorBoxes = [
-  ["planning", ".schedule-box"],
-  ["assignment", ".assignment-box"],
-  ["notification", ".notification-box"],
-  ["files", ".files-box"],
-  ["history", ".history-box"],
+  ["planning", "Schedule"],
+  ["assignment", "Assignment"],
+  ["notification", "Notification"],
+  ["files", "Files"],
+  ["history", "History"],
 ];
 
 function isoAtOffset(days, hour = 8, minute = 0) {
@@ -406,9 +406,14 @@ async function seedData(socket, token) {
     },
   ];
 
+  const fileId = await uploadAttachment(token);
   const created = [];
   for (const definition of taskDefinitions) {
-    created.push(await socket.call({ type: "tasks/task/create", ...definition }));
+    created.push(await socket.call({
+      type: "tasks/task/save",
+      ...definition,
+      file_ids: definition.task_name === targetTaskName ? [fileId] : [],
+    }));
   }
 
   const target = created.find((task) => task.task_name === targetTaskName);
@@ -418,13 +423,6 @@ async function seedData(socket, token) {
     completed_at: "2029-01-15T07:30:00+00:00",
     notes: "Updated emergency contacts and checked the printed copy.",
   });
-  const fileId = await uploadAttachment(token);
-  await socket.call({
-    type: "tasks/attachment/create",
-    task_id: target.task_id,
-    file_id: fileId,
-  });
-
   await socket.call({
     type: "lovelace/dashboards/create",
     require_admin: false,
@@ -494,8 +492,7 @@ async function waitForPanel(page) {
       }
       return value;
     };
-    return panel?.tasks?.length >= 10
-      && !panel.loading
+    return panel?.snapshot?.tasks?.length >= 10
       && deepText(panel.shadowRoot).includes("Review emergency contacts");
   }, null, { timeout: uiWaitTimeout });
   await page.evaluate(() => document.fonts.ready);
@@ -506,7 +503,7 @@ async function openPanel(page) {
   await waitForPanel(page);
 }
 
-async function waitForPopup(page, popupTag) {
+async function waitForDialogContent(page, contentTag) {
   await page.waitForFunction((tag) => {
     const walk = (root) => {
       const direct = root.querySelector?.(tag);
@@ -519,8 +516,11 @@ async function waitForPopup(page, popupTag) {
       }
       return null;
     };
-    return Boolean(walk(document)?.shadowRoot?.querySelector("ha-adaptive-dialog"));
-  }, popupTag, { timeout: 30_000 });
+    const content = walk(document);
+    const dialog = walk(document)?.closest?.("ha-tasks-dialog")
+      || document.querySelector("ha-tasks-dialog");
+    return Boolean(content && dialog?.shadowRoot?.querySelector("dialog[open]"));
+  }, contentTag, { timeout: 30_000 });
 }
 
 async function openTaskViewer(page) {
@@ -538,11 +538,11 @@ async function openTaskViewer(page) {
       return null;
     };
     const panel = walk(document);
-    const task = panel.tasks.find((item) => item.task_name === taskName);
+    const task = panel.snapshot.tasks.find((item) => item.task_name === taskName);
     if (!task) throw new Error(`Screenshot task not found: ${taskName}`);
-    panel.taskViewer(task);
+    panel.openTask(task);
   }, targetTaskName);
-  await waitForPopup(page, "tasks-popup-task-viewer");
+  await waitForDialogContent(page, "ha-tasks-task-viewer");
   await page.waitForTimeout(350);
 }
 
@@ -562,15 +562,16 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
     };
     const panel = walk(document);
     const task = name
-      ? panel.tasks.find((item) => item.task_name === name)
+      ? panel.snapshot.tasks.find((item) => item.task_name === name)
       : null;
     if (name && !task) throw new Error(`Screenshot task not found: ${name}`);
-    panel.taskEditor(task);
+    if (task) panel.handleTaskAction("edit", task);
+    else panel.shadowRoot.querySelector(".add").click();
   }, taskName);
-  await waitForPopup(page, "tasks-popup-task-editor");
+  await waitForDialogContent(page, "ha-tasks-task-form");
   await page.waitForFunction(() => {
     const walk = (root) => {
-      const direct = root.querySelector?.("tasks-popup-task-editor");
+      const direct = root.querySelector?.("ha-tasks-task-form");
       if (direct) return direct;
       for (const node of root.querySelectorAll?.("*") || []) {
         if (node.shadowRoot) {
@@ -580,11 +581,12 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
       }
       return null;
     };
-    return Boolean(walk(document)?.shadowRoot?.querySelector(".files-box"));
+    const form = walk(document);
+    return Boolean(form && !form.loadingAssignments && !form.loadingDevices);
   }, null, { timeout: 30_000 });
-  await page.evaluate((selectedBox) => {
+  await page.evaluate((selectedHeading) => {
     const walk = (root) => {
-      const direct = root.querySelector?.("tasks-popup-task-editor");
+      const direct = root.querySelector?.("ha-tasks-task-form");
       if (direct) return direct;
       for (const node of root.querySelectorAll?.("*") || []) {
         if (node.shadowRoot) {
@@ -594,9 +596,11 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
       }
       return null;
     };
-    const popup = walk(document);
-    for (const panel of popup.shadowRoot.querySelectorAll("ha-expansion-panel")) {
-      panel.expanded = Boolean(selectedBox && panel.matches(selectedBox));
+    const form = walk(document);
+    for (const expandable of form.shadowRoot.querySelectorAll("ha-tasks-expandable")) {
+      expandable.open = Boolean(
+        selectedHeading && expandable.heading === selectedHeading,
+      );
     }
   }, expandedBox);
   await page.waitForTimeout(350);
@@ -618,7 +622,7 @@ async function openDashboard(page) {
         return null;
       };
       const card = walk(document);
-      return card?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".task-row");
+      return card?.snapshot?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".row");
     }, null, { timeout: uiWaitTimeout });
   } catch (error) {
     const diagnostics = await page.evaluate(() => ({
@@ -668,7 +672,7 @@ async function openDashboard(page) {
       return null;
     };
     const card = walk(document);
-    return card?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".task-row");
+    return card?.snapshot?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".row");
   }, null, { timeout: uiWaitTimeout });
   await page.evaluate((fixedNow) => {
     const walk = (root) => {
@@ -683,8 +687,8 @@ async function openDashboard(page) {
       return null;
     };
     const card = walk(document);
-    card.now = fixedNow;
-    card.render();
+    card.snapshot = { ...card.snapshot, now: fixedNow };
+    card.requestUpdate();
   }, referenceNow);
   await page.evaluate(() => document.fonts.ready);
 }
