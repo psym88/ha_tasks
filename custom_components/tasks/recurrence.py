@@ -8,44 +8,24 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .datetime_utils import parse_aware_datetime
-
-_INTERVAL_UNITS = {
-    "daily": "day",
-    "weekly": "week",
-    "monthly": "month",
-    "yearly": "year",
-}
+from .models import (
+    AfterCompletionSchedule,
+    FixedSchedule,
+    ProblemTrigger,
+    trigger_from_mapping,
+)
 
 
 def validate_schedule(task: dict[str, Any]) -> None:
     """Reject incomplete recurrence rules."""
-    if (
-        task.get("schedule_type") not in {"fixed", "sliding"}
-        or task.get("schedule_unit") not in _INTERVAL_UNITS
-        or task.get("schedule_interval") is None
-    ):
+    if task.get("schedule_type") == ProblemTrigger.type:
         raise ValueError("invalid_frequency")
-    if task.get("schedule_type") != "fixed":
-        return
-    if task.get("schedule_unit") == "weekly" and not task.get("schedule_weekdays"):
-        raise ValueError("select_at_least_one_weekday")
-    if task.get("schedule_unit") == "monthly" and task.get("schedule_day") is None:
-        raise ValueError("select_day_of_month")
-    if task.get("schedule_unit") == "yearly":
-        if task.get("schedule_month") is None:
-            raise ValueError("select_month_of_year")
-        if task.get("schedule_day") is None:
-            raise ValueError("select_day_of_month")
+    trigger_from_mapping(task)
 
 
 def validate_trigger(task: dict[str, Any]) -> None:
     """Reject incomplete recurrence and problem-sensor triggers."""
-    if task.get("schedule_type") == "sensor":
-        problem_sensor = str(task.get("problem_sensor") or "").strip()
-        if not problem_sensor.startswith("binary_sensor."):
-            raise ValueError("problem_sensor_required")
-        return
-    validate_schedule(task)
+    trigger_from_mapping(task)
 
 
 def _resolve_local(value: datetime) -> datetime:
@@ -169,6 +149,9 @@ def occurrences(
     """Yield local datetimes after a completion or new schedule boundary."""
     if from_datetime.tzinfo is None:
         raise ValueError("recurrence_timezone_required")
+    trigger = trigger_from_mapping(task)
+    if isinstance(trigger, ProblemTrigger):
+        raise ValueError("invalid_frequency")
     boundary = dt_util.as_local(from_datetime)
     current_due = (
         dt_util.as_local(parse_aware_datetime(task["task_due"]))
@@ -177,21 +160,19 @@ def occurrences(
     )
     anchor = (
         _with_schedule_time(task, current_due or boundary)
-        if task.get("schedule_type") == "fixed"
+        if isinstance(trigger, FixedSchedule)
         else current_due
     )
 
-    validate_schedule(task)
-    schedule_interval = max(1, int(task.get("schedule_interval") or 1))
-    schedule_unit = task.get("schedule_unit", "monthly")
-    schedule_type = task["schedule_type"]
+    schedule_interval = trigger.interval
+    schedule_unit = trigger.unit
 
     if current_due is None:
-        if schedule_type == "sliding":
+        if isinstance(trigger, AfterCompletionSchedule):
             due = add_interval(
                 boundary,
                 schedule_interval,
-                _INTERVAL_UNITS[schedule_unit],
+                schedule_unit.interval_unit,
             )
         else:
             assert anchor is not None
@@ -201,9 +182,10 @@ def occurrences(
                 boundary + timedelta(microseconds=1),
             )
         anchor = due
-    elif schedule_type == "sliding":
-        unit = _INTERVAL_UNITS[schedule_unit]
-        due = add_interval(boundary, schedule_interval, unit)
+    elif isinstance(trigger, AfterCompletionSchedule):
+        due = add_interval(
+            boundary, schedule_interval, schedule_unit.interval_unit
+        )
     else:
         # Completing a calendar task early must not consume its upcoming occurrence.
         assert anchor is not None
@@ -219,11 +201,11 @@ def occurrences(
 
     while True:
         yield due
-        if schedule_type == "sliding":
+        if isinstance(trigger, AfterCompletionSchedule):
             due = add_interval(
                 due,
                 schedule_interval,
-                _INTERVAL_UNITS[schedule_unit],
+                schedule_unit.interval_unit,
             )
         else:
             assert anchor is not None

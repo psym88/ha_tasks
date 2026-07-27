@@ -18,18 +18,9 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
 from .migrations import upgrade_store_data
-from .recurrence import occurrences, validate_trigger
+from .models import ProblemTrigger, TRIGGER_FIELDS, trigger_from_mapping
+from .recurrence import occurrences
 
-_SCHEDULE_FIELDS = (
-    "schedule_type",
-    "schedule_unit",
-    "schedule_interval",
-    "schedule_weekdays",
-    "schedule_day",
-    "schedule_month",
-    "schedule_time",
-    "problem_sensor",
-)
 _TASK_FIELDS = (
     "task_name",
     "task_icon",
@@ -55,67 +46,6 @@ def get_store(hass: HomeAssistant):
 
 def _now() -> str:
     return dt_util.utcnow().isoformat()
-
-
-def _schedule_signature(task: dict[str, Any]) -> tuple[Any, ...]:
-    """Return only values that affect the active recurrence rule."""
-    mode = task.get("schedule_type")
-    if mode == "sensor":
-        return (mode, task.get("problem_sensor"))
-    schedule_unit = task.get("schedule_unit")
-    values: list[Any] = [mode, schedule_unit, int(task.get("schedule_interval") or 1)]
-    if mode == "fixed":
-        values.append(task.get("schedule_time"))
-    if mode == "fixed" and schedule_unit == "weekly":
-        values.append(tuple(sorted(int(day) for day in task.get("schedule_weekdays") or [])))
-    elif mode == "fixed" and schedule_unit == "monthly":
-        values.append(task.get("schedule_day"))
-    elif mode == "fixed" and schedule_unit == "yearly":
-        values.extend((task.get("schedule_month"), task.get("schedule_day")))
-    return tuple(values)
-
-
-def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
-    """Clear recurrence values that do not belong to the active rule."""
-    normalized = dict(task)
-    if task.get("schedule_type") == "sensor":
-        normalized.update(
-            {
-                "schedule_unit": None,
-                "schedule_interval": None,
-                "schedule_weekdays": [],
-                "schedule_day": None,
-                "schedule_month": None,
-                "schedule_time": None,
-                "problem_sensor": str(task.get("problem_sensor") or "").strip(),
-            }
-        )
-        return normalized
-    normalized["problem_sensor"] = None
-    normalized["schedule_time"] = (
-        task.get("schedule_time")
-        if task.get("schedule_type") == "fixed"
-        else None
-    )
-    normalized["schedule_weekdays"] = (
-        list(task.get("schedule_weekdays") or [])
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") == "weekly"
-        else []
-    )
-    normalized["schedule_day"] = (
-        task.get("schedule_day")
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") in {"monthly", "yearly"}
-        else None
-    )
-    normalized["schedule_month"] = (
-        task.get("schedule_month")
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") == "yearly"
-        else None
-    )
-    return normalized
 
 
 class _TasksDataStore(Store[dict[str, Any]]):
@@ -318,12 +248,11 @@ class TasksStore:
     async def async_add_task(
         self, payload: dict[str, Any], now: datetime | None = None
     ) -> dict[str, Any]:
-        validate_trigger(payload)
-        sensor_schedule = payload.get("schedule_type") == "sensor"
+        trigger = trigger_from_mapping(payload)
         created_at = now or dt_util.utcnow()
         task_due = (
             None
-            if sensor_schedule
+            if isinstance(trigger, ProblemTrigger)
             else normalize_utc_datetime(
                 payload.get("task_due")
                 or next(occurrences(payload, created_at))
@@ -331,7 +260,7 @@ class TasksStore:
         )
         async with self._lock:
             nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
-            task = _normalize_schedule({
+            task = {
                 "task_id": uuid4().hex,
                 **{
                     key: payload.get(key)
@@ -339,9 +268,9 @@ class TasksStore:
                         "task_icon",
                         "task_description",
                         "assignee_id",
-                        *_SCHEDULE_FIELDS,
                     )
                 },
+                **trigger.storage_fields(),
                 "task_name": self._required_name(payload.get("task_name")),
                 "active": bool(payload.get("active", True)),
                 "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
@@ -359,7 +288,7 @@ class TasksStore:
                     payload.get("notification_route")
                 ),
                 "task_due": task_due,
-            })
+            }
             self._data["tasks"].append(task)
             await self._save()
             return task
@@ -394,33 +323,34 @@ class TasksStore:
                 values["notification_route"] = self._notification_route(
                     values["notification_route"]
                 )
-            old_schedule = _schedule_signature(task)
+            old_trigger = trigger_from_mapping(task)
             schedule_update = any(
-                key in payload for key in _SCHEDULE_FIELDS
+                key in payload for key in TRIGGER_FIELDS
             )
-            normalized_schedule = None
+            updated_trigger = None
             if schedule_update:
                 merged_schedule = {
                     **task,
                     **{
                         key: payload[key]
-                        for key in _SCHEDULE_FIELDS
+                        for key in TRIGGER_FIELDS
                         if key in payload
                     },
                 }
-                validate_trigger(merged_schedule)
-                normalized_schedule = _normalize_schedule(merged_schedule)
+                updated_trigger = trigger_from_mapping(merged_schedule)
             task.update(values)
-            if normalized_schedule is not None:
-                for key in _SCHEDULE_FIELDS:
-                    task[key] = normalized_schedule[key]
-            schedule_changed = _schedule_signature(task) != old_schedule
+            if updated_trigger is not None:
+                task.update(updated_trigger.storage_fields())
+            trigger = updated_trigger or old_trigger
+            schedule_changed = trigger.signature() != old_trigger.signature()
             if schedule_changed:
-                if task.get("schedule_type") == "sensor":
+                if isinstance(trigger, ProblemTrigger):
                     task["task_due"] = None
                 else:
                     boundary = dt_util.as_local(now or dt_util.utcnow())
-                    if task.get("task_due") and old_schedule[0] != "sensor":
+                    if task.get("task_due") and not isinstance(
+                        old_trigger, ProblemTrigger
+                    ):
                         previous_due = dt_util.as_local(
                             parse_aware_datetime(task["task_due"])
                         )
