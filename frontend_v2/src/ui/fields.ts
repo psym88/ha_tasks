@@ -110,13 +110,19 @@ class TasksTextField extends TasksField {
   static properties = {
     ...TasksField.properties,
     multiline: { type: Boolean },
+    inputType: { attribute: "input-type" },
+    min: { type: Number },
   };
 
   declare multiline: boolean;
+  declare inputType: "text" | "number" | "time";
+  declare min?: number;
 
   constructor() {
     super();
     this.multiline = false;
+    this.inputType = "text";
+    this.min = undefined;
   }
 
   protected render() {
@@ -136,7 +142,8 @@ class TasksTextField extends TasksField {
             `
           : html`
               <input
-                type="text"
+                type=${this.inputType}
+                min=${this.min ?? ""}
                 .value=${this.value}
                 ?required=${this.required}
                 ?disabled=${this.disabled}

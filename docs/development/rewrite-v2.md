@@ -145,13 +145,13 @@ not replaced the path yet.
 | Update task metadata | legacy | pending | partial update compatibility |
 | Delete task | legacy | pending | history and attachment cleanup |
 | Pause and resume | legacy | pending | stored due value remains stable |
-| Fixed daily recurrence | legacy | pending | local wall time and DST |
-| Fixed weekly recurrence | legacy | pending | weekdays and interval anchor |
-| Fixed monthly recurrence | legacy | pending | clamping and last day |
-| Fixed yearly recurrence | legacy | pending | leap-day clamping |
-| After-completion recurrence | legacy | pending | completion timestamp anchor |
-| Recurrence preview | legacy | pending | same authoritative calculation |
-| Problem-sensor trigger | legacy | pending | startup and off-to-on behavior |
+| Fixed daily recurrence | legacy | complete | local wall time and DST |
+| Fixed weekly recurrence | legacy | complete | weekdays and interval anchor |
+| Fixed monthly recurrence | legacy | complete | clamping and last day |
+| Fixed yearly recurrence | legacy | complete | leap-day clamping |
+| After-completion recurrence | legacy | complete | completion timestamp anchor |
+| Recurrence preview | legacy | complete | same authoritative calculation |
+| Problem-sensor trigger | legacy | complete | startup and off-to-on behavior |
 | Completion notes | legacy | pending | trimming and attribution |
 | Delete history | legacy | complete | deletion does not alter current due |
 | NFC completion | legacy | pending | user/context attribution |
@@ -385,8 +385,21 @@ not replaced the path yet.
   Home Assistant panel.
 - The hash-scoped bundle grew from 29,320 to 36,448 bytes. Verified all 145
   backend and 131 frontend tests.
+- Added the complete V2 planning editor for fixed schedules, after-completion
+  recurrence, and binary-sensor problem triggers.
+- Fixed schedules support daily, weekly, monthly, and yearly rhythms, including
+  weekdays, last-day selection, month selection, interval, and local wall time.
+- Kept recurrence calculation in the authoritative
+  `tasks/task/preview_next_due` backend command. Fixed schedules show the next
+  dates while after-completion schedules show only their first due date.
+- Preserved unchanged schedules by sending only their existing trigger type;
+  detailed schedule fields are sent only after the user edits planning.
+- Verified the unchanged, yearly, after-completion, and problem-sensor paths
+  with exact preview and save payloads in a browser.
+- The hash-scoped bundle grew from 36,448 to 47,873 bytes. Verified all 145
+  backend and 133 frontend tests.
 
 ## Next action
 
-Add the V2 planning form section and recurrence preview while retaining the
-existing authoritative scheduling behavior.
+Add the V2 assignment section for assignee, labels, and NFC tags using owned
+controls and snapshot-derived options.

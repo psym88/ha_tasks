@@ -119,10 +119,31 @@ test("V2 owns its text textarea select and combobox controls", () => {
   assert.doesNotMatch(fields, /ha-textfield|ha-selector|ha-combo-box/);
 });
 
-test("V2 editor saves only safe task details in one transaction", () => {
+test("V2 editor saves task details and planning in one transaction", () => {
   assert.match(api, /type: "tasks\/task\/save"/);
+  assert.match(api, /schedulePayload\(details\.schedule\)/);
   assert.match(api, /schedule_type: task\.schedule_type/);
   assert.match(api, /deleted_attachment_ids: \[\]/);
   assert.match(taskForm, /run: \(\) => form\.save\(\)/);
   assert.match(taskForm, /if \(!name\)/);
+  assert.match(taskForm, /this\.scheduleDirty \? schedule : undefined/);
+});
+
+test("V2 planning uses the authoritative preview API for every recurrence", () => {
+  assert.match(api, /type: "tasks\/task\/preview_next_due"/);
+  assert.match(taskForm, /previewTaskSchedule/);
+  assert.match(taskForm, /scheduleType === "sensor"/);
+  assert.match(taskForm, /scheduleUnit === "weekly"/);
+  assert.match(taskForm, /scheduleUnit === "monthly"/);
+  assert.match(taskForm, /scheduleUnit === "yearly"/);
+  assert.match(taskForm, /Select at least one weekday/);
+  assert.match(taskForm, /startsWith\("binary_sensor\."\)/);
+});
+
+test("V2 planning sends only fields used by the selected trigger", () => {
+  assert.match(api, /if \(schedule\.type === "sensor"\)/);
+  assert.match(api, /problem_sensor: schedule\.problemSensor\.trim\(\)/);
+  assert.match(api, /if \(schedule\.type === "fixed"\)/);
+  assert.match(api, /schedule_weekdays = schedule\.weekdays/);
+  assert.match(api, /schedule_month = schedule\.month/);
 });
