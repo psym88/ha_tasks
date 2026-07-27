@@ -10,13 +10,19 @@ import { esc, t } from "./localize.js";
 
 export const TASKS_DATA_TABLE_TAG="tasks-data-table";
 
+export function matchesDimensionFilters(row,filters={},dimensions={}) {
+  return Object.entries(dimensions).every(([column,field])=>{
+    const selected=filters[column]||[],value=row[field],values=Array.isArray(value)?value:[value];
+    return !selected.length||selected.some(item=>values.includes(item));
+  });
+}
+
 export class TasksDataTable extends HTMLElement {
   constructor(){
     super();
     this.attachShadow({mode:"open"});
     this._data=[];
     this._columns={};
-    this._columnOrder=[];
     this._hiddenColumns=[];
     this._sorting=[];
     this._grouping=[];
@@ -24,9 +30,10 @@ export class TasksDataTable extends HTMLElement {
     this._rowSelection={};
     this._lastSelectedRowId=null;
     this._search="";
+    this._dimensionFilters={};
+    this._filterDimensions={};
     this._openMenu=null;
     this._displayExpanded={columns:false,grouping:false};
-    this._defaultColumnOrder=undefined;
     this._defaultHiddenColumns=undefined;
     this._defaultSorting=undefined;
     this.filters=0;
@@ -66,9 +73,6 @@ export class TasksDataTable extends HTMLElement {
   get data(){return this._data;}
   set columns(value){this._columns=value||{};this.update();}
   get columns(){return this._columns;}
-  set defaultColumnOrder(value){this._defaultColumnOrder=Array.isArray(value)?[...value]:[];}
-  set columnOrder(value){this._columnOrder=Array.isArray(value)?value:[];this.update();}
-  get columnOrder(){return this._columnOrder;}
   set defaultHiddenColumns(value){this._defaultHiddenColumns=Array.isArray(value)?[...value]:[];}
   set hiddenColumns(value){this._hiddenColumns=Array.isArray(value)?value:[];this.update();}
   get hiddenColumns(){return this._hiddenColumns;}
@@ -78,6 +82,10 @@ export class TasksDataTable extends HTMLElement {
   set initialCollapsedGroups(value){this._expanded=value&&typeof value==="object"?value:{};}
   set filter(value){this._search=String(value||"");}
   get filter(){return this._search;}
+  set dimensionFilters(value){this._dimensionFilters=value&&typeof value==="object"?value:{};this.update();}
+  get dimensionFilters(){return this._dimensionFilters;}
+  set filterDimensions(value){this._filterDimensions=value&&typeof value==="object"?value:{};this.update();}
+  get filterDimensions(){return this._filterDimensions;}
   set selected(value){this._selected=Number(value)||0;this.renderSelection();}
   get selected(){return this._selected||0;}
 
@@ -100,13 +108,12 @@ export class TasksDataTable extends HTMLElement {
     this._sorting=(this._defaultSorting||[]).map(item=>({...item}));
     this._grouping=[];
     this._expanded={};
-    this._columnOrder=[...(this._defaultColumnOrder||Object.keys(this._columns))];
     this._hiddenColumns=[...(this._defaultHiddenColumns||[])];
     const sorting=this._sorting[0];
     this.dispatchEvent(new CustomEvent("sorting-changed",{detail:sorting?{column:sorting.id,direction:sorting.desc?"desc":"asc"}:undefined}));
     this.dispatchEvent(new CustomEvent("grouping-changed",{detail:{value:undefined}}));
     this.dispatchEvent(new CustomEvent("collapsed-changed",{detail:{value:{}}}));
-    this.dispatchEvent(new CustomEvent("columns-changed",{detail:{columnOrder:this._columnOrder,hiddenColumns:this._hiddenColumns}}));
+    this.dispatchEvent(new CustomEvent("columns-changed",{detail:{hiddenColumns:this._hiddenColumns}}));
     this.update();
   }
 
@@ -130,9 +137,8 @@ export class TasksDataTable extends HTMLElement {
       sorting:this._sorting,
       grouping:this._grouping,
       expanded:this._expanded,
-      globalFilter:this._search,
+      globalFilter:{search:this._search,dimensions:this._dimensionFilters},
       rowSelection:this._rowSelection,
-      columnOrder:this._columnOrder,
       columnVisibility:Object.fromEntries(Object.keys(this._columns).map(id=>[id,!this._hiddenColumns.includes(id)])),
     };
     this._table.setOptions(previous=>({
@@ -141,7 +147,8 @@ export class TasksDataTable extends HTMLElement {
       columns:this.columnDefinitions(),
       state,
       globalFilterFn:(row,_columnId,value)=>{
-        const needle=String(value||"").toLocaleLowerCase();
+        if(!matchesDimensionFilters(row.original,value?.dimensions,this._filterDimensions))return false;
+        const needle=String(value?.search||"").toLocaleLowerCase();
         return !needle||Object.values(row.original).some(item=>String(item??"").toLocaleLowerCase().includes(needle));
       },
       onSortingChange:updater=>{
@@ -180,6 +187,7 @@ export class TasksDataTable extends HTMLElement {
     const previousSearch=this.shadowRoot?.activeElement?.classList?.contains("search")
       ? {start:this.shadowRoot.activeElement.selectionStart,end:this.shadowRoot.activeElement.selectionEnd}
       : null;
+    const previousScrollTop=this.shadowRoot?.querySelector(".table-wrap")?.scrollTop||0;
     this.syncTable();
     const visibleColumns=this._table.getVisibleLeafColumns();
     this.shadowRoot.innerHTML=`<style>
@@ -216,7 +224,7 @@ export class TasksDataTable extends HTMLElement {
         <div class="popover filter-popover"><ha-icon-button class="filter-toggle" aria-label="${esc(t("table.filters"))}"><ha-icon icon="mdi:filter-variant"></ha-icon>${this.filters?`<span class="badge">${this.filters}</span>`:""}</ha-icon-button><div class="menu filter-menu" ${this._openMenu==="filter"?"":"hidden"}><div class="filters"><slot name="filter-pane"></slot></div><div class="menu-action"><ha-button class="reset-filters" appearance="plain">${esc(t("table.reset_filters"))}</ha-button></div></div></div>
         <div class="popover display-popover"><ha-icon-button class="settings-toggle" aria-label="${esc(t("table.display"))}"><ha-icon icon="mdi:view-column-outline"></ha-icon></ha-icon-button><div class="menu display-menu" ${this._openMenu==="display"?"":"hidden"}>
           <ha-expansion-panel left-chevron class="columns-panel" ${this._displayExpanded.columns?"expanded":""}><span slot="header">${esc(t("table.columns"))}</span><div class="display-options">
-            ${this._columnOrder.filter(id=>this._columns[id]?.hideable!==false).map(id=>`<label><ha-checkbox data-column="${esc(id)}"></ha-checkbox><span>${esc(this._columns[id]?.title||this._columns[id]?.label||id)}</span></label>`).join("")}
+            ${Object.entries(this._columns).filter(([,column])=>column?.hideable!==false).map(([id,column])=>`<label><ha-checkbox data-column="${esc(id)}"></ha-checkbox><span>${esc(column?.title||column?.label||id)}</span></label>`).join("")}
           </div></ha-expansion-panel>
           <ha-expansion-panel left-chevron class="grouping-panel" ${this._displayExpanded.grouping?"expanded":""}><span slot="header">${esc(t("table.group_by"))}</span>
             <div class="display-options"><label><input type="radio" name="group" value="" ${this._grouping.length?"":"checked"}><span>${esc(t("table.no_group"))}</span></label>${Object.entries(this._columns).filter(([,column])=>column.groupable).map(([id,column])=>`<label><input type="radio" name="group" value="${esc(id)}" ${this._grouping[0]===id?"checked":""}><span>${esc(column.title||id)}</span></label>`).join("")}</div>
@@ -239,6 +247,7 @@ export class TasksDataTable extends HTMLElement {
     this.renderRows(visibleColumns);
     this.wire();
     this.renderSelection();
+    this.shadowRoot.querySelector(".table-wrap").scrollTop=previousScrollTop;
     if(previousSearch){
       const search=this.shadowRoot.querySelector(".search");
       search.focus();
@@ -320,7 +329,7 @@ export class TasksDataTable extends HTMLElement {
         const visible=!this._hiddenColumns.includes(checkbox.dataset.column);
         const hidden=visible?[...new Set([...this._hiddenColumns,checkbox.dataset.column])]:this._hiddenColumns.filter(id=>id!==checkbox.dataset.column);
         this._hiddenColumns=hidden;
-        this.dispatchEvent(new CustomEvent("columns-changed",{detail:{columnOrder:this._columnOrder,hiddenColumns:hidden}}));
+        this.dispatchEvent(new CustomEvent("columns-changed",{detail:{hiddenColumns:hidden}}));
         this.update();
       };
       checkbox.onchange=toggle;

@@ -4,31 +4,14 @@ import "./tasks-data-table.js";
 import { SETTINGS_CONTENT_TAG } from "./popup-settings.js";
 import {
   DEFAULT_HIDDEN_TASK_COLUMNS,
-  DEFAULT_TASK_COLUMN_ORDER,
   INITIAL_TASK_SORTING,
-  TASK_TABLE_LOCAL_STORAGE_KEY,
-  TASK_TABLE_SESSION_STORAGE_KEY,
   loadTaskTableView,
   storeTaskTableView,
 } from "./task-table-view.js";
 import {
-  NO_DUE_TIMESTAMP,
   createTaskTableRows,
   deviceName,
-  dueTimestamp,
 } from "./task-table-rows.js";
-
-export {
-  DEFAULT_HIDDEN_TASK_COLUMNS,
-  DEFAULT_TASK_COLUMN_ORDER,
-  INITIAL_TASK_SORTING,
-  NO_DUE_TIMESTAMP,
-  TASK_TABLE_LOCAL_STORAGE_KEY,
-  TASK_TABLE_SESSION_STORAGE_KEY,
-  deviceName,
-  dueTimestamp,
-  loadTaskTableView,
-};
 
 export const knownReferenceId=(id,items=[],key="id")=>id&&items.some(item=>item[key]===id)?id:null;
 export const knownLabelIds=(ids=[],labels=[])=>ids.filter(id=>knownReferenceId(id,labels,"label_id"));
@@ -41,6 +24,7 @@ export const TASK_TABLE_DIMENSIONS = {
   rhythm:{title:"table.rhythm",icon:"mdi:repeat",values:"rhythm_id"},
 };
 export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
+const TASK_TABLE_FILTER_DIMENSIONS=Object.fromEntries(Object.entries(TASK_TABLE_DIMENSIONS).map(([name,definition])=>[name,definition.values]));
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 
 export class TasksSidebarFilterCategory extends HTMLElement {
@@ -63,10 +47,6 @@ if(!customElements.get(FILTER_CATEGORY_TAG))customElements.define(FILTER_CATEGOR
 
 export function taskTableRows(tasks,{users=[],tags=[],labels=[],devices=[],attachments=[],translate=t,locale}={}) {
   return createTaskTableRows(tasks,{users,tags,labels,devices,attachments,translate,locale});
-}
-
-export function filterTaskTableRows(rows,filters={}) {
-  return rows.filter(row=>TASK_FILTER_COLUMNS.every(column=>{const selected=filters[column]||[],value=row[TASK_TABLE_DIMENSIONS[column].values],values=Array.isArray(value)?value:[value];return !selected.length||selected.some(item=>values.includes(item));}));
 }
 
 function textCell(value,title) {
@@ -145,16 +125,21 @@ export const withTaskList = Base => class extends Base {
   activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
     const groupable={sortable:true,groupable:true};
+    const dimension=name=>({title:t(TASK_TABLE_DIMENSIONS[name].title),...groupable});
     const available={
       icon:{title:"",hideable:false,template:row=>taskIconCell(row)},
       name:{title:t("table.task"),sortable:true,template:row=>taskNameCell(row)},
       due_ts:{title:t("task.due"),sortable:true,template:row=>textCell(row.task.active!==false&&row.task.task_due?this.date(row.task.task_due," - "):"–")},
+      assignee:dimension("assignee"),
       nfc_tag:{title:t("task.nfc_tag_id"),sortable:true},
       files:{title:t("task.files"),sortable:true},
+      labels:dimension("labels"),
+      notifications:dimension("notifications"),
+      recurrence:dimension("recurrence"),
+      rhythm:dimension("rhythm"),
+      actions:{title:"",hideable:false,template:row=>this.taskActionButton(row.task)},
     };
-    for(const [name,definition] of Object.entries(TASK_TABLE_DIMENSIONS))available[name]={title:t(definition.title),...groupable};
-    available.actions={title:"",hideable:false,template:row=>this.taskActionButton(row.task)};
-    return Object.fromEntries(DEFAULT_TASK_COLUMN_ORDER.map(name=>[name,available[name]]));
+    return available;
   }
   taskActionButton(task){
     return createActionMenu({
@@ -198,13 +183,12 @@ export const withTaskList = Base => class extends Base {
       const wrapper=document.createElement("tasks-data-table"),settings=document.createElement(SETTINGS_CONTENT_TAG),filterPane=document.createElement("div"),fab=document.createElement("ha-button"),fabIcon=document.createElement("ha-icon");
       wrapper.style.setProperty("--main-title-margin","0");
       wrapper.defaultSorting=INITIAL_TASK_SORTING;
-      wrapper.defaultColumnOrder=DEFAULT_TASK_COLUMN_ORDER;
       wrapper.defaultHiddenColumns=DEFAULT_HIDDEN_TASK_COLUMNS;
+      wrapper.filterDimensions=TASK_TABLE_FILTER_DIMENSIONS;
       wrapper.filter=view.search;
       wrapper.initialSorting=view.sorting;
       wrapper.initialGroupColumn=view.grouping;
       wrapper.initialCollapsedGroups=view.collapsed;
-      wrapper.columnOrder=Array.isArray(view.columnOrder)?[...view.columnOrder]:[...DEFAULT_TASK_COLUMN_ORDER];
       wrapper.hiddenColumns=Array.isArray(view.hiddenColumns)?[...view.hiddenColumns]:[...DEFAULT_HIDDEN_TASK_COLUMNS];
       settings.slot="settings-pane";
       settings.controller=this;
@@ -226,7 +210,7 @@ export const withTaskList = Base => class extends Base {
       wrapper.addEventListener("sorting-changed",event=>this.persistTaskTableValue("sorting",event.detail));
       wrapper.addEventListener("grouping-changed",event=>this.persistTaskTableValue("grouping",event.detail?.value||undefined));
       wrapper.addEventListener("collapsed-changed",event=>this.persistTaskTableValue("collapsed",event.detail?.value));
-      wrapper.addEventListener("columns-changed",event=>{const {columnOrder,hiddenColumns}=event.detail||{};this.persistTaskTableValue("columnOrder",columnOrder);this.persistTaskTableValue("hiddenColumns",hiddenColumns);});
+      wrapper.addEventListener("columns-changed",event=>this.persistTaskTableValue("hiddenColumns",event.detail?.hiddenColumns));
     }
     this.updateTaskTable();
   }
@@ -242,7 +226,8 @@ export const withTaskList = Base => class extends Base {
     wrapper.narrow=Boolean(this.narrow);
     wrapper.filters=this.activeFilterCount();
     wrapper.columns=this.tableColumns();
-    wrapper.data=filterTaskTableRows(rows,this.tableFilters);
+    wrapper.dimensionFilters=this.tableFilters;
+    wrapper.data=rows;
     wrapper.selected=(this.selectedTaskIds||[]).length;
     if(!wrapper.querySelector('[slot="selection-bar"]')?.open)this.appendBulkActions(wrapper);
     wrapper.noDataText=t("table.empty");

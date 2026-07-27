@@ -13,10 +13,10 @@ globalThis.fetch = async url => {
 const {ready,setLanguage}=await import("../../custom_components/tasks/frontend/localize.js");
 await ready;
 await setLanguage("en");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,DEFAULT_TASK_COLUMN_ORDER,INITIAL_TASK_SORTING,NO_DUE_TIMESTAMP,TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,dueTimestamp,filterTaskTableRows,loadTaskTableView,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
-const {createTaskTableRows}=await import("../../custom_components/tasks/frontend/task-table-rows.js");
-const {storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-view.js");
-const {knownLabelIds,knownReferenceId}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,knownLabelIds,knownReferenceId,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
+const {NO_DUE_TIMESTAMP,createTaskTableRows,dueTimestamp}=await import("../../custom_components/tasks/frontend/task-table-rows.js");
+const {DEFAULT_HIDDEN_TASK_COLUMNS,INITIAL_TASK_SORTING,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,loadTaskTableView,storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-view.js");
+const {matchesDimensionFilters}=await import("../../custom_components/tasks/frontend/tasks-data-table.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
@@ -78,25 +78,28 @@ test("sensor tasks show no rhythm and do not create an empty filter option",()=>
   assert.deepEqual(row.filter_options.rhythm,[]);
 });
 
-test("native pane filters combine dimensions and allow multiple values within one dimension",()=>{
+test("TanStack filters combine dimensions and allow multiple values within one dimension",()=>{
   const rows=[
     {id:"1",assignee_id:"alex",label_ids:["chores","upstairs"],notification_ids:["phone","panel"],recurrence_id:"fixed",rhythm_id:"weekly"},
     {id:"2",assignee_id:"alex",label_ids:["garden"],notification_ids:["tablet"],recurrence_id:"sliding",rhythm_id:"monthly"},
     {id:"3",assignee_id:"sam",label_ids:["chores"],notification_ids:["phone"],recurrence_id:"fixed",rhythm_id:"daily"},
   ];
-  assert.deepEqual(filterTaskTableRows(rows,{assignee:["alex"]}).map(row=>row.id),["1","2"]);
-  assert.deepEqual(filterTaskTableRows(rows,{rhythm:["weekly","daily"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{recurrence:["fixed"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{labels:["chores"]}).map(row=>row.id),["1","3"]);
-  assert.deepEqual(filterTaskTableRows(rows,{notifications:["panel"]}).map(row=>row.id),["1"]);
-  assert.equal(filterTaskTableRows(rows,{}).length,3);
+  const dimensions={assignee:"assignee_id",labels:"label_ids",notifications:"notification_ids",recurrence:"recurrence_id",rhythm:"rhythm_id"};
+  const filtered=filters=>rows.filter(row=>matchesDimensionFilters(row,filters,dimensions)).map(row=>row.id);
+  assert.deepEqual(filtered({assignee:["alex"]}),["1","2"]);
+  assert.deepEqual(filtered({rhythm:["weekly","daily"]}),["1","3"]);
+  assert.deepEqual(filtered({recurrence:["fixed"]}),["1","3"]);
+  assert.deepEqual(filtered({labels:["chores"]}),["1","3"]);
+  assert.deepEqual(filtered({notifications:["panel"]}),["1"]);
+  assert.deepEqual(filtered({}),["1","2","3"]);
 });
 
 test("panel uses the framework-neutral TanStack table wrapper",()=>{
   const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
   assert.match(source,/import "\.\/tasks-data-table\.js"/);
   assert.match(source,/createElement\("tasks-data-table"\)/);
-  assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
+  assert.match(source,/wrapper\.dimensionFilters=this\.tableFilters/);
+  assert.match(source,/wrapper\.data=rows/);
   assert.match(source,/wrapper\.initialSorting=view\.sorting/);
   assert.deepEqual(INITIAL_TASK_SORTING,{column:"due_ts",direction:"asc"});
   assert.match(tableSource,/from "\.\/vendor\/tanstack-table-core\.mjs"/);
@@ -126,6 +129,8 @@ test("table toolbar and scrolling keep controls and headers stable",()=>{
   assert.doesNotMatch(tableSource,/thead\{position:sticky/);
   assert.match(tableSource,/<div class="content">\s*<div class="selection/);
   assert.match(tableSource,/@container \(max-width:600px\)\{[\s\S]*?\.table-wrap thead th button\{pointer-events:none;cursor:default\}/);
+  assert.match(tableSource,/const previousScrollTop=this\.shadowRoot\?\.querySelector\("\.table-wrap"\)\?\.scrollTop\|\|0/);
+  assert.match(tableSource,/this\.shadowRoot\.querySelector\("\.table-wrap"\)\.scrollTop=previousScrollTop/);
   assert.match(tableSource,/\.fab\{position:fixed;z-index:3;/);
   assert.match(tableSource,/row\.className="empty-row";cell\.colSpan=columns\.length\+1/);
   assert.match(tableSource,/tbody tr\.group-row,tbody tr\.empty-row\{display:table;width:100%\}/);
@@ -202,14 +207,16 @@ test("panel title uses Home Assistant's compact native title margin",()=>{
   assert.match(source,/wrapper\.style\.setProperty\("--main-title-margin","0"\)/);
 });
 
-test("table starts with the requested visible columns in order",()=>{
-  assert.deepEqual(DEFAULT_TASK_COLUMN_ORDER,["icon","name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"]);
+test("table starts with the requested visible columns in definition order",()=>{
   assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
-  assert.match(source,/wrapper\.columnOrder=Array\.isArray\(view\.columnOrder\)/);
   assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
   assert.equal(TASK_TABLE_DIMENSIONS.notifications.title,"table.notifications");
   assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
-  assert.match(source,/Object\.fromEntries\(DEFAULT_TASK_COLUMN_ORDER\.map/);
+  assert.match(source,/return available/);
+  const columnsSource=source.slice(source.indexOf("tableColumns(){"),source.indexOf("taskActionButton(task)"));
+  for(const [left,right] of [["icon","name"],["name","due_ts"],["due_ts","assignee"],["assignee","nfc_tag"],["nfc_tag","files"],["files","labels"],["labels","notifications"],["notifications","recurrence"],["recurrence","rhythm"],["rhythm","actions"]]){
+    assert.ok(columnsSource.indexOf(`${left}:`)<columnsSource.indexOf(`${right}:`),`${left} should precede ${right}`);
+  }
 });
 
 test("custom table view survives reloads using the same storage split as Home Assistant",()=>{
@@ -224,7 +231,6 @@ test("custom table view survives reloads using the same storage split as Home As
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
-    columnOrder:["name","assignee","actions"],
     hiddenColumns:["files","labels"],
   });
 
@@ -234,7 +240,6 @@ test("custom table view survives reloads using the same storage split as Home As
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
-    columnOrder:DEFAULT_TASK_COLUMN_ORDER,
     hiddenColumns:["files","labels"],
   });
   assert.ok(local.getItem(TASK_TABLE_LOCAL_STORAGE_KEY));
@@ -262,7 +267,9 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/\.filters\{box-sizing:border-box;width:100%\}/);
   assert.doesNotMatch(source,/\.filters\{[^}]*margin/);
   assert.match(source,/wrapper\.filters=this\.activeFilterCount\(\)/);
-  assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
+  assert.match(source,/wrapper\.filterDimensions=TASK_TABLE_FILTER_DIMENSIONS/);
+  assert.match(source,/wrapper\.dimensionFilters=this\.tableFilters/);
+  assert.match(source,/wrapper\.data=rows/);
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
   assert.match(source,/value-changed"[\s\S]*?persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);
   assert.match(source,/clear-filter",\(\)=>\{this\.tableFilters=\{\};this\.persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);

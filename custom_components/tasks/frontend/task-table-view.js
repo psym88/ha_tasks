@@ -1,5 +1,4 @@
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
-export const DEFAULT_TASK_COLUMN_ORDER = ["icon","name","due_ts","assignee","nfc_tag","files","labels","notifications","recurrence","rhythm","actions"];
 export const DEFAULT_HIDDEN_TASK_COLUMNS = ["labels","notifications","recurrence","rhythm"];
 export const TASK_TABLE_LOCAL_STORAGE_KEY = "tasks-table-state-v1";
 export const TASK_TABLE_SESSION_STORAGE_KEY = "tasks-table-session-v1";
@@ -13,16 +12,6 @@ function storedValue(storage,key,fallback) {
   }
 }
 
-function normalizedColumnOrder(value) {
-  const order=Array.isArray(value)?value.filter(column=>DEFAULT_TASK_COLUMN_ORDER.includes(column)):[...DEFAULT_TASK_COLUMN_ORDER];
-  for(const column of DEFAULT_TASK_COLUMN_ORDER)if(!order.includes(column)){
-    const next=DEFAULT_TASK_COLUMN_ORDER.slice(DEFAULT_TASK_COLUMN_ORDER.indexOf(column)+1).find(candidate=>order.includes(candidate));
-    const index=next?order.indexOf(next):order.length;
-    order.splice(index,0,column);
-  }
-  return order;
-}
-
 export function loadTaskTableView(localStorage,sessionStorage) {
   const local=storedValue(localStorage,TASK_TABLE_LOCAL_STORAGE_KEY,{});
   const session=storedValue(sessionStorage,TASK_TABLE_SESSION_STORAGE_KEY,{});
@@ -33,7 +22,6 @@ export function loadTaskTableView(localStorage,sessionStorage) {
     sorting:local.sorting||INITIAL_TASK_SORTING,
     grouping:local.grouping,
     collapsed:local.collapsed,
-    columnOrder:normalizedColumnOrder(local.columnOrder),
     hiddenColumns:Array.isArray(local.hiddenColumns)?local.hiddenColumns:[...DEFAULT_HIDDEN_TASK_COLUMNS],
   };
 }
@@ -44,7 +32,6 @@ export function storeTaskTableView(localStorage,sessionStorage,view) {
       sorting:view.sorting,
       grouping:view.grouping,
       collapsed:view.collapsed,
-      columnOrder:view.columnOrder,
       hiddenColumns:view.hiddenColumns,
     }));
   } catch {
