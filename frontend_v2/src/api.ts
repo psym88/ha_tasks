@@ -54,6 +54,22 @@ export interface FileChanges {
   deletedHistoryEntryIds: string[];
 }
 
+export type BulkTaskOperation =
+  | {
+      action: "update";
+      task_id: string;
+      changes: Partial<Task>;
+    }
+  | {
+      action: "complete";
+      task_id: string;
+      notes: null;
+    }
+  | {
+      action: "delete";
+      task_id: string;
+    };
+
 export interface RecurrenceScheduleDetails {
   type: Exclude<ScheduleType, "sensor">;
   unit: ScheduleUnit;
@@ -193,6 +209,15 @@ export const loadNotificationDevices = async (
     device.identifiers?.some((identifier) => identifier?.[0] === "mobile_app"),
   );
 };
+
+export const mutateTasks = (
+  hass: HomeAssistant,
+  operations: BulkTaskOperation[],
+): Promise<unknown> =>
+  hass.connection.sendMessagePromise({
+    type: "tasks/task/bulk",
+    operations,
+  });
 
 export const loadTaskHistory = (
   hass: HomeAssistant,

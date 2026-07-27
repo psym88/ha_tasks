@@ -256,6 +256,38 @@ test("V2 table persists durable and per-tab view state separately", () => {
   assert.match(taskTable, /catch \{[\s\S]*Storage can be unavailable/);
 });
 
+test("V2 table selection submits one transactional bulk command", () => {
+  assert.match(api, /type: "tasks\/task\/bulk"/);
+  assert.match(api, /operations,/);
+  assert.match(taskTable, /selectedIds: \{ state: true \}/);
+  assert.match(taskTable, /aria-label="Select visible tasks"/);
+  assert.match(taskTable, /aria-label="Select \$\{task\.task_name\}"/);
+  assert.match(taskTable, /private bulkOperations\(\): BulkTaskOperation\[\]/);
+  assert.match(taskTable, /await mutateTasks\(this\.hass, operations\)/);
+  assert.match(taskTable, /action: "complete"/);
+  assert.match(taskTable, /action: "delete"/);
+  assert.match(taskTable, /action: "update"/);
+});
+
+test("V2 bulk actions cover existing assignment and notification behavior", () => {
+  for (const action of [
+    "pause",
+    "resume",
+    "assign",
+    "add-label",
+    "remove-label",
+    "add-notification",
+    "remove-notification",
+  ]) {
+    assert.match(taskTable, new RegExp(`"${action}"`));
+  }
+  assert.match(taskTable, /notification_persistent:/);
+  assert.match(taskTable, /notification_target:/);
+  assert.match(taskTable, /label_ids:/);
+  assert.match(taskTable, /assignee_id:/);
+  assert.match(taskTable, /openTasksDialog/);
+});
+
 test("V2 planning uses the authoritative preview API for every recurrence", () => {
   assert.match(api, /type: "tasks\/task\/preview_next_due"/);
   assert.match(taskForm, /previewTaskSchedule/);

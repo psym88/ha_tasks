@@ -4,6 +4,8 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 import {
   loadAssignmentOptions,
   loadNotificationDevices,
+  mutateTasks,
+  type BulkTaskOperation,
 } from "./api";
 import type {
   HomeAssistant,
@@ -16,12 +18,24 @@ import {
   actionMenuElementName,
   type ActionMenuItem,
 } from "./ui/action-menu";
+import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
 type SortKey = "name" | "due" | "assignee" | "trigger" | "status";
 type SortDirection = "asc" | "desc";
 type FilterKey = "assignee" | "labels" | "notifications" | "trigger";
 type Filters = Record<FilterKey, string[]>;
+type BulkAction =
+  | ""
+  | "complete"
+  | "pause"
+  | "resume"
+  | "assign"
+  | "add-label"
+  | "remove-label"
+  | "add-notification"
+  | "remove-notification"
+  | "delete";
 type ColumnKey =
   | "due"
   | "assignee"
@@ -100,6 +114,11 @@ class TasksTaskTable extends LitElement {
     devices: { state: true },
     registryError: { state: true },
     columns: { state: true },
+    selectedIds: { state: true },
+    bulkAction: { state: true },
+    bulkTarget: { state: true },
+    bulkBusy: { state: true },
+    bulkError: { state: true },
   };
 
   static styles = css`
@@ -113,6 +132,52 @@ class TasksTaskTable extends LitElement {
       align-items: flex-start;
       gap: 8px;
       margin-bottom: 12px;
+    }
+
+    .bulk-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-card-border-radius, 12px);
+    }
+
+    .bulk-count {
+      margin-right: auto;
+      font-weight: 500;
+    }
+
+    .bulk-bar select,
+    .bulk-bar button {
+      min-height: 36px;
+      box-sizing: border-box;
+      padding: 0 10px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    .bulk-bar button {
+      color: var(--primary-color);
+      cursor: pointer;
+    }
+
+    .bulk-bar button:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .bulk-error {
+      flex-basis: 100%;
+      margin: 0;
+      color: var(--error-color);
     }
 
     .search {
@@ -330,6 +395,13 @@ class TasksTaskTable extends LitElement {
       text-align: center;
     }
 
+    .selection {
+      width: 48px;
+      padding-right: 8px;
+      padding-left: 12px;
+      text-align: center;
+    }
+
     .empty {
       padding: 28px 16px;
       color: var(--secondary-text-color);
@@ -360,6 +432,10 @@ class TasksTaskTable extends LitElement {
 
       .toolbar {
         flex-wrap: wrap;
+      }
+
+      .bulk-count {
+        flex-basis: 100%;
       }
 
       .search {
@@ -403,6 +479,11 @@ class TasksTaskTable extends LitElement {
   declare devices: TasksDevice[];
   declare registryError: string;
   declare columns: ColumnVisibility;
+  declare selectedIds: string[];
+  declare bulkAction: BulkAction;
+  declare bulkTarget: string;
+  declare bulkBusy: boolean;
+  declare bulkError: string;
 
   private registryConnection?: HomeAssistant["connection"];
 
@@ -453,6 +534,11 @@ class TasksTaskTable extends LitElement {
     this.labels = [];
     this.devices = [];
     this.registryError = "";
+    this.selectedIds = [];
+    this.bulkAction = "";
+    this.bulkTarget = "";
+    this.bulkBusy = false;
+    this.bulkError = "";
   }
 
   protected updated(): void {
@@ -812,7 +898,175 @@ class TasksTaskTable extends LitElement {
   }
 
   private visibleColumnCount(): number {
-    return Object.values(this.columns).filter(Boolean).length + 2;
+    return Object.values(this.columns).filter(Boolean).length + 3;
+  }
+
+  private selectedTasks(): Task[] {
+    const ids = new Set(this.selectedIds);
+    return this.tasks.filter((task) => ids.has(task.task_id));
+  }
+
+  private toggleTask(taskId: string, selected: boolean): void {
+    this.selectedIds = selected
+      ? [...new Set([...this.selectedIds, taskId])]
+      : this.selectedIds.filter((id) => id !== taskId);
+  }
+
+  private toggleVisible(tasks: Task[], selected: boolean): void {
+    const ids = new Set(this.selectedIds);
+    for (const task of tasks) {
+      if (selected) {
+        ids.add(task.task_id);
+      } else {
+        ids.delete(task.task_id);
+      }
+    }
+    this.selectedIds = [...ids];
+  }
+
+  private bulkTargets(): FilterOption[] {
+    if (this.bulkAction === "assign") {
+      return [
+        { value: "__none__", label: "Unassigned" },
+        ...this.users.map((user) => ({
+          value: user.id,
+          label: user.name,
+        })),
+      ];
+    }
+    if (
+      this.bulkAction === "add-label" ||
+      this.bulkAction === "remove-label"
+    ) {
+      return this.labels.map((label) => ({
+        value: label.label_id,
+        label: label.name,
+      }));
+    }
+    if (
+      this.bulkAction === "add-notification" ||
+      this.bulkAction === "remove-notification"
+    ) {
+      return [
+        { value: "panel", label: "Persistent notification" },
+        ...this.devices.map((device) => ({
+          value: device.id,
+          label: this.deviceName(device),
+        })),
+      ];
+    }
+    return [];
+  }
+
+  private bulkNeedsTarget(): boolean {
+    return [
+      "assign",
+      "add-label",
+      "remove-label",
+      "add-notification",
+      "remove-notification",
+    ].includes(this.bulkAction);
+  }
+
+  private bulkOperations(): BulkTaskOperation[] {
+    return this.selectedTasks().map((task) => {
+      if (this.bulkAction === "complete") {
+        return { action: "complete", task_id: task.task_id, notes: null };
+      }
+      if (this.bulkAction === "delete") {
+        return { action: "delete", task_id: task.task_id };
+      }
+      let changes: Partial<Task>;
+      if (this.bulkAction === "pause" || this.bulkAction === "resume") {
+        changes = { active: this.bulkAction === "resume" };
+      } else if (this.bulkAction === "assign") {
+        changes = {
+          assignee_id:
+            this.bulkTarget === "__none__" ? null : this.bulkTarget,
+        };
+      } else if (
+        this.bulkAction === "add-label" ||
+        this.bulkAction === "remove-label"
+      ) {
+        const labels = task.label_ids || [];
+        changes = {
+          label_ids:
+            this.bulkAction === "remove-label"
+              ? labels.filter((id) => id !== this.bulkTarget)
+              : [...new Set([...labels, this.bulkTarget])],
+        };
+      } else {
+        const devices = task.notification_target?.device_id || [];
+        if (this.bulkTarget === "panel") {
+          changes = {
+            notification_persistent:
+              this.bulkAction === "add-notification",
+          };
+        } else {
+          changes = {
+            notification_target: {
+              device_id:
+                this.bulkAction === "remove-notification"
+                  ? devices.filter((id) => id !== this.bulkTarget)
+                  : [...new Set([...devices, this.bulkTarget])],
+            },
+          };
+        }
+      }
+      return { action: "update", task_id: task.task_id, changes };
+    });
+  }
+
+  private async applyBulk(): Promise<void> {
+    if (
+      !this.hass ||
+      this.bulkBusy ||
+      !this.bulkAction ||
+      (this.bulkNeedsTarget() && !this.bulkTarget)
+    ) {
+      return;
+    }
+    const operations = this.bulkOperations();
+    if (!operations.length) {
+      return;
+    }
+    if (this.bulkAction === "complete" || this.bulkAction === "delete") {
+      const deleting = this.bulkAction === "delete";
+      const result = await openTasksDialog({
+        heading: deleting
+          ? "Delete selected tasks?"
+          : "Complete selected tasks?",
+        content: html`<p>
+          ${deleting
+            ? `Delete ${operations.length} selected tasks including their history and attachments?`
+            : `Mark ${operations.length} selected tasks as completed?`}
+        </p>`,
+        actions: [
+          { label: "Cancel", value: "cancel" },
+          {
+            label: deleting ? "Delete" : "Complete",
+            value: "confirm",
+            destructive: deleting,
+          },
+        ],
+      });
+      if (result !== "confirm") {
+        return;
+      }
+    }
+    this.bulkBusy = true;
+    this.bulkError = "";
+    try {
+      await mutateTasks(this.hass, operations);
+      this.selectedIds = [];
+      this.bulkAction = "";
+      this.bulkTarget = "";
+    } catch (error) {
+      this.bulkError =
+        error instanceof Error ? error.message : String(error);
+    } finally {
+      this.bulkBusy = false;
+    }
   }
 
   private selectedFilterCount(): number {
@@ -920,6 +1174,15 @@ class TasksTaskTable extends LitElement {
     const visibleColumns = (Object.keys(this.columns) as ColumnKey[]).filter(
       (key) => this.columns[key],
     );
+    const selectedTasks = this.selectedTasks();
+    const selectedIds = new Set(this.selectedIds);
+    const allVisibleSelected =
+      tasks.length > 0 &&
+      tasks.every((task) => selectedIds.has(task.task_id));
+    const someVisibleSelected = tasks.some((task) =>
+      selectedIds.has(task.task_id),
+    );
+    const bulkTargets = this.bulkTargets();
     return staticHtml`
       <div class="toolbar">
         <input
@@ -995,10 +1258,101 @@ class TasksTaskTable extends LitElement {
           </div>
         </details>
       </div>
+      ${selectedTasks.length
+        ? html`
+            <div class="bulk-bar">
+              <span class="bulk-count">
+                ${selectedTasks.length} selected
+              </span>
+              <select
+                aria-label="Bulk action"
+                .value=${this.bulkAction}
+                @change=${(event: Event) => {
+                  this.bulkAction = (
+                    event.currentTarget as HTMLSelectElement
+                  ).value as BulkAction;
+                  this.bulkTarget = "";
+                  this.bulkError = "";
+                }}
+              >
+                <option value="">Choose action</option>
+                <option value="complete">Complete</option>
+                <option value="pause">Pause</option>
+                <option value="resume">Resume</option>
+                <option value="assign">Assign person</option>
+                <option value="add-label">Add label</option>
+                <option value="remove-label">Remove label</option>
+                <option value="add-notification">Add notification</option>
+                <option value="remove-notification">Remove notification</option>
+                <option value="delete">Delete</option>
+              </select>
+              ${bulkTargets.length
+                ? html`
+                    <select
+                      aria-label="Bulk action target"
+                      .value=${this.bulkTarget}
+                      @change=${(event: Event) => {
+                        this.bulkTarget = (
+                          event.currentTarget as HTMLSelectElement
+                        ).value;
+                      }}
+                    >
+                      <option value="">Choose target</option>
+                      ${bulkTargets.map(
+                        (option) => html`
+                          <option value=${option.value}>
+                            ${option.label}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  `
+                : nothing}
+              <button
+                type="button"
+                ?disabled=${this.bulkBusy ||
+                !this.bulkAction ||
+                (this.bulkNeedsTarget() && !this.bulkTarget)}
+                @click=${() => void this.applyBulk()}
+              >
+                ${this.bulkBusy ? "Applying…" : "Apply"}
+              </button>
+              <button
+                type="button"
+                ?disabled=${this.bulkBusy}
+                @click=${() => {
+                  this.selectedIds = [];
+                  this.bulkAction = "";
+                  this.bulkTarget = "";
+                  this.bulkError = "";
+                }}
+              >
+                Clear
+              </button>
+              ${this.bulkError
+                ? html`<p class="bulk-error">${this.bulkError}</p>`
+                : nothing}
+            </div>
+          `
+        : nothing}
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th class="selection">
+                <input
+                  type="checkbox"
+                  aria-label="Select visible tasks"
+                  .checked=${allVisibleSelected}
+                  .indeterminate=${someVisibleSelected &&
+                  !allVisibleSelected}
+                  @change=${(event: Event) =>
+                    this.toggleVisible(
+                      tasks,
+                      (event.currentTarget as HTMLInputElement).checked,
+                    )}
+                >
+              </th>
               ${this.header("Task", "name")}
               ${visibleColumns.map((key) => this.columnHeader(key))}
               <th class="actions" aria-label="Actions"></th>
@@ -1008,7 +1362,23 @@ class TasksTaskTable extends LitElement {
             ${tasks.length
               ? tasks.map(
                   (task) => staticHtml`
-                    <tr class=${task.active === false ? "inactive" : ""}>
+                    <tr
+                      class=${task.active === false ? "inactive" : ""}
+                      aria-selected=${selectedIds.has(task.task_id)}
+                    >
+                      <td class="selection">
+                        <input
+                          type="checkbox"
+                          aria-label="Select ${task.task_name}"
+                          .checked=${selectedIds.has(task.task_id)}
+                          @change=${(event: Event) =>
+                            this.toggleTask(
+                              task.task_id,
+                              (event.currentTarget as HTMLInputElement)
+                                .checked,
+                            )}
+                        >
+                      </td>
                       <td>
                         <button
                           class="task"

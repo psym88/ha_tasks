@@ -168,7 +168,7 @@ not replaced the path yet.
 | Table search | legacy | complete | localized presentation |
 | Table filters | legacy | complete | assignee, label, notification, trigger |
 | Table sorting | legacy | complete | missing due values sort last |
-| Table selection and bulk actions | legacy | pending | one backend mutation |
+| Table selection and bulk actions | legacy | complete | one backend mutation |
 | Table column visibility | legacy | complete | persisted local preference |
 | English and German UI | legacy | pending | English fallback |
 | Cache-safe frontend update | legacy | complete | version and asset hash change |
@@ -229,7 +229,7 @@ not replaced the path yet.
 - [x] Add TypeScript and production bundling.
 - [x] Add owned UI primitives.
 - [x] Add V2 task form and viewer.
-- [ ] Add V2 task table without grouping or a grid dependency.
+- [x] Add V2 task table without grouping or a grid dependency.
 - [ ] Add V2 dashboard card.
 - [x] Register a parallel test panel.
 - [ ] Register a parallel test card.
@@ -494,7 +494,18 @@ not replaced the path yet.
   their resolved registry names.
 - The hash-scoped bundle grew from 91,735 to 94,525 bytes. Verified all 145
   backend and 154 frontend tests.
+- Added native per-row and visible-row selection with a responsive selection
+  bar and explicit clearing.
+- Added complete, pause, resume, person assignment, label addition/removal,
+  notification addition/removal, and deletion for selected tasks.
+- Every apply action uses one existing transactional `tasks/task/bulk`
+  command; completion and deletion require owned confirmation dialogs, and a
+  cancelled confirmation sends no mutation.
+- Verified exact multi-task payloads for assignment, labels, persistent and
+  mobile notifications, active state, completion, and deletion in a browser.
+- The hash-scoped bundle grew from 94,525 to 101,923 bytes. Verified all 145
+  backend and 156 frontend tests.
 
 ## Next action
 
-Add V2 table selection and transactional bulk actions.
+Add the parallel V2 dashboard card.
