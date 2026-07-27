@@ -9,7 +9,7 @@ import zipfile
 
 import pytest
 
-from custom_components.tasks.archive_converter import (
+from custom_components.tasks.migrations import (
     ARCHIVE_FORMAT,
     upgrade_archive_manifest,
 )
@@ -262,7 +262,7 @@ def test_archive_parser_treats_task_records_as_opaque():
     )
 
 
-def test_archive_converter_upgrades_format_1_without_mutating_data():
+def test_archive_migration_upgrades_format_1_without_mutating_data():
     data = {"tasks": [], "history": {}, "attachments": []}
     legacy = {"format": 1, "data": data}
 
@@ -276,7 +276,7 @@ def test_archive_converter_upgrades_format_1_without_mutating_data():
     assert legacy == {"format": 1, "data": data}
 
 
-def test_archive_converter_upgrades_format_2_dates_without_adding_active():
+def test_archive_migration_upgrades_format_2_dates_without_adding_active():
     legacy = {
         "integration": "tasks",
         "format": 2,

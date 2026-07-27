@@ -25,35 +25,33 @@ from .task_events import async_fire_tasks_event
 from .task_store import get_store
 
 TEXT = vol.Any(str, None)
+SCHEDULE_UNIT = vol.In(("daily", "weekly", "monthly", "yearly"))
+SCHEDULE_INTERVAL = vol.All(vol.Coerce(int), vol.Range(min=1))
+SCHEDULE_WEEKDAYS = [vol.All(vol.Coerce(int), vol.Range(min=0, max=6))]
+SCHEDULE_DAY = vol.Any(
+    vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None
+)
+SCHEDULE_MONTH = vol.Any(
+    vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
+)
+SCHEDULE_TIME = vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+SCHEDULE_DETAILS = {
+    vol.Optional("schedule_weekdays", default=[]): SCHEDULE_WEEKDAYS,
+    vol.Optional("schedule_day"): SCHEDULE_DAY,
+    vol.Optional("schedule_month"): SCHEDULE_MONTH,
+    vol.Optional("schedule_time"): SCHEDULE_TIME,
+}
 RECURRENCE_FIELDS = {
     vol.Required("schedule_type"): vol.In(("fixed", "sliding")),
-    vol.Required("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
-    vol.Required("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-    vol.Optional("schedule_weekdays", default=[]): [
-        vol.All(vol.Coerce(int), vol.Range(min=0, max=6))
-    ],
-    vol.Optional("schedule_day"): vol.Any(
-        vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None
-    ),
-    vol.Optional("schedule_month"): vol.Any(
-        vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
-    ),
-    vol.Optional("schedule_time"): vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
+    vol.Required("schedule_unit"): SCHEDULE_UNIT,
+    vol.Required("schedule_interval"): SCHEDULE_INTERVAL,
+    **SCHEDULE_DETAILS,
 }
 SCHEDULE_FIELDS = {
     vol.Required("schedule_type"): vol.In(("fixed", "sliding", "sensor")),
-    vol.Optional("schedule_unit"): vol.In(("daily", "weekly", "monthly", "yearly")),
-    vol.Optional("schedule_interval"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-    vol.Optional("schedule_weekdays", default=[]): [
-        vol.All(vol.Coerce(int), vol.Range(min=0, max=6))
-    ],
-    vol.Optional("schedule_day"): vol.Any(
-        vol.All(vol.Coerce(int), vol.Range(min=1, max=31)), "last", None
-    ),
-    vol.Optional("schedule_month"): vol.Any(
-        vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
-    ),
-    vol.Optional("schedule_time"): vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
+    vol.Optional("schedule_unit"): SCHEDULE_UNIT,
+    vol.Optional("schedule_interval"): SCHEDULE_INTERVAL,
+    **SCHEDULE_DETAILS,
     vol.Optional("problem_sensor"): TEXT,
 }
 TASK_CREATE_FIELDS = {

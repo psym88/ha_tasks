@@ -1,11 +1,23 @@
-"""Sequential migrations for persisted Tasks store data."""
+"""Sequential migrations for persisted Tasks data and archive manifests."""
 
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from .const import STORAGE_VERSION
+import voluptuous as vol
+
+from .const import DOMAIN, STORAGE_VERSION
+
+ARCHIVE_FORMAT = 3
+
+_FORMAT_1_SCHEMA = vol.Schema(
+    {
+        vol.Required("format"): vol.Equal(1),
+        vol.Required("data"): dict,
+    },
+    extra=vol.PREVENT_EXTRA,
+)
 
 
 def _utc_datetime(value: Any) -> Any:
@@ -21,10 +33,9 @@ def _utc_datetime(value: Any) -> Any:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
-def _upgrade_1_to_2(data: dict[str, Any]) -> dict[str, Any]:
-    """Convert legacy date-based task and history values to UTC datetimes."""
+def _upgrade_task_datetimes(data: dict[str, Any]) -> dict[str, Any]:
+    """Convert legacy task and history values to UTC datetimes."""
     upgraded = deepcopy(data)
-
     for task in upgraded.get("tasks", []):
         if isinstance(task, dict) and task.get("task_due") is not None:
             task["task_due"] = _utc_datetime(task["task_due"])
@@ -48,11 +59,14 @@ def _upgrade_1_to_2(data: dict[str, Any]) -> dict[str, Any]:
                 for field in ("task_due_before", "task_due_after"):
                     if entry.get(field) is not None:
                         entry[field] = _utc_datetime(entry[field])
-
     return upgraded
 
 
-def _upgrade_2_to_3(data: dict[str, Any]) -> dict[str, Any]:
+def _upgrade_store_1_to_2(data: dict[str, Any]) -> dict[str, Any]:
+    return _upgrade_task_datetimes(data)
+
+
+def _upgrade_store_2_to_3(data: dict[str, Any]) -> dict[str, Any]:
     """Add defaults introduced by task scheduling and pausing."""
     upgraded = deepcopy(data)
     for task in upgraded.get("tasks", []):
@@ -64,8 +78,8 @@ def _upgrade_2_to_3(data: dict[str, Any]) -> dict[str, Any]:
 
 
 STORE_UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
-    1: _upgrade_1_to_2,
-    2: _upgrade_2_to_3,
+    1: _upgrade_store_1_to_2,
+    2: _upgrade_store_2_to_3,
 }
 
 
@@ -87,4 +101,54 @@ def upgrade_store_data(old_version: int, data: Any) -> dict[str, Any]:
             raise ValueError("unsupported_store_version")
         upgraded = converter(upgraded)
         version += 1
+    return upgraded
+
+
+def _upgrade_archive_1_to_2(manifest: dict[str, Any]) -> dict[str, Any]:
+    legacy = _FORMAT_1_SCHEMA(manifest)
+    return {
+        "integration": DOMAIN,
+        "format": 2,
+        "data": legacy["data"],
+    }
+
+
+def _upgrade_archive_2_to_3(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Upgrade legacy date-based task and history values to UTC datetimes."""
+    upgraded = deepcopy(manifest)
+    data = upgraded.get("data")
+    if isinstance(data, dict):
+        upgraded["data"] = _upgrade_task_datetimes(data)
+    upgraded["format"] = 3
+    return upgraded
+
+
+ARCHIVE_UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    1: _upgrade_archive_1_to_2,
+    2: _upgrade_archive_2_to_3,
+}
+
+
+def upgrade_archive_manifest(
+    manifest: Any, conversions: list[tuple[int, int]] | None = None
+) -> dict[str, Any]:
+    """Return an archive manifest upgraded to the current format."""
+    if not isinstance(manifest, dict) or type(manifest.get("format")) is not int:
+        raise ValueError("invalid_archive")
+
+    upgraded = dict(manifest)
+    while upgraded["format"] < ARCHIVE_FORMAT:
+        source_format = upgraded["format"]
+        converter = ARCHIVE_UPGRADES.get(source_format)
+        if converter is None:
+            raise ValueError("unsupported_archive_format")
+        try:
+            upgraded = converter(upgraded)
+        except vol.Invalid as err:
+            raise ValueError("invalid_archive") from err
+        if conversions is not None:
+            conversions.append((source_format, upgraded["format"]))
+
+    if upgraded["format"] != ARCHIVE_FORMAT:
+        raise ValueError("unsupported_archive_format")
     return upgraded

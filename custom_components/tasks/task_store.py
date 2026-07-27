@@ -17,8 +17,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
+from .migrations import upgrade_store_data
 from .recurrence import occurrences, validate_trigger
-from .store_converter import upgrade_store_data
 
 _SCHEDULE_FIELDS = (
     "schedule_type",

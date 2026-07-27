@@ -12,8 +12,8 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 
-from .archive_converter import ARCHIVE_FORMAT, upgrade_archive_manifest
 from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL
+from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
 from .task_events import async_fire_tasks_event
 from .task_store import get_store
 

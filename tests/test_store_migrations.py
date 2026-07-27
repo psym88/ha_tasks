@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from custom_components.tasks.const import STORAGE_KEY, STORAGE_VERSION
-from custom_components.tasks.store_converter import STORE_UPGRADES, upgrade_store_data
+from custom_components.tasks.migrations import STORE_UPGRADES, upgrade_store_data
 from custom_components.tasks.task_store import _TasksDataStore
 
 
@@ -63,6 +63,6 @@ def test_version_one_wrapper_preserves_data_written_before_version_bump():
 
 
 @pytest.mark.parametrize("version", [0, STORAGE_VERSION + 1])
-def test_store_converter_rejects_unsupported_versions(version):
+def test_store_migration_rejects_unsupported_versions(version):
     with pytest.raises(ValueError, match="unsupported_store_version"):
         upgrade_store_data(version, {})

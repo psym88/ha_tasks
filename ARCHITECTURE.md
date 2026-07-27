@@ -19,8 +19,7 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 ## Backend
 
 - `task_store.py`: persistence, serialized mutations, and task normalization
-- `store_converter.py`: sequential Home Assistant store-schema migrations
-- `archive_converter.py`: sequential upgrades from older archive manifests to the current format
+- `migrations.py`: sequential Home Assistant store-schema and archive-manifest migrations
 - `recurrence.py`: trigger validation and recurring local datetime calculations
 - `due_events.py`: shared UTC datetime parsing and the single due-event timer
 - `problem_events.py`: binary problem-sensor transitions and startup reconciliation
