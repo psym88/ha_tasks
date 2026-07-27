@@ -42,6 +42,10 @@ const taskViewer = await readFile(
   new URL("../../frontend_v2/src/task-viewer.ts", import.meta.url),
   "utf8",
 );
+const taskTable = await readFile(
+  new URL("../../frontend_v2/src/task-table.ts", import.meta.url),
+  "utf8",
+);
 const assets = JSON.parse(
   await readFile(
     new URL(
@@ -97,8 +101,8 @@ test("V2 action menu anchors to its trigger and stays in the viewport", () => {
   assert.match(actionMenu, /role="menuitem"/);
   assert.doesNotMatch(actionMenu, /ha-menu|ha-dropdown/);
   assert.match(
-    source,
-    /snapshot\.tasks\.map\(\s*\(task\) => staticHtml`/,
+    taskTable,
+    /tasks\.map\(\s*\(task\) => staticHtml`/,
   );
 });
 
@@ -157,7 +161,7 @@ test("V2 deletes tasks only after its owned confirmation", () => {
   assert.match(source, /heading: "Delete task\?"/);
   assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.task_id\)/);
   assert.match(
-    source,
+    taskTable,
     /\{ label: "Delete", value: "delete", destructive: true \}/,
   );
 });
@@ -165,12 +169,32 @@ test("V2 deletes tasks only after its owned confirmation", () => {
 test("V2 pauses and resumes tasks through the minimal update contract", () => {
   assert.match(api, /type: "tasks\/task\/update"/);
   assert.match(api, /task_id: taskId,\s*active,/);
-  assert.match(source, /task\.active === false \? "Resume" : "Pause"/);
-  assert.match(source, /value: "active"/);
+  assert.match(taskTable, /task\.active === false \? "Resume" : "Pause"/);
+  assert.match(taskTable, /value: "active"/);
   assert.match(
     source,
     /setTaskActive\(\s*this\.hass,\s*task\.task_id,\s*task\.active === false/,
   );
+});
+
+test("V2 task table owns search sorting and responsive rows", () => {
+  assert.match(source, /taskTableElementName/);
+  assert.match(taskTable, /<table>/);
+  assert.match(taskTable, /type="search"/);
+  assert.match(taskTable, /private visibleTasks\(\)/);
+  assert.match(taskTable, /private compare\(left: Task, right: Task\)/);
+  assert.match(taskTable, /aria-sort=/);
+  assert.match(taskTable, /@media \(max-width: 640px\)/);
+  assert.match(taskTable, /class="mobile-details"/);
+  assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
+});
+
+test("V2 task table keeps missing and paused due values sorted last", () => {
+  assert.match(
+    taskTable,
+    /if \(task\.active === false \|\| !task\.task_due\)/,
+  );
+  assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
 
 test("V2 planning uses the authoritative preview API for every recurrence", () => {
@@ -257,7 +281,7 @@ test("V2 stages attachments and commits file changes transactionally", () => {
   assert.match(taskForm, /type="file"/);
   assert.match(taskForm, /this\.stagedFiles/);
   assert.match(taskForm, /this\.deletedAttachmentIds/);
-  assert.match(source, /snapshot\.attachments/);
+  assert.match(source, /snapshot\?\.attachments/);
   assert.doesNotMatch(taskForm, /ha-file-upload|ha-selector/);
 });
 

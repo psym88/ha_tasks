@@ -3,25 +3,13 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";
 import { openTaskEditor } from "./task-form";
+import { taskTableElementName } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
 import type { HomeAssistant, Task, TasksSnapshot } from "./types";
-import {
-  actionMenuElementName,
-  type ActionMenuItem,
-} from "./ui/action-menu";
 import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
-const actionMenuTag = unsafeStatic(actionMenuElementName);
-const taskActions = (task: Task): ActionMenuItem[] => [
-  { label: "Open", value: "open" },
-  { label: "Edit", value: "edit" },
-  {
-    label: task.active === false ? "Resume" : "Pause",
-    value: "active",
-  },
-  { label: "Delete", value: "delete", destructive: true },
-];
+const taskTableTag = unsafeStatic(taskTableElementName);
 
 class TasksPanelV2 extends LitElement {
   static properties = {
@@ -79,34 +67,6 @@ class TasksPanelV2 extends LitElement {
     h1 {
       margin: 0;
       font-size: 24px;
-    }
-
-    ul {
-      padding: 0;
-      list-style: none;
-    }
-
-    li {
-      display: flex;
-      align-items: center;
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    .task {
-      flex: 1;
-      width: 100%;
-      padding: 12px 0;
-      color: inherit;
-      background: transparent;
-      border: 0;
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .task:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
     }
 
     .error {
@@ -207,6 +167,29 @@ class TasksPanelV2 extends LitElement {
     });
   }
 
+  private handleTaskAction(action: string, task: Task): void {
+    if (!this.hass) {
+      return;
+    }
+    if (action === "open") {
+      this.openTask(task);
+    } else if (action === "edit") {
+      void openTaskEditor(
+        this.hass,
+        task,
+        this.snapshot?.attachments || [],
+      );
+    } else if (action === "active") {
+      void setTaskActive(
+        this.hass,
+        task.task_id,
+        task.active === false,
+      );
+    } else if (action === "delete") {
+      void this.confirmDelete(task);
+    }
+  }
+
   protected render() {
     const snapshot = this.snapshot;
     return html`
@@ -230,48 +213,16 @@ class TasksPanelV2 extends LitElement {
           ? html`<p class="error">Tasks konnten nicht geladen werden: ${this.error}</p>`
           : !snapshot
             ? html`<p>Tasks werden geladen …</p>`
-            : html`
-                <ul>
-                  ${snapshot.tasks.map(
-                    (task) => staticHtml`
-                      <li>
-                        <button
-                          class="task"
-                          type="button"
-                          @click=${() => this.openTask(task)}
-                        >
-                          ${task.task_name}
-                        </button>
-                        <${actionMenuTag}
-                          label="Actions for ${task.task_name}"
-                          .items=${taskActions(task)}
-                          @tasks-action=${(event: CustomEvent<string>) => {
-                            if (event.detail === "open") {
-                              this.openTask(task);
-                            } else if (event.detail === "edit" && this.hass) {
-                              void openTaskEditor(
-                                this.hass,
-                                task,
-                                snapshot.attachments,
-                              );
-                            } else if (
-                              event.detail === "active" &&
-                              this.hass
-                            ) {
-                              void setTaskActive(
-                                this.hass,
-                                task.task_id,
-                                task.active === false,
-                              );
-                            } else if (event.detail === "delete") {
-                              void this.confirmDelete(task);
-                            }
-                          }}
-                        ></${actionMenuTag}>
-                      </li>
-                    `,
-                  )}
-                </ul>
+            : staticHtml`
+                <${taskTableTag}
+                  .hass=${this.hass}
+                  .tasks=${snapshot.tasks}
+                  @tasks-task-open=${(event: CustomEvent<Task>) =>
+                    this.openTask(event.detail)}
+                  @tasks-task-action=${(
+                    event: CustomEvent<{ action: string; task: Task }>,
+                  ) => this.handleTaskAction(event.detail.action, event.detail.task)}
+                ></${taskTableTag}>
               `}
       </main>
     `;

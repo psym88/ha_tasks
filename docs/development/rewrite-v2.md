@@ -461,8 +461,16 @@ not replaced the path yet.
   preserve the exact stored due timestamp.
 - The hash-scoped bundle grew from 77,823 to 78,043 bytes. Verified all 145
   backend and 148 frontend tests.
+- Replaced the temporary V2 list with the first owned task-table slice using a
+  semantic native table and no grid or table dependency.
+- Added task and description search, stable sorting by task, due, trigger and
+  status, paused and missing due values last, responsive row details, and the
+  existing per-task action menu.
+- Verified search and ascending and descending ordering plus light, dark,
+  desktop and 390-pixel mobile layouts in a browser.
+- The hash-scoped bundle grew from 78,043 to 84,640 bytes. Verified all 145
+  backend and 150 frontend tests.
 
 ## Next action
 
-Replace the temporary V2 task list with the owned task table without grouping
-or a grid dependency.
+Add registry-backed table projections and task filters without grouping.
