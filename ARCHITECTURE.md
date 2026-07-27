@@ -4,11 +4,18 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
 
 ## Data model
 
-- A **task** stores its description, active state, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
+- A **task** is the schema-4 aggregate root. It embeds its base data,
+  schedule variant, notification settings, completion history, and attachment
+  metadata. Attachment content remains in separate files. Label assignments
+  persist stable Home Assistant label IDs; the frontend resolves their current
+  names from the label registry.
 - Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
 - A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
 - Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, and the due-task count. Resuming performs no scheduled-due recalculation.
-- Persistent store schemas use sequential migrations so upgrades preserve tasks, completion history, and attachment metadata. Store migration fixtures cover every published schema version.
+- Store schema 4 nests completion and attachment metadata under their owning
+  task. The sequential `1 → 2 → 3 → 4` migration chain and versioned fixtures
+  preserve every published store format. WebSocket responses and archive
+  format 3 remain flat compatibility boundaries during the V2 transition.
 
 ## Home Assistant platforms
 
@@ -22,7 +29,8 @@ Tasks is a local-push Home Assistant integration with one config entry. Persiste
   values
 - `repository.py`: Home Assistant Store persistence, migrations, and attachment
   files
-- `task_store.py`: atomic snapshot mutations and schema-3 serialization
+- `task_store.py`: atomic schema-4 aggregate mutations and legacy boundary
+  projections
 - `manager.py`: application use cases, runtime revisions, and direct change
   callbacks
 - `migrations.py`: sequential Home Assistant store-schema and archive-manifest migrations

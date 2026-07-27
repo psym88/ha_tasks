@@ -79,9 +79,19 @@ def archive_store(tmp_path: Path) -> TasksStore:
     )
     store = TasksStore(repository=repository)
     store._data = {
-        "tasks": [archive_task("task-1", "Bins")],
-        "history": {"task-1": [{"history_entry_id": "history-1"}]},
-        "attachments": [{"attachment_id": "file-1", "task_id": "task-1", "size": 7}],
+        "tasks": [
+            store._aggregate_from_fields(
+                archive_task("task-1", "Bins"),
+                [{"history_entry_id": "history-1"}],
+                [
+                    {
+                        "attachment_id": "file-1",
+                        "task_id": "task-1",
+                        "size": 7,
+                    }
+                ],
+            )
+        ],
     }
     repository.upload_dir.mkdir(parents=True)
     (repository.upload_dir / "file-1").write_bytes(b"content")
@@ -91,39 +101,57 @@ def archive_store(tmp_path: Path) -> TasksStore:
 def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
     async def run():
         source = archive_store(tmp_path / "source")
-        source._data["tasks"][0]["task_name"] = "Imported conflict"
-        source._data["tasks"].append(archive_task("task-2", "New task"))
-        source._data["history"]["task-2"] = [{"history_entry_id": "history-2"}]
-        source._data["attachments"].append(
-            {"attachment_id": "file-2", "task_id": "task-2", "size": 3}
-        )
-        source._data["attachments"].append(
-            {"attachment_id": "file-3", "task_id": "task-2", "size": 5}
+        source._data["tasks"][0]["name"] = "Imported conflict"
+        source._data["tasks"].append(
+            source._aggregate_from_fields(
+                archive_task("task-2", "New task"),
+                [{"history_entry_id": "history-2"}],
+                [
+                    {
+                        "attachment_id": "file-2",
+                        "task_id": "task-2",
+                        "size": 3,
+                    },
+                    {
+                        "attachment_id": "file-3",
+                        "task_id": "task-2",
+                        "size": 5,
+                    },
+                ],
+            )
         )
         (source._repository.upload_dir / "file-2").write_bytes(b"new")
         (source._repository.upload_dir / "file-3").write_bytes(b"added")
         data, files = await source.async_export_archive()
 
         target = archive_store(tmp_path / "target")
-        target._data["tasks"][0]["task_name"] = "Existing data"
+        target._data["tasks"][0]["name"] = "Existing data"
         (target._repository.upload_dir / "file-2").write_bytes(b"keep")
         (target._repository.upload_dir / "obsolete").write_bytes(b"old")
         report = await target.async_import_archive(data, files)
 
         assert [
-            (task["task_id"], task["task_name"]) for task in target._data["tasks"]
+            (task["id"], task["name"]) for task in target._data["tasks"]
         ] == [
             ("task-1", "Existing data"),
             ("task-2", "New task"),
         ]
-        assert target._data["tasks"][1] == source._data["tasks"][1]
-        assert target._data["history"]["task-1"] == [
-            {"history_entry_id": "history-1"}
+        assert {
+            key: value
+            for key, value in target._data["tasks"][1].items()
+            if key != "attachments"
+        } == {
+            key: value
+            for key, value in source._data["tasks"][1].items()
+            if key != "attachments"
+        }
+        assert target._data["tasks"][0]["completions"] == [
+            {"id": "history-1"}
         ]
-        assert target._data["history"]["task-2"] == [
-            {"history_entry_id": "history-2"}
+        assert target._data["tasks"][1]["completions"] == [
+            {"id": "history-2"}
         ]
-        assert target._data["attachments"] == [
+        assert target.snapshot()["attachments"] == [
             {"attachment_id": "file-1", "task_id": "task-1", "size": 7},
             {"attachment_id": "file-3", "task_id": "task-2", "size": 5},
         ]
@@ -156,10 +184,18 @@ def test_export_and_import_preserve_existing_data_and_add_new_tasks(tmp_path):
 def test_import_removes_only_new_files_when_store_save_fails(tmp_path):
     async def run():
         source = archive_store(tmp_path / "source")
-        source._data["tasks"].append(archive_task("task-2", "New task"))
-        source._data["history"]["task-2"] = []
-        source._data["attachments"].append(
-            {"attachment_id": "file-2", "task_id": "task-2", "size": 3}
+        source._data["tasks"].append(
+            source._aggregate_from_fields(
+                archive_task("task-2", "New task"),
+                [],
+                [
+                    {
+                        "attachment_id": "file-2",
+                        "task_id": "task-2",
+                        "size": 3,
+                    }
+                ],
+            )
         )
         (source._repository.upload_dir / "file-2").write_bytes(b"new")
         data, files = await source.async_export_archive()

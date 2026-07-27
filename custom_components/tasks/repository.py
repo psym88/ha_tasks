@@ -1,4 +1,4 @@
-"""Schema-3 persistence and attachment files for Tasks."""
+"""Schema-4 persistence and attachment files for Tasks."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ class _TasksDataStore(Store[dict[str, Any]]):
 
 
 class TasksRepository:
-    """Persist schema-3 snapshots and manage attachment files."""
+    """Persist task aggregates and manage attachment files."""
 
     def __init__(
         self,
@@ -57,7 +57,7 @@ class TasksRepository:
         }
 
     async def async_save(self, data: dict[str, Any]) -> None:
-        """Persist one schema-3 snapshot."""
+        """Persist one schema-4 snapshot."""
         await self.store.async_save(data)
 
     async def async_read_attachment_files(

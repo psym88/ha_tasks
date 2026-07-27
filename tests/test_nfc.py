@@ -22,9 +22,10 @@ def _store(tasks):
     store._lock = asyncio.Lock()
     store._repository = MemoryRepository()
     store._data = {
-        "tasks": tasks,
-        "history": {},
-        "attachments": [],
+        "tasks": [
+            store._aggregate_from_fields(task, [], [])
+            for task in tasks
+        ],
     }
     return store
 

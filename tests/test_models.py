@@ -328,3 +328,24 @@ def test_published_schema_three_fixture_crosses_the_typed_boundary():
         Attachment.from_mapping(item).storage_fields()
         for item in stored["attachments"]
     ] == stored["attachments"]
+
+
+def test_schema_four_aggregate_crosses_the_typed_boundary():
+    stored = json.loads(
+        (Path(__file__).parent / "fixtures" / "store_v4.json").read_text()
+    )["data"]
+
+    for record in stored["tasks"]:
+        task = Task.from_record(record)
+        assert task.record(
+            completions=record["completions"],
+            attachments=record["attachments"],
+        ) == record
+        assert [
+            Completion.from_record(entry).record()
+            for entry in record["completions"]
+        ] == record["completions"]
+        assert [
+            Attachment.from_record(attachment, task.id).record()
+            for attachment in record["attachments"]
+        ] == record["attachments"]

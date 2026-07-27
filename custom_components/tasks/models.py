@@ -1,4 +1,4 @@
-"""Typed Tasks domain values with schema-3 compatibility."""
+"""Typed schema-4 task aggregates with schema-3 boundary compatibility."""
 
 from __future__ import annotations
 
@@ -127,6 +127,23 @@ class FixedSchedule:
             values.extend((self.month, self.day))
         return tuple(values)
 
+    def record(self) -> dict[str, Any]:
+        """Serialize the schedule into the schema-4 aggregate."""
+        record: dict[str, Any] = {
+            "type": self.type,
+            "unit": self.unit.value,
+            "interval": self.interval,
+        }
+        if self.unit is ScheduleUnit.WEEKLY:
+            record["weekdays"] = list(self.weekdays)
+        elif self.unit is ScheduleUnit.MONTHLY:
+            record["day"] = self.day
+        elif self.unit is ScheduleUnit.YEARLY:
+            record.update({"day": self.day, "month": self.month})
+        if self.time is not None:
+            record["time"] = self.time
+        return record
+
     def storage_fields(self) -> dict[str, Any]:
         """Serialize to the published schema-3 task fields."""
         fields = _empty_storage_fields()
@@ -166,6 +183,14 @@ class AfterCompletionSchedule:
         """Return values that affect this schedule."""
         return (self.type, self.unit.value, self.interval)
 
+    def record(self) -> dict[str, Any]:
+        """Serialize the schedule into the schema-4 aggregate."""
+        return {
+            "type": self.type,
+            "unit": self.unit.value,
+            "interval": self.interval,
+        }
+
     def storage_fields(self) -> dict[str, Any]:
         """Serialize to the published schema-3 task fields."""
         fields = _empty_storage_fields()
@@ -189,6 +214,10 @@ class ProblemTrigger:
     def signature(self) -> tuple[Any, ...]:
         """Return values that affect this trigger."""
         return (self.type, self.entity_id)
+
+    def record(self) -> dict[str, Any]:
+        """Serialize the trigger into the schema-4 aggregate."""
+        return {"type": self.type, "entity_id": self.entity_id}
 
     def storage_fields(self) -> dict[str, Any]:
         """Serialize to the published schema-3 task fields."""
@@ -254,6 +283,33 @@ def trigger_from_mapping(data: Mapping[str, Any]) -> TaskTrigger:
     )
 
 
+def trigger_from_record(data: Mapping[str, Any]) -> TaskTrigger:
+    """Parse one schema-4 schedule record."""
+    schedule_type = data.get("type")
+    if schedule_type == ProblemTrigger.type:
+        entity_id = str(data.get("entity_id") or "").strip()
+        if not entity_id.startswith("binary_sensor."):
+            raise ValueError("problem_sensor_required")
+        return ProblemTrigger(entity_id)
+    try:
+        unit = ScheduleUnit(data.get("unit"))
+        interval = max(1, int(data.get("interval")))
+    except (TypeError, ValueError) as err:
+        raise ValueError("invalid_frequency") from err
+    if schedule_type == AfterCompletionSchedule.type:
+        return AfterCompletionSchedule(unit, interval)
+    if schedule_type != FixedSchedule.type:
+        raise ValueError("invalid_frequency")
+    return FixedSchedule(
+        unit,
+        interval,
+        tuple(int(day) for day in data.get("weekdays", ())),
+        data.get("day"),
+        data.get("month"),
+        data.get("time"),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class NotificationSettings:
     """Task due-notification settings."""
@@ -287,6 +343,29 @@ class NotificationSettings:
             "notification_persistent": self.persistent,
             "notification_critical": self.critical,
             "notification_route": self.route,
+        }
+
+    @classmethod
+    def from_record(
+        cls, data: Mapping[str, Any]
+    ) -> NotificationSettings:
+        """Parse notification settings from the schema-4 aggregate."""
+        return cls(
+            device_ids=tuple(
+                dict.fromkeys(data.get("device_ids") or ())
+            ),
+            persistent=bool(data.get("persistent", False)),
+            critical=bool(data.get("critical", False)),
+            route=data.get("route"),
+        )
+
+    def record(self) -> dict[str, Any]:
+        """Serialize notification settings into the schema-4 aggregate."""
+        return {
+            "device_ids": list(self.device_ids),
+            "persistent": self.persistent,
+            "critical": self.critical,
+            "route": self.route,
         }
 
 
@@ -365,6 +444,69 @@ class Task:
             ),
         }
 
+    @classmethod
+    def from_record(cls, data: Mapping[str, Any]) -> Task:
+        """Parse one task from the schema-4 aggregate."""
+        name = str(data.get("name") or "").strip()
+        task_id = str(data.get("id") or "").strip()
+        if not name:
+            raise ValueError("name_required")
+        if not task_id:
+            raise ValueError("unknown_task")
+        due_value = data.get("due")
+        return cls(
+            id=task_id,
+            name=name,
+            trigger=trigger_from_record(data.get("schedule") or {}),
+            due=(
+                parse_aware_datetime(due_value)
+                if due_value is not None
+                else None
+            ),
+            icon=data.get("icon"),
+            description=data.get("description"),
+            active=bool(data.get("active", True)),
+            assignee_id=data.get("assignee_id"),
+            label_ids=tuple(
+                dict.fromkeys(data.get("label_ids") or ())
+            ),
+            nfc_tag_id=str(data.get("nfc_tag_id") or "").strip() or None,
+            notifications=NotificationSettings.from_record(
+                data.get("notification") or {}
+            ),
+            extra=deepcopy(data.get("extra") or {}),
+        )
+
+    def record(
+        self,
+        *,
+        completions: list[dict[str, Any]] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Serialize this task into the schema-4 aggregate."""
+        record = {
+            "id": self.id,
+            "name": self.name,
+            "icon": self.icon,
+            "description": self.description,
+            "active": self.active,
+            "assignee_id": self.assignee_id,
+            "label_ids": list(self.label_ids),
+            "nfc_tag_id": self.nfc_tag_id,
+            "due": (
+                normalize_utc_datetime(self.due)
+                if self.due is not None
+                else None
+            ),
+            "schedule": self.trigger.record(),
+            "notification": self.notifications.record(),
+            "completions": deepcopy(completions or []),
+            "attachments": deepcopy(attachments or []),
+        }
+        if self.extra:
+            record["extra"] = deepcopy(self.extra)
+        return record
+
 
 @dataclass(frozen=True, slots=True)
 class Completion:
@@ -405,6 +547,31 @@ class Completion:
             "user_name": self.user_name,
             "notes": self.notes,
         }
+
+    @classmethod
+    def from_record(cls, data: Mapping[str, Any]) -> Completion:
+        """Parse one completion from the schema-4 aggregate."""
+        return cls(
+            id=str(data["id"]),
+            completed_at=parse_aware_datetime(data["completed_at"]),
+            user_id=data.get("user_id"),
+            user_name=str(data.get("user_name") or "system"),
+            notes=str(data.get("notes") or "").strip() or None,
+            extra=deepcopy(data.get("extra") or {}),
+        )
+
+    def record(self) -> dict[str, Any]:
+        """Serialize this completion into the schema-4 aggregate."""
+        record = {
+            "id": self.id,
+            "completed_at": normalize_utc_datetime(self.completed_at),
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "notes": self.notes,
+        }
+        if self.extra:
+            record["extra"] = deepcopy(self.extra)
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -449,3 +616,31 @@ class Attachment:
             "size": self.size,
             "uploaded_at": normalize_utc_datetime(self.uploaded_at),
         }
+
+    @classmethod
+    def from_record(
+        cls, data: Mapping[str, Any], task_id: str
+    ) -> Attachment:
+        """Parse attachment metadata from the schema-4 aggregate."""
+        return cls(
+            id=str(data["id"]),
+            task_id=task_id,
+            filename=str(data["filename"]),
+            content_type=str(data["content_type"]),
+            size=int(data["size"]),
+            uploaded_at=parse_aware_datetime(data["uploaded_at"]),
+            extra=deepcopy(data.get("extra") or {}),
+        )
+
+    def record(self) -> dict[str, Any]:
+        """Serialize attachment metadata into its owning task."""
+        record = {
+            "id": self.id,
+            "filename": self.filename,
+            "content_type": self.content_type,
+            "size": self.size,
+            "uploaded_at": normalize_utc_datetime(self.uploaded_at),
+        }
+        if self.extra:
+            record["extra"] = deepcopy(self.extra)
+        return record

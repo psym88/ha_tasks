@@ -211,7 +211,9 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(
         }
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
-        store._data = {"tasks": [task], "history": {}, "attachments": []}
+        store._data = {
+            "tasks": [store._aggregate_from_fields(task, [], [])]
+        }
 
         async def commit(data):
             store._data = data

@@ -15,7 +15,9 @@ def date(year, month, day):
 def _store(task):
     store = TasksStore.__new__(TasksStore)
     store._lock = asyncio.Lock()
-    store._data = {"tasks": [task], "history": {}, "attachments": []}
+    store._data = {
+        "tasks": [store._aggregate_from_fields(task, [], [])]
+    }
 
     async def commit(data):
         store._data = data
@@ -366,7 +368,9 @@ def test_bulk_mutations_persist_one_snapshot():
         first = _weekly_task()
         second = {**_weekly_task(), "task_id": "task-2", "task_name": "Second"}
         store = _store(first)
-        store._data["tasks"].append(second)
+        store._data["tasks"].append(
+            store._aggregate_from_fields(second, [], [])
+        )
         commits = []
 
         async def commit(data):
@@ -441,8 +445,8 @@ def test_failed_bulk_mutation_keeps_the_entire_previous_snapshot():
 def test_bulk_delete_removes_attachment_files_after_commit():
     async def run():
         store = _store(_weekly_task())
-        store._data["attachments"] = [
-            {"attachment_id": "file-1", "task_id": "task"}
+        store._data["tasks"][0]["attachments"] = [
+            {"id": "file-1"}
         ]
         calls = []
 
@@ -465,7 +469,7 @@ def test_bulk_delete_removes_attachment_files_after_commit():
 
         assert calls == ["commit", "delete:file-1"]
         assert store.tasks == []
-        assert store._data["attachments"] == []
+        assert store._data["tasks"] == []
 
     asyncio.run(run())
 
@@ -473,8 +477,8 @@ def test_bulk_delete_removes_attachment_files_after_commit():
 def test_failed_bulk_save_keeps_files_and_metadata():
     async def run():
         store = _store(_weekly_task())
-        store._data["attachments"] = [
-            {"attachment_id": "file-1", "task_id": "task"}
+        store._data["tasks"][0]["attachments"] = [
+            {"id": "file-1"}
         ]
         before = store._data
         deleted = []
@@ -533,11 +537,11 @@ def test_editor_save_commits_task_files_and_history_once(tmp_path):
         del store._commit
         old_file = tmp_path / "old-file"
         old_file.write_bytes(b"old")
-        store._data["attachments"] = [
-            {"attachment_id": "old-file", "task_id": "task"}
+        store._data["tasks"][0]["attachments"] = [
+            {"id": "old-file"}
         ]
-        store._data["history"]["task"] = [
-            {"history_entry_id": "old-history"}
+        store._data["tasks"][0]["completions"] = [
+            {"id": "old-history"}
         ]
 
         result = await store.async_save_task(
@@ -555,7 +559,10 @@ def test_editor_save_commits_task_files_and_history_once(tmp_path):
         assert store.history("task") == []
         [attachment] = result["attachments"]
         assert repository.file_path(attachment["attachment_id"]).read_bytes() == b"new"
-        assert store._data["attachments"] == [attachment]
+        assert [
+            item["id"]
+            for item in store._data["tasks"][0]["attachments"]
+        ] == [attachment["attachment_id"]]
 
     asyncio.run(run())
 

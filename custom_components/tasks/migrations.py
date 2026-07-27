@@ -8,6 +8,7 @@ from typing import Any
 import voluptuous as vol
 
 from .const import DOMAIN, STORAGE_VERSION
+from .models import Attachment, Completion, Task
 
 ARCHIVE_FORMAT = 3
 
@@ -70,16 +71,45 @@ def _upgrade_store_2_to_3(data: dict[str, Any]) -> dict[str, Any]:
     """Add defaults introduced by task scheduling and pausing."""
     upgraded = deepcopy(data)
     for task in upgraded.get("tasks", []):
-        if not isinstance(task, dict):
+        if not isinstance(task, dict) or "task_id" not in task:
             continue
         task.setdefault("active", True)
         task.setdefault("schedule_time", None)
     return upgraded
 
 
+def _upgrade_store_3_to_4(data: dict[str, Any]) -> dict[str, Any]:
+    """Embed each task's schedule, notifications, history, and attachments."""
+    if all(
+        isinstance(task, dict) and "id" in task and "schedule" in task
+        for task in data.get("tasks", [])
+    ) and set(data) == {"tasks"}:
+        return deepcopy(data)
+
+    history = data.get("history") or {}
+    attachments = data.get("attachments") or []
+    return {
+        "tasks": [
+            Task.from_mapping(task).record(
+                completions=[
+                    Completion.from_mapping(entry).record()
+                    for entry in history.get(task["task_id"], [])
+                ],
+                attachments=[
+                    Attachment.from_mapping(attachment).record()
+                    for attachment in attachments
+                    if attachment.get("task_id") == task["task_id"]
+                ],
+            )
+            for task in data.get("tasks", [])
+        ]
+    }
+
+
 STORE_UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _upgrade_store_1_to_2,
     2: _upgrade_store_2_to_3,
+    3: _upgrade_store_3_to_4,
 }
 
 

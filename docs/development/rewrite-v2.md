@@ -6,10 +6,10 @@ work in progress, while `ARCHITECTURE.md` documents only stable contracts.
 
 ## Status
 
-- Phase: 5 - Frontend V2
+- Phase: 5 - Aggregate persistence
 - Baseline commit: `2fa1bcff18415bb4122572fe699f0526f45d9b22`
 - Branch: `dev`
-- Store schema: 3
+- Store schema: 4
 - Archive format: 3
 - Minimum Home Assistant version: 2026.7.0
 - Validation Home Assistant version: 2026.7.4
@@ -59,8 +59,10 @@ Baseline validation:
 ## Fixed decisions
 
 1. Home Assistant `Store` remains the persistence mechanism.
-2. Store schema 3 remains writable during the compatibility phase.
-3. A future schema 4 must have a sequential 3-to-4 converter and fixtures.
+2. Store schema 4 persists one aggregate per task; completion and attachment
+   metadata belong to that task.
+3. Published store converters remain sequential and permanent. Schema 4 has a
+   tested 3-to-4 converter and versioned fixture.
 4. Datetimes are aware `datetime` objects inside the domain and UTC ISO strings
    only at persistence and transport boundaries.
 5. A task has exactly one trigger variant:
@@ -115,10 +117,9 @@ rather than retained as one-file abstractions.
 
 ### Backend
 
-The new domain model first reads and writes store schema 3 through an adapter.
-Existing WebSocket commands and the current frontend continue to operate. The
-old store implementation is removed only after every mutation path uses the
-new manager.
+The domain model reads and writes aggregate store schema 4. Existing WebSocket
+commands, archive format 3, and the current frontend continue to use flat
+compatibility projections until the V2 frontend is validated.
 
 ### Frontend
 
@@ -130,8 +131,8 @@ the V2 paths pass the functional matrix.
 ### Persistence
 
 Published migration converters and fixtures are never removed. Store schema 4
-is introduced only when the aggregate representation is ready and rollback no
-longer needs schema-3 write compatibility.
+is the active persistence format; older installations upgrade sequentially on
+load.
 
 ## Functional matrix
 
@@ -216,7 +217,14 @@ not replaced the path yet.
 - [x] Add transactional task and attachment saving.
 - [ ] Retain legacy commands until the current frontend is retired.
 
-### Phase 5 - Frontend V2
+### Phase 5 - Aggregate persistence
+
+- [x] Define task-owned schedule and notification records.
+- [x] Embed completion and attachment metadata in each task.
+- [x] Add the sequential store migration from schema 3 to 4.
+- [x] Preserve flat WebSocket and archive format 3 compatibility.
+
+### Phase 6 - Frontend V2
 
 - [ ] Add TypeScript and production bundling.
 - [ ] Add owned UI primitives.
@@ -226,18 +234,18 @@ not replaced the path yet.
 - [ ] Register parallel test panel and card.
 - [ ] Verify light, dark, desktop and mobile behavior.
 
-### Phase 6 - Native Home Assistant adapter
+### Phase 7 - Native Home Assistant adapter
 
 - [ ] Add `todo.tasks`.
 - [ ] Verify native create, update, delete and complete actions.
 - [ ] Keep Tasks-specific metadata in the Tasks domain.
 
-### Phase 7 - Cutover
+### Phase 8 - Cutover
 
 - [ ] Replace production panel and card registrations.
 - [ ] Remove legacy WebSocket commands.
 - [ ] Remove legacy frontend and TanStack vendor files.
-- [ ] Introduce and migrate to store schema 4 if still beneficial.
+- [x] Introduce and migrate to store schema 4.
 - [ ] Update stable architecture documentation.
 - [ ] Compare final code and bundle sizes against the baseline.
 
@@ -318,8 +326,21 @@ not replaced the path yet.
   transaction adds 159 net production lines and 5,079 bytes overall:
   5,887 backend bytes added and 808 legacy frontend bytes removed.
 - Verified all 141 backend and 121 frontend tests.
+- Introduced store schema 4 with a permanent sequential `3 → 4` migration and
+  representative fixture.
+- Replaced global history and attachment collections with task-owned
+  `schedule`, `notification`, `completions`, and `attachments` records.
+- Kept WebSocket clients and archive format 3 compatible through explicit flat
+  projections at those boundaries.
+- Verified the real Home Assistant migration from store 3.1 to 4.1 against the
+  development data. Its formatted store file decreased from 4,030 to 3,550
+  bytes while retaining both tasks, five completions, and three attachments.
+- The compatibility phase adds 340 net production lines and 11,050 bytes.
+  These adapters remain measurable removal targets when the V2 frontend and
+  archive format stop consuming schema-3-shaped data.
+- Verified all 144 backend and 121 frontend tests.
 
 ## Next action
 
-Establish the TypeScript build and parallel V2 frontend entry without changing
-the current production panel or card registrations.
+Establish the TypeScript build and parallel V2 frontend entry against the
+revisioned snapshot protocol without changing current production registrations.
