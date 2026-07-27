@@ -1,5 +1,10 @@
 export const INITIAL_TASK_SORTING = {column:"due_ts",direction:"asc"};
-export const DEFAULT_HIDDEN_TASK_COLUMNS = ["labels","notifications","recurrence","rhythm"];
+export const DEFAULT_TASK_COLUMN_VISIBILITY = {
+  labels:false,
+  notifications:false,
+  recurrence:false,
+  rhythm:false,
+};
 export const TASK_TABLE_LOCAL_STORAGE_KEY = "tasks-table-state-v1";
 export const TASK_TABLE_SESSION_STORAGE_KEY = "tasks-table-session-v1";
 
@@ -22,7 +27,9 @@ export function loadTaskTableView(localStorage,sessionStorage) {
     sorting:local.sorting||INITIAL_TASK_SORTING,
     grouping:local.grouping,
     collapsed:local.collapsed,
-    hiddenColumns:Array.isArray(local.hiddenColumns)?local.hiddenColumns:[...DEFAULT_HIDDEN_TASK_COLUMNS],
+    columnVisibility:local.columnVisibility&&typeof local.columnVisibility==="object"&&!Array.isArray(local.columnVisibility)
+      ? local.columnVisibility
+      : {...DEFAULT_TASK_COLUMN_VISIBILITY},
   };
 }
 
@@ -32,7 +39,7 @@ export function storeTaskTableView(localStorage,sessionStorage,view) {
       sorting:view.sorting,
       grouping:view.grouping,
       collapsed:view.collapsed,
-      hiddenColumns:view.hiddenColumns,
+      columnVisibility:view.columnVisibility,
     }));
   } catch {
     // Safari private browsing and locked-down WebViews can reject storage.

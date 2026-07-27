@@ -15,8 +15,8 @@ await ready;
 await setLanguage("en");
 const {TASK_FILTER_COLUMNS,TASK_TABLE_DIMENSIONS,knownLabelIds,knownReferenceId,taskTableRows}=await import("../../custom_components/tasks/frontend/sidebar-task-list.js");
 const {NO_DUE_TIMESTAMP,createTaskTableRows,dueTimestamp}=await import("../../custom_components/tasks/frontend/task-table-rows.js");
-const {DEFAULT_HIDDEN_TASK_COLUMNS,INITIAL_TASK_SORTING,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,loadTaskTableView,storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-view.js");
-const {matchesDimensionFilters}=await import("../../custom_components/tasks/frontend/tasks-data-table.js");
+const {DEFAULT_TASK_COLUMN_VISIBILITY,INITIAL_TASK_SORTING,TASK_TABLE_LOCAL_STORAGE_KEY,TASK_TABLE_SESSION_STORAGE_KEY,loadTaskTableView,storeTaskTableView}=await import("../../custom_components/tasks/frontend/task-table-view.js");
+const {includesSelectedValue}=await import("../../custom_components/tasks/frontend/tasks-data-table.js");
 
 const source=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
 
@@ -85,7 +85,7 @@ test("TanStack filters combine dimensions and allow multiple values within one d
     {id:"3",assignee_id:"sam",label_ids:["chores"],notification_ids:["phone"],recurrence_id:"fixed",rhythm_id:"daily"},
   ];
   const dimensions={assignee:"assignee_id",labels:"label_ids",notifications:"notification_ids",recurrence:"recurrence_id",rhythm:"rhythm_id"};
-  const filtered=filters=>rows.filter(row=>matchesDimensionFilters(row,filters,dimensions)).map(row=>row.id);
+  const filtered=filters=>rows.filter(row=>Object.entries(dimensions).every(([column,field])=>includesSelectedValue({original:row},field,filters[column]))).map(row=>row.id);
   assert.deepEqual(filtered({assignee:["alex"]}),["1","2"]);
   assert.deepEqual(filtered({rhythm:["weekly","daily"]}),["1","3"]);
   assert.deepEqual(filtered({recurrence:["fixed"]}),["1","3"]);
@@ -110,6 +110,22 @@ test("panel uses the framework-neutral TanStack table wrapper",()=>{
   assert.match(tableSource,/<ha-checkbox data-column=/);
   assert.match(tableSource,/<input type="radio" name="group"/);
   assert.doesNotMatch(tableSource,/<ha-radio-(?:group|option)|<input type="checkbox"/);
+});
+
+test("TanStack owns table visibility selection sorting and filtering logic",()=>{
+  const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
+  assert.match(tableSource,/columnVisibility:this\._columnVisibility/);
+  assert.match(tableSource,/onColumnVisibilityChange:updater/);
+  assert.match(tableSource,/column\.getIsVisible\(\)/);
+  assert.match(tableSource,/column\.toggleVisibility\(\)/);
+  assert.doesNotMatch(tableSource,/_hiddenColumns|hiddenColumns/);
+  assert.match(tableSource,/this\._table\.resetRowSelection\(\)/);
+  assert.match(tableSource,/this\._table\.getSelectedRowModel\(\)\.rows\.map\(row=>row\.id\)/);
+  assert.match(tableSource,/sortingFn:id==="due_ts"\|\|id==="files"\?"basic":"alphanumeric"/);
+  assert.match(tableSource,/globalFilterFn:"includesString"/);
+  assert.match(tableSource,/columnFilters:this\._columnFilters/);
+  assert.match(tableSource,/filterFn:definition\.filterField\?/);
+  assert.doesNotMatch(tableSource,/Object\.values\(row\.original\)|localeCompare/);
 });
 
 test("table toolbar and scrolling keep controls and headers stable",()=>{
@@ -193,7 +209,7 @@ test("native selection bar offers assignment notification completion and deletio
 test("labels stay in their visible native table column",()=>{
   assert.doesNotMatch(source,/extraTemplate:row=>this\.taskLabels|taskLabels\(task\)|className="task-labels"/);
   assert.equal(TASK_TABLE_DIMENSIONS.labels.title,"table.label");
-  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
+  assert.deepEqual(DEFAULT_TASK_COLUMN_VISIBILITY,{labels:false,notifications:false,recurrence:false,rhythm:false});
 });
 
 test("bulk action chips use the same compact shape as native config dashboards",()=>{
@@ -208,10 +224,9 @@ test("panel title uses Home Assistant's compact native title margin",()=>{
 });
 
 test("table starts with the requested visible columns in definition order",()=>{
-  assert.deepEqual(DEFAULT_HIDDEN_TASK_COLUMNS,["labels","notifications","recurrence","rhythm"]);
-  assert.match(source,/wrapper\.hiddenColumns=Array\.isArray\(view\.hiddenColumns\)/);
+  assert.deepEqual(DEFAULT_TASK_COLUMN_VISIBILITY,{labels:false,notifications:false,recurrence:false,rhythm:false});
+  assert.match(source,/wrapper\.initialColumnVisibility=view\.columnVisibility/);
   assert.equal(TASK_TABLE_DIMENSIONS.notifications.title,"table.notifications");
-  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
   assert.match(source,/return available/);
   const columnsSource=source.slice(source.indexOf("tableColumns(){"),source.indexOf("taskActionButton(task)"));
   for(const [left,right] of [["icon","name"],["name","due_ts"],["due_ts","assignee"],["assignee","nfc_tag"],["nfc_tag","files"],["files","labels"],["labels","notifications"],["notifications","recurrence"],["recurrence","rhythm"],["rhythm","actions"]]){
@@ -231,7 +246,7 @@ test("custom table view survives reloads using the same storage split as Home As
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
-    hiddenColumns:["files","labels"],
+    columnVisibility:{files:false,labels:false},
   });
 
   assert.deepEqual(loadTaskTableView(local,session),{
@@ -240,19 +255,22 @@ test("custom table view survives reloads using the same storage split as Home As
     sorting:{column:"name",direction:"desc"},
     grouping:"assignee",
     collapsed:undefined,
-    hiddenColumns:["files","labels"],
+    columnVisibility:{files:false,labels:false},
   });
   assert.ok(local.getItem(TASK_TABLE_LOCAL_STORAGE_KEY));
   assert.ok(session.getItem(TASK_TABLE_SESSION_STORAGE_KEY));
-  assert.match(source,/wrapper\.addEventListener\("columns-changed"/);
+  assert.match(source,/wrapper\.addEventListener\("visibility-changed"/);
   assert.match(source,/wrapper\.addEventListener\("sorting-changed"/);
   assert.match(source,/wrapper\.addEventListener\("grouping-changed"/);
   assert.match(source,/wrapper\.addEventListener\("collapsed-changed"/);
   assert.match(source,/wrapper\.addEventListener\("search-changed"/);
+
+  const legacy=memory({[TASK_TABLE_LOCAL_STORAGE_KEY]:JSON.stringify({hiddenColumns:["files"]})});
+  assert.deepEqual(loadTaskTableView(legacy,memory({})).columnVisibility,DEFAULT_TASK_COLUMN_VISIBILITY);
 });
 
 test("declarative dimensions can group the native table",()=>{
-  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
+  assert.match(source,/const dimension=name=>\(\{title:t\(TASK_TABLE_DIMENSIONS\[name\]\.title\),filterField:TASK_TABLE_DIMENSIONS\[name\]\.values,\.\.\.groupable\}\)/);
   assert.match(source,/nfc_tag:\{title:[^}]+sortable:true\}/);
   assert.match(source,/wrapper\.initialGroupColumn=view\.grouping/);
 });
@@ -267,7 +285,6 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/\.filters\{box-sizing:border-box;width:100%\}/);
   assert.doesNotMatch(source,/\.filters\{[^}]*margin/);
   assert.match(source,/wrapper\.filters=this\.activeFilterCount\(\)/);
-  assert.match(source,/wrapper\.filterDimensions=TASK_TABLE_FILTER_DIMENSIONS/);
   assert.match(source,/wrapper\.dimensionFilters=this\.tableFilters/);
   assert.match(source,/wrapper\.data=rows/);
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
@@ -309,7 +326,7 @@ test("all filters follow Home Assistant category rows",()=>{
 
 test("search remains delegated to the table while its value is persisted",()=>{
   assert.match(source,/const groupable=\{sortable:true,groupable:true\}/);
-  assert.match(source,/Object\.entries\(TASK_TABLE_DIMENSIONS\)/);
+  assert.match(source,/filterField:TASK_TABLE_DIMENSIONS\[name\]\.values/);
   assert.match(source,/wrapper\.addEventListener\("search-changed"/);
 });
 

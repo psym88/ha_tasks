@@ -3,7 +3,7 @@ import { createActionMenu } from "./action-menu.js";
 import "./tasks-data-table.js";
 import { SETTINGS_CONTENT_TAG } from "./popup-settings.js";
 import {
-  DEFAULT_HIDDEN_TASK_COLUMNS,
+  DEFAULT_TASK_COLUMN_VISIBILITY,
   INITIAL_TASK_SORTING,
   loadTaskTableView,
   storeTaskTableView,
@@ -24,7 +24,6 @@ export const TASK_TABLE_DIMENSIONS = {
   rhythm:{title:"table.rhythm",icon:"mdi:repeat",values:"rhythm_id"},
 };
 export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
-const TASK_TABLE_FILTER_DIMENSIONS=Object.fromEntries(Object.entries(TASK_TABLE_DIMENSIONS).map(([name,definition])=>[name,definition.values]));
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 
 export class TasksSidebarFilterCategory extends HTMLElement {
@@ -125,7 +124,7 @@ export const withTaskList = Base => class extends Base {
   activeFilterCount(){return TASK_FILTER_COLUMNS.reduce((count,column)=>count+(this.tableFilters?.[column]?.length||0),0);}
   tableColumns(){
     const groupable={sortable:true,groupable:true};
-    const dimension=name=>({title:t(TASK_TABLE_DIMENSIONS[name].title),...groupable});
+    const dimension=name=>({title:t(TASK_TABLE_DIMENSIONS[name].title),filterField:TASK_TABLE_DIMENSIONS[name].values,...groupable});
     const available={
       icon:{title:"",hideable:false,template:row=>taskIconCell(row)},
       name:{title:t("table.task"),sortable:true,template:row=>taskNameCell(row)},
@@ -183,13 +182,12 @@ export const withTaskList = Base => class extends Base {
       const wrapper=document.createElement("tasks-data-table"),settings=document.createElement(SETTINGS_CONTENT_TAG),filterPane=document.createElement("div"),fab=document.createElement("ha-button"),fabIcon=document.createElement("ha-icon");
       wrapper.style.setProperty("--main-title-margin","0");
       wrapper.defaultSorting=INITIAL_TASK_SORTING;
-      wrapper.defaultHiddenColumns=DEFAULT_HIDDEN_TASK_COLUMNS;
-      wrapper.filterDimensions=TASK_TABLE_FILTER_DIMENSIONS;
+      wrapper.defaultColumnVisibility=DEFAULT_TASK_COLUMN_VISIBILITY;
       wrapper.filter=view.search;
       wrapper.initialSorting=view.sorting;
       wrapper.initialGroupColumn=view.grouping;
       wrapper.initialCollapsedGroups=view.collapsed;
-      wrapper.hiddenColumns=Array.isArray(view.hiddenColumns)?[...view.hiddenColumns]:[...DEFAULT_HIDDEN_TASK_COLUMNS];
+      wrapper.initialColumnVisibility=view.columnVisibility;
       settings.slot="settings-pane";
       settings.controller=this;
       filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.persistTaskTableValue("filters",this.tableFilters);this.clearTaskSelection();this.updateTaskTable();});filterPane.append(filter);}
@@ -210,7 +208,7 @@ export const withTaskList = Base => class extends Base {
       wrapper.addEventListener("sorting-changed",event=>this.persistTaskTableValue("sorting",event.detail));
       wrapper.addEventListener("grouping-changed",event=>this.persistTaskTableValue("grouping",event.detail?.value||undefined));
       wrapper.addEventListener("collapsed-changed",event=>this.persistTaskTableValue("collapsed",event.detail?.value));
-      wrapper.addEventListener("columns-changed",event=>this.persistTaskTableValue("hiddenColumns",event.detail?.hiddenColumns));
+      wrapper.addEventListener("visibility-changed",event=>this.persistTaskTableValue("columnVisibility",event.detail?.value));
     }
     this.updateTaskTable();
   }

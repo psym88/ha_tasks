@@ -10,11 +10,9 @@ import { esc, t } from "./localize.js";
 
 export const TASKS_DATA_TABLE_TAG="tasks-data-table";
 
-export function matchesDimensionFilters(row,filters={},dimensions={}) {
-  return Object.entries(dimensions).every(([column,field])=>{
-    const selected=filters[column]||[],value=row[field],values=Array.isArray(value)?value:[value];
-    return !selected.length||selected.some(item=>values.includes(item));
-  });
+export function includesSelectedValue(row,field,selected=[]) {
+  const value=row.original[field],values=Array.isArray(value)?value:[value];
+  return !selected.length||selected.some(item=>values.includes(item));
 }
 
 export class TasksDataTable extends HTMLElement {
@@ -23,18 +21,17 @@ export class TasksDataTable extends HTMLElement {
     this.attachShadow({mode:"open"});
     this._data=[];
     this._columns={};
-    this._hiddenColumns=[];
+    this._columnVisibility={};
     this._sorting=[];
     this._grouping=[];
     this._expanded={};
     this._rowSelection={};
     this._lastSelectedRowId=null;
     this._search="";
-    this._dimensionFilters={};
-    this._filterDimensions={};
+    this._columnFilters=[];
     this._openMenu=null;
     this._displayExpanded={columns:false,grouping:false};
-    this._defaultHiddenColumns=undefined;
+    this._defaultColumnVisibility=undefined;
     this._defaultSorting=undefined;
     this.filters=0;
     this.noDataText="";
@@ -66,30 +63,30 @@ export class TasksDataTable extends HTMLElement {
   set data(value){
     this._data=Array.isArray(value)?value:[];
     const ids=new Set(this._data.map(row=>row.id));
-    this._rowSelection=Object.fromEntries(Object.entries(this._rowSelection).filter(([id,selected])=>selected&&ids.has(id)));
     if(this._lastSelectedRowId&&!ids.has(this._lastSelectedRowId))this._lastSelectedRowId=null;
     this.update();
+    if(this.isConnected)this.emitSelection();
   }
   get data(){return this._data;}
   set columns(value){this._columns=value||{};this.update();}
   get columns(){return this._columns;}
-  set defaultHiddenColumns(value){this._defaultHiddenColumns=Array.isArray(value)?[...value]:[];}
-  set hiddenColumns(value){this._hiddenColumns=Array.isArray(value)?value:[];this.update();}
-  get hiddenColumns(){return this._hiddenColumns;}
+  set defaultColumnVisibility(value){this._defaultColumnVisibility=value&&typeof value==="object"?{...value}:{};}
+  set initialColumnVisibility(value){this._columnVisibility=value&&typeof value==="object"?{...value}:{};}
   set defaultSorting(value){this._defaultSorting=value?.column?[{id:value.column,desc:value.direction==="desc"}]:[];}
   set initialSorting(value){if(value?.column)this._sorting=[{id:value.column,desc:value.direction==="desc"}];}
   set initialGroupColumn(value){this._grouping=value?[value]:[];}
   set initialCollapsedGroups(value){this._expanded=value&&typeof value==="object"?value:{};}
   set filter(value){this._search=String(value||"");}
   get filter(){return this._search;}
-  set dimensionFilters(value){this._dimensionFilters=value&&typeof value==="object"?value:{};this.update();}
-  get dimensionFilters(){return this._dimensionFilters;}
-  set filterDimensions(value){this._filterDimensions=value&&typeof value==="object"?value:{};this.update();}
-  get filterDimensions(){return this._filterDimensions;}
+  set dimensionFilters(value){
+    const filters=value&&typeof value==="object"?value:{};
+    this._columnFilters=Object.entries(filters).filter(([,selected])=>Array.isArray(selected)&&selected.length).map(([id,selected])=>({id,value:selected}));
+    this.update();
+  }
   set selected(value){this._selected=Number(value)||0;this.renderSelection();}
   get selected(){return this._selected||0;}
 
-  clearSelection(){this._rowSelection={};this._lastSelectedRowId=null;this.emitSelection();this.update();}
+  clearSelection(){this._lastSelectedRowId=null;this._table.resetRowSelection();}
   selectRow(row,selected,range=false){
     const visibleRows=this._table.getRowModel().rows.filter(item=>!item.getIsGrouped());
     const currentIndex=visibleRows.findIndex(item=>item.id===row.id);
@@ -99,22 +96,18 @@ export class TasksDataTable extends HTMLElement {
       const start=Math.min(lastIndex,currentIndex),end=Math.max(lastIndex,currentIndex);
       for(let index=start;index<=end;index++)next[visibleRows[index].id]=selected;
     }else next[row.id]=selected;
-    this._rowSelection=next;
     this._lastSelectedRowId=row.id;
-    this.emitSelection();
-    this.update();
+    this._table.setRowSelection(next);
   }
   resetView(){
     this._sorting=(this._defaultSorting||[]).map(item=>({...item}));
     this._grouping=[];
     this._expanded={};
-    this._hiddenColumns=[...(this._defaultHiddenColumns||[])];
     const sorting=this._sorting[0];
     this.dispatchEvent(new CustomEvent("sorting-changed",{detail:sorting?{column:sorting.id,direction:sorting.desc?"desc":"asc"}:undefined}));
     this.dispatchEvent(new CustomEvent("grouping-changed",{detail:{value:undefined}}));
     this.dispatchEvent(new CustomEvent("collapsed-changed",{detail:{value:{}}}));
-    this.dispatchEvent(new CustomEvent("columns-changed",{detail:{hiddenColumns:this._hiddenColumns}}));
-    this.update();
+    this._table.setColumnVisibility({...this._defaultColumnVisibility});
   }
 
   columnDefinitions(){
@@ -124,10 +117,9 @@ export class TasksDataTable extends HTMLElement {
       header:definition.title??definition.label??id,
       enableSorting:definition.sortable!==false&&id!=="icon"&&id!=="actions",
       enableGrouping:Boolean(definition.groupable),
-      sortingFn:(left,right)=>{
-        const a=left.original[id],b=right.original[id];
-        return typeof a==="number"&&typeof b==="number"?a-b:String(a??"").localeCompare(String(b??""),undefined,{numeric:true,sensitivity:"base"});
-      },
+      enableGlobalFilter:definition.searchable!==false&&id!=="icon"&&id!=="actions"&&id!=="due_ts"&&id!=="files",
+      sortingFn:id==="due_ts"||id==="files"?"basic":"alphanumeric",
+      filterFn:definition.filterField?(row,_columnId,selected)=>includesSelectedValue(row,definition.filterField,selected):undefined,
       meta:{definition},
     }));
   }
@@ -137,20 +129,17 @@ export class TasksDataTable extends HTMLElement {
       sorting:this._sorting,
       grouping:this._grouping,
       expanded:this._expanded,
-      globalFilter:{search:this._search,dimensions:this._dimensionFilters},
+      globalFilter:this._search,
+      columnFilters:this._columnFilters,
       rowSelection:this._rowSelection,
-      columnVisibility:Object.fromEntries(Object.keys(this._columns).map(id=>[id,!this._hiddenColumns.includes(id)])),
+      columnVisibility:this._columnVisibility,
     };
     this._table.setOptions(previous=>({
       ...previous,
       data:this._data,
       columns:this.columnDefinitions(),
       state,
-      globalFilterFn:(row,_columnId,value)=>{
-        if(!matchesDimensionFilters(row.original,value?.dimensions,this._filterDimensions))return false;
-        const needle=String(value?.search||"").toLocaleLowerCase();
-        return !needle||Object.values(row.original).some(item=>String(item??"").toLocaleLowerCase().includes(needle));
-      },
+      globalFilterFn:"includesString",
       onSortingChange:updater=>{
         this._sorting=typeof updater==="function"?updater(this._sorting):updater;
         const sorting=this._sorting[0];
@@ -169,14 +158,20 @@ export class TasksDataTable extends HTMLElement {
       },
       onRowSelectionChange:updater=>{
         this._rowSelection=typeof updater==="function"?updater(this._rowSelection):updater;
+        this.syncTable();
         this.emitSelection();
+        this.render();
+      },
+      onColumnVisibilityChange:updater=>{
+        this._columnVisibility=typeof updater==="function"?updater(this._columnVisibility):updater;
+        this.dispatchEvent(new CustomEvent("visibility-changed",{detail:{value:this._columnVisibility}}));
         this.update();
       },
     }));
   }
 
   emitSelection(){
-    const value=Object.entries(this._rowSelection).filter(([,selected])=>selected).map(([id])=>id);
+    const value=this._table.getSelectedRowModel().rows.map(row=>row.id);
     this._selected=value.length;
     this.dispatchEvent(new CustomEvent("selection-changed",{detail:{value}}));
   }
@@ -324,13 +319,10 @@ export class TasksDataTable extends HTMLElement {
     this.shadowRoot.querySelector(".reset-view").onclick=()=>this.resetView();
     selectAll.checked=this._table.getIsAllRowsSelected();selectAll.indeterminate=this._table.getIsSomeRowsSelected();selectAll.onclick=event=>{event.preventDefault();event.stopPropagation();this._lastSelectedRowId=null;this._table.toggleAllRowsSelected(!this._table.getIsAllRowsSelected());};
     this.shadowRoot.querySelectorAll('ha-checkbox[data-column]').forEach(checkbox=>{
-      checkbox.checked=!this._hiddenColumns.includes(checkbox.dataset.column);
+      const column=this._table.getColumn(checkbox.dataset.column);
+      checkbox.checked=column.getIsVisible();
       const toggle=()=>{
-        const visible=!this._hiddenColumns.includes(checkbox.dataset.column);
-        const hidden=visible?[...new Set([...this._hiddenColumns,checkbox.dataset.column])]:this._hiddenColumns.filter(id=>id!==checkbox.dataset.column);
-        this._hiddenColumns=hidden;
-        this.dispatchEvent(new CustomEvent("columns-changed",{detail:{hiddenColumns:hidden}}));
-        this.update();
+        column.toggleVisibility();
       };
       checkbox.onchange=toggle;
       checkbox.closest("label").onclick=event=>{if(!event.composedPath().includes(checkbox))toggle();};
