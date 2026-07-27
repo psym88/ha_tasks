@@ -37,7 +37,7 @@ def test_attachments_and_archives_use_owned_streaming_endpoints():
     assert 'UPLOAD_URL = f"/api/{DOMAIN}/upload"' in (
         ROOT / "custom_components/tasks/const.py"
     ).read_text(encoding="utf-8")
-    assert "MAX_UPLOAD_SIZE" not in http_source
+    assert "MAX_ATTACHMENT_SIZE" in http_source
     assert "raise_if_invalid_filename" in http_source
     assert "record.user_id != user_id" in http_source
     assert "request._client_max_size = 0" in http_source

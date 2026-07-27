@@ -6,7 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from custom_components.tasks.attachment_api import PendingUpload, TemporaryUploads
+from aiohttp import web
+
+from custom_components.tasks import attachment_api
+from custom_components.tasks.attachment_api import (
+    PendingUpload,
+    TemporaryUploads,
+)
 
 
 def test_temporary_upload_is_consumed_by_its_owner_and_removed(tmp_path):
@@ -58,3 +64,32 @@ def test_temporary_upload_cannot_be_consumed_by_another_user(tmp_path):
     asyncio.run(run())
     assert file_id in uploads.files
     assert path.exists()
+
+
+def test_attachment_upload_rejects_oversize_file_and_removes_partial_file(
+    tmp_path, monkeypatch
+):
+    class Upload:
+        headers = {}
+
+        def __init__(self):
+            self.chunks = iter((b"1234", b"5678"))
+
+        async def read_chunk(self, _size):
+            return next(self.chunks, b"")
+
+    monkeypatch.setattr(attachment_api, "MAX_ATTACHMENT_SIZE", 7)
+    hass = SimpleNamespace(
+        async_add_executor_job=lambda target, *args: asyncio.to_thread(
+            target, *args
+        )
+    )
+    uploads = TemporaryUploads(hass, tmp_path)
+
+    async def run():
+        with pytest.raises(web.HTTPRequestEntityTooLarge):
+            await uploads.async_store(Upload(), "manual.pdf", "user-1")
+
+    asyncio.run(run())
+    assert uploads.files == {}
+    assert list(tmp_path.iterdir()) == []

@@ -28,6 +28,7 @@ from .manager import get_manager
 from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
 
 ONE_MEGABYTE: Final = 1024 * 1024
+MAX_ATTACHMENT_SIZE: Final = 100 * ONE_MEGABYTE
 UPLOAD_DATA_KEY: Final = f"{DOMAIN}_temporary_uploads"
 
 
@@ -91,9 +92,16 @@ class TemporaryUploads:
         )
 
         await self.hass.async_add_executor_job(directory.mkdir)
+        size = 0
         try:
             with path.open("xb") as output:
                 while chunk := await upload.read_chunk(ONE_MEGABYTE):
+                    size += len(chunk)
+                    if size > MAX_ATTACHMENT_SIZE:
+                        raise web.HTTPRequestEntityTooLarge(
+                            max_size=MAX_ATTACHMENT_SIZE,
+                            actual_size=size,
+                        )
                     await self.hass.async_add_executor_job(
                         output.write, chunk
                     )
