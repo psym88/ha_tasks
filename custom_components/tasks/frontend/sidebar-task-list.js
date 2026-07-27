@@ -44,7 +44,7 @@ export const TASK_FILTER_COLUMNS = Object.keys(TASK_TABLE_DIMENSIONS);
 export const FILTER_CATEGORY_TAG="tasks-sidebar-filter-category";
 
 export class TasksSidebarFilterCategory extends HTMLElement {
-  constructor(){super();this.attachShadow({mode:"open"});this._items=[];this._value=[];this.expanded=false;this.label="";this.icon="mdi:filter-variant";}
+  constructor(){super();this.attachShadow({mode:"open"});this._items=[];this._value=[];this.expanded=false;this.label="";}
   set items(value){this._items=Array.isArray(value)?value:[];this.render();}
   get items(){return this._items;}
   set value(value){this._value=Array.isArray(value)?value:[];this.render();}
@@ -53,9 +53,9 @@ export class TasksSidebarFilterCategory extends HTMLElement {
   select(id){this._value=id?(this._value.includes(id)?this._value.filter(value=>value!==id):[...this._value,id]):[];this.dispatchEvent(new CustomEvent("value-changed",{bubbles:true,composed:true,detail:{value:this._value}}));this.render();}
   render(){
     if(!this.shadowRoot)return;
-    this.shadowRoot.innerHTML=`<style>:host{display:block;border-bottom:1px solid var(--divider-color)}.header{display:flex;align-items:center}.badge{display:inline-block;box-sizing:border-box;min-width:16px;margin-inline-start:8px;padding:0 2px;border-radius:var(--ha-border-radius-circle);background:var(--primary-color);color:var(--text-primary-color);font-size:var(--ha-font-size-xs);font-weight:var(--ha-font-weight-normal);line-height:var(--ha-line-height-normal);text-align:center}ha-list{padding-block:var(--ha-space-2);--mdc-list-item-meta-size:auto;--mdc-list-side-padding-right:var(--ha-space-1);--mdc-list-side-padding-left:var(--ha-space-4);--ha-icon-button-size:36px}ha-list-item{--mdc-list-item-graphic-margin:var(--ha-space-4)}ha-dropdown-item{font-size:var(--ha-font-size-m)}</style><ha-expansion-panel left-chevron><div slot="header" class="header">${this.label}${this._value.length?`<span class="badge">${this._value.length}</span>`:""}</div><ha-list activatable></ha-list></ha-expansion-panel>`;
-    const panel=this.shadowRoot.querySelector("ha-expansion-panel"),list=this.shadowRoot.querySelector("ha-list");panel.expanded=this.expanded;panel.addEventListener("expanded-changed",event=>{this.expanded=Boolean(event.detail?.expanded);});
-    for(const option of this._items){const item=document.createElement("ha-list-item"),icon=document.createElement("ha-icon");item.value=option.value;item.selected=this._value.includes(option.value);item.activated=item.selected;item.graphic="icon";icon.slot="graphic";icon.setAttribute("icon",this.icon);item.append(icon,document.createTextNode(option.label));item.addEventListener("click",()=>this.select(option.value));list.append(item);}
+    this.shadowRoot.innerHTML=`<style>:host{display:block;border-bottom:1px solid var(--divider-color)}.header{display:flex;align-items:center}.badge{display:inline-block;box-sizing:border-box;min-width:16px;margin-inline-start:8px;padding:0 2px;border-radius:var(--ha-border-radius-circle);background:var(--primary-color);color:var(--text-primary-color);font-size:var(--ha-font-size-xs);font-weight:var(--ha-font-weight-normal);line-height:var(--ha-line-height-normal);text-align:center}.options{display:flex;flex-direction:column;padding-block:var(--ha-space-2)}.options label{display:flex;align-items:center;gap:var(--ha-space-2);min-height:40px;padding-inline:var(--ha-space-4)}</style><ha-expansion-panel left-chevron><div slot="header" class="header">${this.label}${this._value.length?`<span class="badge">${this._value.length}</span>`:""}</div><div class="options"></div></ha-expansion-panel>`;
+    const panel=this.shadowRoot.querySelector("ha-expansion-panel"),options=this.shadowRoot.querySelector(".options");panel.expanded=this.expanded;panel.addEventListener("expanded-changed",event=>{this.expanded=Boolean(event.detail?.expanded);});
+    for(const option of this._items){const label=document.createElement("label"),checkbox=document.createElement("ha-checkbox"),text=document.createElement("span");checkbox.checked=this._value.includes(option.value);checkbox.addEventListener("change",()=>this.select(option.value));label.addEventListener("click",event=>{if(!event.composedPath().includes(checkbox))this.select(option.value);});text.textContent=option.label;label.append(checkbox,text);options.append(label);}
   }
 }
 
@@ -208,7 +208,7 @@ export const withTaskList = Base => class extends Base {
       wrapper.hiddenColumns=Array.isArray(view.hiddenColumns)?[...view.hiddenColumns]:[...DEFAULT_HIDDEN_TASK_COLUMNS];
       settings.slot="settings-pane";
       settings.controller=this;
-      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});filterPane.append(filter);}
+      filterPane.className="filters";filterPane.slot="filter-pane";for(const column of TASK_FILTER_COLUMNS){const filter=document.createElement(FILTER_CATEGORY_TAG);filter.dataset.column=column;filter.controller=this;filter.addEventListener("value-changed",event=>{event.stopPropagation();this.tableFilters={...(this.tableFilters||{}),[column]:event.detail?.value||[]};this.persistTaskTableValue("filters",this.tableFilters);this.clearTaskSelection();this.updateTaskTable();});filterPane.append(filter);}
       fab.slot="fab";
       fab.setAttribute("size","l");
       fab.textContent=t("common.add_task");
@@ -221,7 +221,7 @@ export const withTaskList = Base => class extends Base {
       this.shadowRoot.querySelector(".app").append(wrapper);
       wrapper.addEventListener("selection-changed",event=>{this.selectedTaskIds=event.detail?.value||[];wrapper.selected=this.selectedTaskIds.length;this.appendBulkActions(wrapper);});
       wrapper.addEventListener("row-click",event=>{const task=this.tasks.find(item=>item.task_id===event.detail?.id);if(task)this.taskViewer(task);});
-      wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.persistTaskTableValue("filters",this.tableFilters);this.updateTaskTable();});
+      wrapper.addEventListener("clear-filter",()=>{this.tableFilters={};this.persistTaskTableValue("filters",this.tableFilters);this.clearTaskSelection();this.updateTaskTable();});
       wrapper.addEventListener("search-changed",event=>this.persistTaskTableValue("search",event.detail?.value||""));
       wrapper.addEventListener("sorting-changed",event=>this.persistTaskTableValue("sorting",event.detail));
       wrapper.addEventListener("grouping-changed",event=>this.persistTaskTableValue("grouping",event.detail?.value||undefined));
@@ -236,7 +236,7 @@ export const withTaskList = Base => class extends Base {
     const settings=wrapper.querySelector('[slot="settings-pane"]'),fab=wrapper.querySelector('[slot="fab"]'),rows=this.tableRows();
     if(settings)settings.controller=this;
     if(fab){for(const node of [...fab.childNodes])if(node.nodeType===3)node.remove();fab.append(document.createTextNode(t("common.add_task")));}
-    wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.icon=TASK_TABLE_DIMENSIONS[column].icon;filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
+    wrapper.querySelectorAll(FILTER_CATEGORY_TAG).forEach(filter=>{const column=filter.dataset.column;filter.controller=this;filter.label=this.filterLabel({name:column});filter.items=this.filterItems(rows,column);filter.value=this.tableFilters?.[column]||[];});
     wrapper.hass=this._hass;
     wrapper.tabs=[{name:"Tasks",path:""}];
     wrapper.narrow=Boolean(this.narrow);

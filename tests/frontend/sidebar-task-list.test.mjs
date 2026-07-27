@@ -109,6 +109,24 @@ test("panel uses the framework-neutral TanStack table wrapper",()=>{
   assert.doesNotMatch(tableSource,/<ha-radio-(?:group|option)|<input type="checkbox"/);
 });
 
+test("table toolbar and scrolling keep controls and headers stable",()=>{
+  const tableSource=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
+  assert.ok(tableSource.indexOf('<div class="toolbar-actions">')<tableSource.indexOf('<div class="selection${this.selected?" active":""}"><input class="search"'));
+  assert.match(tableSource,/\.toolbar-actions\{display:flex;align-items:center;margin-inline-start:auto\}/);
+  assert.match(tableSource,/\.search\{box-sizing:border-box;height:var\(--ha-control-height,40px\)/);
+  assert.match(tableSource,/--md-assist-chip-container-height:var\(--ha-control-height,40px\)/);
+  assert.match(tableSource,/--md-assist-chip-label-text-size:var\(--ha-font-size-m\)/);
+  assert.doesNotMatch(tableSource,/--ha-assist-chip-container-height/);
+  assert.match(tableSource,/\.filter-menu,\.display-menu\{width:max-content;max-width:[^}]+padding:0;/);
+  assert.match(tableSource,/\.settings-menu\{box-sizing:border-box;width:420px;max-width:calc\(100vw - var\(--ha-space-8\)\);padding:0;/);
+  assert.match(tableSource,/\.filter-menu ha-expansion-panel,\.display-menu ha-expansion-panel,\.settings-menu slot::slotted\(\*\)\{width:100%\}/);
+  assert.match(tableSource,/\.toolbar\{position:sticky;z-index:5;top:0;/);
+  assert.match(tableSource,/thead\{position:sticky;z-index:2;top:0;/);
+  assert.match(tableSource,/\.fab\{position:fixed;z-index:3;/);
+  assert.match(tableSource,/row\.className="empty-row";cell\.colSpan=columns\.length\+1/);
+  assert.match(tableSource,/tbody tr\.group-row,tbody tr\.empty-row\{display:table;width:100%\}/);
+});
+
 test("native icon column replaces the task icon for inactive tasks",()=>{
   const rowsSource=readFileSync(new URL("../../custom_components/tasks/frontend/task-table-rows.js",import.meta.url),"utf8");
   assert.match(rowsSource,/icon:task\.task_icon\|\|"mdi:clipboard-check-outline"/);
@@ -242,6 +260,8 @@ test("native filter pane exposes every declarative dimension",()=>{
   assert.match(source,/wrapper\.filters=this\.activeFilterCount\(\)/);
   assert.match(source,/wrapper\.data=filterTaskTableRows\(rows,this\.tableFilters\)/);
   assert.match(source,/wrapper\.addEventListener\("clear-filter"/);
+  assert.match(source,/value-changed"[\s\S]*?persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);
+  assert.match(source,/clear-filter",\(\)=>\{this\.tableFilters=\{\};this\.persistTaskTableValue\("filters",this\.tableFilters\);this\.clearTaskSelection\(\);this\.updateTaskTable\(\)/);
 });
 
 test("table projection keeps stable ids separate from localized labels",()=>{
@@ -266,7 +286,11 @@ test("all filters follow Home Assistant category rows",()=>{
   const taskList=readFileSync(new URL("../../custom_components/tasks/frontend/sidebar-task-list.js",import.meta.url),"utf8");
   const filterCategory=taskList.slice(taskList.indexOf("export class TasksSidebarFilterCategory"),taskList.indexOf("export function taskTableRows"));
   const actionMenu=readFileSync(new URL("../../custom_components/tasks/frontend/action-menu.js",import.meta.url),"utf8");
-  assert.match(filterCategory,/createElement\("ha-list-item"\)/);
+  assert.match(filterCategory,/createElement\("ha-checkbox"\)/);
+  assert.match(filterCategory,/\.options\{display:flex;flex-direction:column;padding-block:var\(--ha-space-2\)\}/);
+  assert.match(filterCategory,/\.options label\{display:flex;align-items:center;gap:var\(--ha-space-2\);min-height:40px;padding-inline:var\(--ha-space-4\)\}/);
+  assert.match(filterCategory,/label\.addEventListener\("click"/);
+  assert.doesNotMatch(filterCategory,/createElement\("ha-icon"\)|createElement\("ha-list-item"\)/);
   assert.doesNotMatch(filterCategory,/createActionMenu|groupEditor|deleteGroup/);
   assert.match(actionMenu,/createElement\("ha-dropdown"\)/);
   assert.match(actionMenu,/dropdown\.addEventListener\("click",\s*stop\)/);
@@ -290,6 +314,14 @@ test("panel keeps native settings and add-task controls",()=>{
 test("files column shows the sortable attachment count",()=>{
   assert.match(source,/files:\{title:t\("task\.files"\),sortable:true\}/);
   assert.match(source,/attachments:this\.attachments/);
+});
+
+test("sorting indicator stays left without shifting the table header text",()=>{
+  const table=readFileSync(new URL("../../custom_components/tasks/frontend/tasks-data-table.js",import.meta.url),"utf8");
+  assert.doesNotMatch(table,/th button\.sortable\{padding-inline-start:/);
+  assert.match(table,/th\{color:var\(--primary-text-color\);font-size:var\(--ha-font-size-l\)\}/);
+  assert.match(table,/th button ha-icon\{position:absolute;inset-block-start:50%;inset-inline-start:calc\(-1 \* var\(--ha-space-4\)\);transform:translateY\(-50%\)/);
+  assert.ok(table.indexOf("button.append(icon)")<table.indexOf("button.append(label)"));
 });
 
 test("task action menu stops pointer and click propagation",()=>{

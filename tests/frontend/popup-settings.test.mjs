@@ -8,7 +8,8 @@ test("settings uses toolbar popover content without a dialog", () => {
   assert.doesNotMatch(source, /show-dialog|ha-adaptive-dialog/);
   assert.match(source, /SETTINGS_CONTENT_TAG="tasks-settings-content"/);
   assert.match(source, /Tasks - \$\{esc\(version\)\}/);
-  assert.match(source, /<ha-expansion-panel outlined>/);
+  assert.match(source, /<ha-expansion-panel left-chevron>/);
+  assert.doesNotMatch(source, /<ha-expansion-panel outlined>/);
   assert.match(source, /t\("settings\.import_export"\)/);
   assert.match(table, /class="popover settings-popover"/);
   assert.match(table, /<slot name="settings-pane"><\/slot>/);
