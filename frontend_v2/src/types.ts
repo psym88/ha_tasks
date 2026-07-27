@@ -11,6 +11,12 @@ export interface Task {
   assignee_id?: string | null;
   label_ids?: string[];
   nfc_tag_id?: string | null;
+  notification_target?: {
+    device_id?: string[];
+  };
+  notification_persistent?: boolean;
+  notification_critical?: boolean;
+  notification_route?: string | null;
   task_due?: string | null;
   schedule_type: ScheduleType;
   schedule_unit?: ScheduleUnit | null;
@@ -55,6 +61,15 @@ export interface TasksTag {
 export interface TasksLabel {
   label_id: string;
   name: string;
+}
+
+export interface TasksDevice {
+  id: string;
+  name_by_user?: string | null;
+  name?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  identifiers?: Array<[string, string]>;
 }
 
 type Unsubscribe = () => void;

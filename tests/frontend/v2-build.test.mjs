@@ -110,7 +110,7 @@ test("V2 pill owns its presentation", () => {
   assert.doesNotMatch(pill, /ha-chip|ha-assist-chip/);
 });
 
-test("V2 owns its text textarea select and combobox controls", () => {
+test("V2 owns its text textarea select combobox and switch controls", () => {
   assert.match(fields, /<input/);
   assert.match(fields, /<textarea/);
   assert.match(fields, /<select/);
@@ -118,7 +118,11 @@ test("V2 owns its text textarea select and combobox controls", () => {
   assert.match(fields, /<datalist/);
   assert.match(fields, /type="checkbox"/);
   assert.match(fields, /elementName\("multi-select-field"\)/);
-  assert.doesNotMatch(fields, /ha-textfield|ha-selector|ha-combo-box/);
+  assert.match(fields, /elementName\("switch-field"\)/);
+  assert.doesNotMatch(
+    fields,
+    /ha-textfield|ha-selector|ha-combo-box|ha-switch/,
+  );
 });
 
 test("V2 editor saves task details and planning in one transaction", () => {
@@ -174,4 +178,33 @@ test("V2 assignment excludes deleted registry references", () => {
     taskForm,
     /this\.tags\.some\(\(tag\) => tag\.id === this\.nfcTagId\)/,
   );
+});
+
+test("V2 notification editor loads mobile devices and saves only after editing", () => {
+  assert.match(api, /type: "config\/device_registry\/list"/);
+  assert.match(api, /identifier\?\.\[0\] === "mobile_app"/);
+  assert.match(
+    api,
+    /notification_target: details\.notification\.deviceIds\.length/,
+  );
+  assert.match(
+    api,
+    /notification_persistent: details\.notification\.persistent/,
+  );
+  assert.match(api, /notification_critical: details\.notification\.critical/);
+  assert.match(
+    api,
+    /notification_route: details\.notification\.route\.trim\(\) \|\| null/,
+  );
+  assert.match(taskForm, /this\.notificationDirty/);
+  assert.match(taskForm, /this\.notificationDirty[\s\S]*?notification:/);
+  assert.match(taskForm, /notificationRoute\.startsWith\("\/\/"\)/);
+});
+
+test("V2 notification editor excludes deleted and non-mobile devices", () => {
+  assert.match(
+    taskForm,
+    /this\.devices\.some\(\(device\) => device\.id === id\)/,
+  );
+  assert.match(taskForm, /loadNotificationDevices/);
 });

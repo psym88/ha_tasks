@@ -3,6 +3,7 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
   loadAssignmentOptions,
+  loadNotificationDevices,
   previewTaskSchedule,
   saveTaskDetails,
   type RecurrenceScheduleDetails,
@@ -14,6 +15,7 @@ import type {
   ScheduleType,
   ScheduleUnit,
   Task,
+  TasksDevice,
   TasksLabel,
   TasksTag,
   TasksUser,
@@ -24,6 +26,7 @@ import {
   comboboxFieldElementName,
   multiSelectFieldElementName,
   selectFieldElementName,
+  switchFieldElementName,
   textFieldElementName,
   type FieldOption,
 } from "./ui/fields";
@@ -33,6 +36,7 @@ const textFieldTag = unsafeStatic(textFieldElementName);
 const selectFieldTag = unsafeStatic(selectFieldElementName);
 const comboboxFieldTag = unsafeStatic(comboboxFieldElementName);
 const multiSelectFieldTag = unsafeStatic(multiSelectFieldElementName);
+const switchFieldTag = unsafeStatic(switchFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
 
 const statusOptions: FieldOption[] = [
@@ -104,6 +108,14 @@ class TasksTaskForm extends LitElement {
     tags: { state: true },
     assignmentLoading: { state: true },
     assignmentError: { state: true },
+    notificationDeviceIds: { state: true },
+    notificationPersistent: { state: true },
+    notificationCritical: { state: true },
+    notificationRoute: { state: true },
+    devices: { state: true },
+    notificationLoading: { state: true },
+    notificationError: { state: true },
+    notificationRouteError: { state: true },
     scheduleType: { state: true },
     scheduleUnit: { state: true },
     scheduleInterval: { state: true },
@@ -228,6 +240,14 @@ class TasksTaskForm extends LitElement {
   declare tags: TasksTag[];
   declare assignmentLoading: boolean;
   declare assignmentError: string;
+  declare notificationDeviceIds: string[];
+  declare notificationPersistent: boolean;
+  declare notificationCritical: boolean;
+  declare notificationRoute: string;
+  declare devices: TasksDevice[];
+  declare notificationLoading: boolean;
+  declare notificationError: string;
+  declare notificationRouteError: string;
   declare scheduleType: ScheduleType;
   declare scheduleUnit: ScheduleUnit;
   declare scheduleInterval: number;
@@ -249,6 +269,7 @@ class TasksTaskForm extends LitElement {
   private task?: Task;
   private scheduleDirty = false;
   private assignmentDirty = false;
+  private notificationDirty = false;
   private previewRequest = 0;
 
   constructor() {
@@ -265,6 +286,14 @@ class TasksTaskForm extends LitElement {
     this.tags = [];
     this.assignmentLoading = false;
     this.assignmentError = "";
+    this.notificationDeviceIds = [];
+    this.notificationPersistent = false;
+    this.notificationCritical = false;
+    this.notificationRoute = "";
+    this.devices = [];
+    this.notificationLoading = false;
+    this.notificationError = "";
+    this.notificationRouteError = "";
     this.scheduleType = "sliding";
     this.scheduleUnit = "monthly";
     this.scheduleInterval = 1;
@@ -298,6 +327,16 @@ class TasksTaskForm extends LitElement {
     this.assigneeId = task.assignee_id || "";
     this.labelIds = [...(task.label_ids || [])];
     this.nfcTagId = task.nfc_tag_id || "";
+    this.notificationDeviceIds = [
+      ...new Set(
+        (task.notification_target?.device_id || []).filter(
+          (id): id is string => typeof id === "string",
+        ),
+      ),
+    ];
+    this.notificationPersistent = Boolean(task.notification_persistent);
+    this.notificationCritical = Boolean(task.notification_critical);
+    this.notificationRoute = task.notification_route || "";
     this.scheduleType = task.schedule_type;
     this.scheduleUnit = task.schedule_unit || "monthly";
     this.scheduleInterval = task.schedule_interval || 1;
@@ -311,7 +350,9 @@ class TasksTaskForm extends LitElement {
     this.problemSensor = task.problem_sensor || "";
     this.scheduleDirty = false;
     this.assignmentDirty = false;
+    this.notificationDirty = false;
     void this.loadAssignments();
+    void this.loadNotifications();
     void this.updateComplete.then(() => this.loadPreview());
   }
 
@@ -349,6 +390,39 @@ class TasksTaskForm extends LitElement {
       this.assignmentError = "Assignments could not be loaded";
     } finally {
       this.assignmentLoading = false;
+    }
+  }
+
+  private deviceName(device: TasksDevice): string {
+    return (
+      device.name_by_user ||
+      device.name ||
+      [device.manufacturer, device.model].filter(Boolean).join(" ") ||
+      device.id
+    );
+  }
+
+  private async loadNotifications(): Promise<void> {
+    const hass = this.hass;
+    if (!hass) {
+      return;
+    }
+    this.notificationLoading = true;
+    this.notificationError = "";
+    try {
+      this.devices = (await loadNotificationDevices(hass)).sort((left, right) =>
+        this.deviceName(left).localeCompare(
+          this.deviceName(right),
+          this.hass?.locale?.language,
+        ),
+      );
+      this.notificationDeviceIds = this.notificationDeviceIds.filter((id) =>
+        this.devices.some((device) => device.id === id),
+      );
+    } catch {
+      this.notificationError = "Notification devices could not be loaded";
+    } finally {
+      this.notificationLoading = false;
     }
   }
 
@@ -436,6 +510,12 @@ class TasksTaskForm extends LitElement {
     change();
   }
 
+  private notificationChanged(change: () => void): void {
+    this.notificationDirty = true;
+    this.notificationRouteError = "";
+    change();
+  }
+
   private async loadPreview(): Promise<void> {
     const hass = this.hass;
     const task = this.task;
@@ -481,10 +561,18 @@ class TasksTaskForm extends LitElement {
   async save(): Promise<boolean> {
     const name = this.name.trim();
     const schedule = this.scheduleDetails(true);
+    const notificationRoute = this.notificationRoute.trim();
     if (!name) {
       this.nameError = "Name is required";
     }
-    if (!name || !schedule) {
+    if (
+      notificationRoute &&
+      (!notificationRoute.startsWith("/") ||
+        notificationRoute.startsWith("//"))
+    ) {
+      this.notificationRouteError = "Use an internal path beginning with /";
+    }
+    if (!name || !schedule || this.notificationRouteError) {
       return false;
     }
     if (!this.hass || !this.task || this.saving) {
@@ -505,6 +593,14 @@ class TasksTaskForm extends LitElement {
               assigneeId: this.assigneeId,
               labelIds: this.labelIds,
               nfcTagId: this.nfcTagId,
+            }
+          : undefined,
+        notification: this.notificationDirty
+          ? {
+              deviceIds: this.notificationDeviceIds,
+              persistent: this.notificationPersistent,
+              critical: this.notificationCritical,
+              route: notificationRoute,
             }
           : undefined,
       });
@@ -790,6 +886,69 @@ class TasksTaskForm extends LitElement {
     `;
   }
 
+  private renderNotification() {
+    if (this.notificationLoading) {
+      return html`<p class="hint" aria-live="polite">
+        Loading notification devices…
+      </p>`;
+    }
+    if (this.notificationError) {
+      return html`<p class="error" role="alert">${this.notificationError}</p>`;
+    }
+    const deviceOptions = this.devices.map((device) => ({
+      label: this.deviceName(device),
+      value: device.id,
+    }));
+    return staticHtml`
+      <div class="planning">
+        <${multiSelectFieldTag}
+          label="Mobile devices"
+          .value=${this.notificationDeviceIds}
+          .options=${deviceOptions}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string[]>) =>
+            this.notificationChanged(() => {
+              this.notificationDeviceIds = event.detail;
+            })}
+        ></${multiSelectFieldTag}>
+        ${deviceOptions.length
+          ? nothing
+          : html`<p class="hint">No mobile app devices found.</p>`}
+        <${switchFieldTag}
+          label="Persistent notification"
+          description="Also show this notification in Home Assistant."
+          .checked=${this.notificationPersistent}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<boolean>) =>
+            this.notificationChanged(() => {
+              this.notificationPersistent = event.detail;
+            })}
+        ></${switchFieldTag}>
+        <${switchFieldTag}
+          label="Critical notification"
+          description="Use critical delivery on supported mobile devices."
+          .checked=${this.notificationCritical}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<boolean>) =>
+            this.notificationChanged(() => {
+              this.notificationCritical = event.detail;
+            })}
+        ></${switchFieldTag}>
+        <${textFieldTag}
+          label="Navigation target"
+          .value=${this.notificationRoute}
+          .error=${this.notificationRouteError}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string>) =>
+            this.notificationChanged(() => {
+              this.notificationRoute = event.detail;
+            })}
+        ></${textFieldTag}>
+        <p class="hint">Internal path, for example /lovelace/tasks.</p>
+      </div>
+    `;
+  }
+
   protected render() {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
@@ -833,6 +992,9 @@ class TasksTaskForm extends LitElement {
         ></${comboboxFieldTag}>
         <${expandableTag} heading="Assignment">
           ${this.renderAssignment()}
+        </${expandableTag}>
+        <${expandableTag} heading="Notifications">
+          ${this.renderNotification()}
         </${expandableTag}>
         <${expandableTag} heading="Planning" open>
           ${this.renderPlanning()}

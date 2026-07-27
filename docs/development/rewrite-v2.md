@@ -155,8 +155,8 @@ not replaced the path yet.
 | Completion notes | legacy | pending | trimming and attribution |
 | Delete history | legacy | complete | deletion does not alter current due |
 | NFC completion | legacy | pending | user/context attribution |
-| Persistent notification | legacy | pending | create and dismiss |
-| Mobile notification | legacy | pending | device target and critical payload |
+| Persistent notification | legacy | complete | create and dismiss |
+| Mobile notification | legacy | complete | device target and critical payload |
 | Task attachments | legacy | pending | upload, preview and delete |
 | ZIP export | legacy | pending | data and attachment consistency |
 | ZIP import | legacy | pending | streaming, migration and merge report |
@@ -408,8 +408,20 @@ not replaced the path yet.
   exact save payloads in a browser.
 - The hash-scoped bundle grew from 47,873 to 52,650 bytes. Verified all 145
   backend and 135 frontend tests.
+- Added the V2 notification section with an owned mobile-device multi-select,
+  owned switches for persistent and critical delivery, and an owned internal
+  navigation-path field.
+- Loaded only devices registered by Home Assistant's `mobile_app` integration
+  and removed deleted device references from the visible selection.
+- Preserved unchanged notification data by sending notification fields only
+  after an edit; invalid external or protocol-relative routes are rejected in
+  the field before saving.
+- Verified initial, unchanged, invalid-route, and changed notification paths
+  with exact save payloads in a browser.
+- The hash-scoped bundle grew from 52,650 to 57,985 bytes. Verified all 145
+  backend and 137 frontend tests.
 
 ## Next action
 
-Add the V2 notification section for mobile devices, persistent notifications,
-critical delivery, and navigation targets.
+Add the V2 editor sections for task attachments and completion history,
+including staged uploads and transactional deletion.

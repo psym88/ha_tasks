@@ -340,10 +340,91 @@ class TasksMultiSelectField extends LitElement {
   }
 }
 
+class TasksSwitchField extends LitElement {
+  static properties = {
+    label: {},
+    description: {},
+    checked: { type: Boolean },
+    disabled: { type: Boolean },
+  };
+
+  static styles = [
+    fieldStyles,
+    css`
+      label {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        color: var(--primary-text-color);
+        font-size: 14px;
+      }
+
+      .copy {
+        display: grid;
+        gap: 2px;
+      }
+
+      small {
+        color: var(--secondary-text-color);
+      }
+
+      input {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: var(--primary-color);
+      }
+    `,
+  ];
+
+  declare label: string;
+  declare description: string;
+  declare checked: boolean;
+  declare disabled: boolean;
+
+  constructor() {
+    super();
+    this.label = "";
+    this.description = "";
+    this.checked = false;
+    this.disabled = false;
+  }
+
+  protected render() {
+    return html`
+      <label>
+        <span class="copy">
+          <span>${this.label}</span>
+          ${this.description ? html`<small>${this.description}</small>` : null}
+        </span>
+        <input
+          type="checkbox"
+          .checked=${this.checked}
+          ?disabled=${this.disabled}
+          @change=${(event: Event) => {
+            this.checked = (event.target as HTMLInputElement).checked;
+            this.dispatchEvent(
+              new CustomEvent("value-changed", {
+                bubbles: true,
+                composed: true,
+                detail: this.checked,
+              }),
+            );
+          }}
+        />
+      </label>
+    `;
+  }
+}
+
 export const textFieldElementName = elementName("text-field");
 export const selectFieldElementName = elementName("select-field");
 export const comboboxFieldElementName = elementName("combobox-field");
 export const multiSelectFieldElementName = elementName("multi-select-field");
+export const switchFieldElementName = elementName("switch-field");
 
 if (!customElements.get(textFieldElementName)) {
   customElements.define(textFieldElementName, TasksTextField);
@@ -356,4 +437,7 @@ if (!customElements.get(comboboxFieldElementName)) {
 }
 if (!customElements.get(multiSelectFieldElementName)) {
   customElements.define(multiSelectFieldElementName, TasksMultiSelectField);
+}
+if (!customElements.get(switchFieldElementName)) {
+  customElements.define(switchFieldElementName, TasksSwitchField);
 }

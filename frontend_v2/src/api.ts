@@ -4,6 +4,7 @@ import type {
   ScheduleType,
   ScheduleUnit,
   Task,
+  TasksDevice,
   TasksLabel,
   TasksSnapshot,
   TasksTag,
@@ -23,6 +24,7 @@ export interface TaskDetails {
   icon: string;
   schedule?: ScheduleDetails;
   assignment?: AssignmentDetails;
+  notification?: NotificationDetails;
 }
 
 export interface AssignmentDetails {
@@ -35,6 +37,13 @@ export interface AssignmentOptions {
   users: TasksUser[];
   labels: TasksLabel[];
   tags: TasksTag[];
+}
+
+export interface NotificationDetails {
+  deviceIds: string[];
+  persistent: boolean;
+  critical: boolean;
+  route: string;
 }
 
 export interface RecurrenceScheduleDetails {
@@ -106,6 +115,16 @@ export const saveTaskDetails = (
           nfc_tag_id: details.assignment.nfcTagId || null,
         }
       : {}),
+    ...(details.notification
+      ? {
+          notification_target: details.notification.deviceIds.length
+            ? { device_id: details.notification.deviceIds }
+            : {},
+          notification_persistent: details.notification.persistent,
+          notification_critical: details.notification.critical,
+          notification_route: details.notification.route.trim() || null,
+        }
+      : {}),
     file_ids: [],
     deleted_attachment_ids: [],
     deleted_history_entry_ids: [],
@@ -132,6 +151,17 @@ export const loadAssignmentOptions = async (
     tags: Array.isArray(tags) ? tags : [],
     labels: Array.isArray(labels) ? labels : [],
   };
+};
+
+export const loadNotificationDevices = async (
+  hass: HomeAssistant,
+): Promise<TasksDevice[]> => {
+  const devices = await hass.connection.sendMessagePromise<TasksDevice[]>({
+    type: "config/device_registry/list",
+  });
+  return (Array.isArray(devices) ? devices : []).filter((device) =>
+    device.identifiers?.some((identifier) => identifier?.[0] === "mobile_app"),
+  );
 };
 
 export const previewTaskSchedule = (
