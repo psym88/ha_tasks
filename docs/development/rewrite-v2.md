@@ -165,9 +165,9 @@ not replaced the path yet.
 | Authenticated task access | legacy | pending | existing permission contract |
 | Admin-only sidebar | legacy | pending | panel registration |
 | Dashboard card | legacy | pending | view and edit modes |
-| Table search | legacy | pending | localized presentation |
-| Table filters | legacy | pending | assignee, label, notification, trigger |
-| Table sorting | legacy | pending | missing due values sort last |
+| Table search | legacy | complete | localized presentation |
+| Table filters | legacy | complete | assignee, label, notification, trigger |
+| Table sorting | legacy | complete | missing due values sort last |
 | Table selection and bulk actions | legacy | pending | one backend mutation |
 | Table column visibility | legacy | pending | persisted local preference |
 | English and German UI | legacy | pending | English fallback |
@@ -470,7 +470,19 @@ not replaced the path yet.
   desktop and 390-pixel mobile layouts in a browser.
 - The hash-scoped bundle grew from 78,043 to 84,640 bytes. Verified all 145
   backend and 150 frontend tests.
+- Resolved table assignees, labels, and mobile notification targets through
+  the current Home Assistant registries, excluding stale references from the
+  presentation and filter choices.
+- Added assignment, label, notification, and trigger filters with OR semantics
+  inside one dimension and AND semantics across dimensions, plus explicit
+  empty-value choices, a filter count, Clear, and Done controls.
+- Extended search to resolved assignee, label, and notification-device names
+  and kept the table free of grouping and table dependencies.
+- Verified exact combined filter results, clearing, closing, registry
+  projections, and device-name search in a browser.
+- The hash-scoped bundle grew from 84,640 to 91,735 bytes. Verified all 145
+  backend and 152 frontend tests.
 
 ## Next action
 
-Add registry-backed table projections and task filters without grouping.
+Add V2 table column visibility and persist the table view.

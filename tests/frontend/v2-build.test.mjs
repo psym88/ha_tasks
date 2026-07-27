@@ -197,6 +197,41 @@ test("V2 task table keeps missing and paused due values sorted last", () => {
   assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
 
+test("V2 task table resolves registry names and excludes deleted references", () => {
+  assert.match(taskTable, /loadAssignmentOptions/);
+  assert.match(taskTable, /loadNotificationDevices/);
+  assert.match(
+    taskTable,
+    /this\.users\.find\(\(user\) => user\.id === task\.assignee_id\)/,
+  );
+  assert.match(
+    taskTable,
+    /this\.labels\s*\.filter\(\(label\) => ids\.has\(label\.label_id\)\)/,
+  );
+  assert.match(
+    taskTable,
+    /this\.devices\s*\.filter\(\(device\) => ids\.has\(device\.id\)\)/,
+  );
+  assert.match(taskTable, /this\.header\("Assignee", "assignee"/);
+});
+
+test("V2 task filters combine dimensions and values without grouping", () => {
+  for (const dimension of [
+    "assignee",
+    "labels",
+    "notifications",
+    "trigger",
+  ]) {
+    assert.match(taskTable, new RegExp(`"${dimension}"`));
+  }
+  assert.match(taskTable, /private matchesFilters\(task: Task\)/);
+  assert.match(taskTable, /Object\.keys\(this\.filters\).*\.every/s);
+  assert.match(taskTable, /this\.filterValues\(task, key\)\.some/);
+  assert.match(taskTable, /selected\.includes\(value\)/);
+  assert.match(taskTable, /this\.filters = emptyFilters\(\)/);
+  assert.doesNotMatch(taskTable, /grouping|group_by|groupColumn/i);
+});
+
 test("V2 planning uses the authoritative preview API for every recurrence", () => {
   assert.match(api, /type: "tasks\/task\/preview_next_due"/);
   assert.match(taskForm, /previewTaskSchedule/);

@@ -1,15 +1,39 @@
 import { LitElement, css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
-import type { HomeAssistant, Task } from "./types";
+import {
+  loadAssignmentOptions,
+  loadNotificationDevices,
+} from "./api";
+import type {
+  HomeAssistant,
+  Task,
+  TasksDevice,
+  TasksLabel,
+  TasksUser,
+} from "./types";
 import {
   actionMenuElementName,
   type ActionMenuItem,
 } from "./ui/action-menu";
 import { elementName } from "./version";
 
-type SortKey = "name" | "due" | "trigger" | "status";
+type SortKey = "name" | "due" | "assignee" | "trigger" | "status";
 type SortDirection = "asc" | "desc";
+type FilterKey = "assignee" | "labels" | "notifications" | "trigger";
+type Filters = Record<FilterKey, string[]>;
+
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+const emptyFilters = (): Filters => ({
+  assignee: [],
+  labels: [],
+  notifications: [],
+  trigger: [],
+});
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 const taskActions = (task: Task): ActionMenuItem[] => [
@@ -29,6 +53,11 @@ class TasksTaskTable extends LitElement {
     search: { state: true },
     sortKey: { state: true },
     sortDirection: { state: true },
+    filters: { state: true },
+    users: { state: true },
+    labels: { state: true },
+    devices: { state: true },
+    registryError: { state: true },
   };
 
   static styles = css`
@@ -39,10 +68,12 @@ class TasksTaskTable extends LitElement {
 
     .toolbar {
       display: flex;
+      align-items: flex-start;
+      gap: 8px;
       margin-bottom: 12px;
     }
 
-    input {
+    .search {
       width: min(360px, 100%);
       min-height: 40px;
       box-sizing: border-box;
@@ -54,10 +85,111 @@ class TasksTaskTable extends LitElement {
       font: inherit;
     }
 
-    input:focus-visible,
+    .search:focus-visible,
     button:focus-visible {
       outline: 2px solid var(--primary-color);
       outline-offset: 2px;
+    }
+
+    details {
+      position: relative;
+    }
+
+    summary {
+      min-height: 40px;
+      box-sizing: border-box;
+      padding: 9px 14px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: 8px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .filter-panel {
+      position: absolute;
+      z-index: 2;
+      top: 46px;
+      right: 0;
+      width: min(560px, calc(100vw - 48px));
+      box-sizing: border-box;
+      padding: 16px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-card-border-radius, 12px);
+      box-shadow: var(
+        --ha-card-box-shadow,
+        0 6px 24px rgba(0, 0, 0, 0.28)
+      );
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    fieldset {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    legend {
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--primary-color);
+    }
+
+    .filter-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--divider-color);
+    }
+
+    .filter-footer button {
+      min-height: 36px;
+      padding: 0 12px;
+      color: var(--primary-color);
+      background: transparent;
+      border: 0;
+      border-radius: 18px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .registry-error {
+      margin: 0;
+      color: var(--error-color);
     }
 
     .table-wrap {
@@ -172,9 +304,32 @@ class TasksTaskTable extends LitElement {
       }
 
       .due-column,
+      .assignee-column,
       .trigger-column,
       .status-column {
         display: none;
+      }
+
+      .toolbar {
+        flex-wrap: wrap;
+      }
+
+      .search {
+        flex: 1 1 220px;
+      }
+
+      .filter-panel {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        max-height: calc(100dvh - 32px);
+        overflow: auto;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr;
       }
 
       th,
@@ -194,6 +349,13 @@ class TasksTaskTable extends LitElement {
   declare search: string;
   declare sortKey: SortKey;
   declare sortDirection: SortDirection;
+  declare filters: Filters;
+  declare users: TasksUser[];
+  declare labels: TasksLabel[];
+  declare devices: TasksDevice[];
+  declare registryError: string;
+
+  private registryConnection?: HomeAssistant["connection"];
 
   constructor() {
     super();
@@ -201,6 +363,47 @@ class TasksTaskTable extends LitElement {
     this.search = "";
     this.sortKey = "due";
     this.sortDirection = "asc";
+    this.filters = emptyFilters();
+    this.users = [];
+    this.labels = [];
+    this.devices = [];
+    this.registryError = "";
+  }
+
+  protected updated(): void {
+    if (this.hass?.connection !== this.registryConnection) {
+      void this.loadRegistries();
+    }
+  }
+
+  private async loadRegistries(): Promise<void> {
+    if (!this.hass) {
+      return;
+    }
+    const hass = this.hass;
+    const connection = hass.connection;
+    this.registryConnection = connection;
+    this.registryError = "";
+    const [assignments, devices] = await Promise.allSettled([
+      loadAssignmentOptions(hass),
+      loadNotificationDevices(hass),
+    ]);
+    if (this.registryConnection !== connection) {
+      return;
+    }
+    if (assignments.status === "fulfilled") {
+      this.users = assignments.value.users;
+      this.labels = assignments.value.labels;
+    }
+    if (devices.status === "fulfilled") {
+      this.devices = devices.value;
+    }
+    if (
+      assignments.status === "rejected" ||
+      devices.status === "rejected"
+    ) {
+      this.registryError = "Some filter options could not be loaded";
+    }
   }
 
   private trigger(task: Task): string {
@@ -214,6 +417,121 @@ class TasksTaskTable extends LitElement {
 
   private status(task: Task): string {
     return task.active === false ? "Paused" : "Active";
+  }
+
+  private assignee(task: Task): string {
+    return (
+      this.users.find((user) => user.id === task.assignee_id)?.name ||
+      "Unassigned"
+    );
+  }
+
+  private taskLabels(task: Task): TasksLabel[] {
+    const ids = new Set(task.label_ids || []);
+    return this.labels
+      .filter((label) => ids.has(label.label_id))
+      .sort((left, right) =>
+        left.name.localeCompare(
+          right.name,
+          this.hass?.locale?.language,
+        ),
+      );
+  }
+
+  private deviceName(device: TasksDevice): string {
+    return (
+      device.name_by_user ||
+      device.name ||
+      [device.manufacturer, device.model].filter(Boolean).join(" ") ||
+      device.id
+    );
+  }
+
+  private notificationDevices(task: Task): TasksDevice[] {
+    const ids = new Set(task.notification_target?.device_id || []);
+    return this.devices
+      .filter((device) => ids.has(device.id))
+      .sort((left, right) =>
+        this.deviceName(left).localeCompare(
+          this.deviceName(right),
+          this.hass?.locale?.language,
+        ),
+      );
+  }
+
+  private filterValues(task: Task, key: FilterKey): string[] {
+    if (key === "assignee") {
+      const user = this.users.find((item) => item.id === task.assignee_id);
+      return [user?.id || "__none__"];
+    }
+    if (key === "labels") {
+      const values = this.taskLabels(task).map((label) => label.label_id);
+      return values.length ? values : ["__none__"];
+    }
+    if (key === "notifications") {
+      const values = [
+        ...(task.notification_persistent ? ["panel"] : []),
+        ...this.notificationDevices(task).map((device) => device.id),
+      ];
+      return values.length ? values : ["__none__"];
+    }
+    return [task.schedule_type];
+  }
+
+  private filterLabel(key: FilterKey, value: string): string {
+    if (value === "__none__") {
+      return key === "assignee"
+        ? "Unassigned"
+        : key === "labels"
+          ? "No labels"
+          : "No notifications";
+    }
+    if (key === "assignee") {
+      return this.users.find((user) => user.id === value)?.name || value;
+    }
+    if (key === "labels") {
+      return (
+        this.labels.find((label) => label.label_id === value)?.name || value
+      );
+    }
+    if (key === "notifications") {
+      return value === "panel"
+        ? "Persistent notification"
+        : this.deviceName(
+            this.devices.find((device) => device.id === value)!,
+          );
+    }
+    return value === "sensor"
+      ? "Problem sensor"
+      : value === "fixed"
+        ? "Fixed schedule"
+        : "After completion";
+  }
+
+  private filterOptions(key: FilterKey): FilterOption[] {
+    const values = new Set(
+      this.tasks.flatMap((task) => this.filterValues(task, key)),
+    );
+    return [...values]
+      .map((value) => ({ value, label: this.filterLabel(key, value) }))
+      .sort((left, right) =>
+        left.label.localeCompare(
+          right.label,
+          this.hass?.locale?.language,
+        ),
+      );
+  }
+
+  private matchesFilters(task: Task): boolean {
+    return (Object.keys(this.filters) as FilterKey[]).every((key) => {
+      const selected = this.filters[key];
+      return (
+        !selected.length ||
+        this.filterValues(task, key).some((value) =>
+          selected.includes(value),
+        )
+      );
+    });
   }
 
   private dueValue(task: Task): number | undefined {
@@ -254,6 +572,8 @@ class TasksTaskTable extends LitElement {
       const value = (task: Task): string =>
         this.sortKey === "name"
           ? task.task_name
+          : this.sortKey === "assignee"
+            ? this.assignee(task)
           : this.sortKey === "trigger"
             ? this.trigger(task)
             : this.status(task);
@@ -278,17 +598,23 @@ class TasksTaskTable extends LitElement {
     return this.tasks
       .filter(
         (task) =>
-          !query ||
-          [
-            task.task_name,
-            task.task_description,
-            this.trigger(task),
-            this.status(task),
-          ].some((value) =>
-            value
-              ?.toLocaleLowerCase(this.hass?.locale?.language)
-              .includes(query),
-          ),
+          this.matchesFilters(task) &&
+          (!query ||
+            [
+              task.task_name,
+              task.task_description,
+              this.assignee(task),
+              this.taskLabels(task).map((label) => label.name).join(" "),
+              this.notificationDevices(task)
+                .map((device) => this.deviceName(device))
+                .join(" "),
+              this.trigger(task),
+              this.status(task),
+            ].some((value) =>
+              value
+                ?.toLocaleLowerCase(this.hass?.locale?.language)
+                .includes(query),
+            )),
       )
       .sort((left, right) => this.compare(left, right));
   }
@@ -307,6 +633,55 @@ class TasksTaskTable extends LitElement {
       return "";
     }
     return this.sortDirection === "asc" ? "↑" : "↓";
+  }
+
+  private toggleFilter(
+    key: FilterKey,
+    value: string,
+    selected: boolean,
+  ): void {
+    const values = this.filters[key];
+    this.filters = {
+      ...this.filters,
+      [key]: selected
+        ? [...new Set([...values, value])]
+        : values.filter((item) => item !== value),
+    };
+  }
+
+  private selectedFilterCount(): number {
+    return Object.values(this.filters).reduce(
+      (count, values) => count + values.length,
+      0,
+    );
+  }
+
+  private filterGroup(
+    label: string,
+    key: FilterKey,
+  ) {
+    return html`
+      <fieldset>
+        <legend>${label}</legend>
+        ${this.filterOptions(key).map(
+          (option) => html`
+            <label>
+              <input
+                type="checkbox"
+                .checked=${this.filters[key].includes(option.value)}
+                @change=${(event: Event) =>
+                  this.toggleFilter(
+                    key,
+                    option.value,
+                    (event.currentTarget as HTMLInputElement).checked,
+                  )}
+              >
+              <span>${option.label}</span>
+            </label>
+          `,
+        )}
+      </fieldset>
+    `;
   }
 
   private open(task: Task): void {
@@ -351,9 +726,11 @@ class TasksTaskTable extends LitElement {
 
   protected render() {
     const tasks = this.visibleTasks();
+    const filterCount = this.selectedFilterCount();
     return staticHtml`
       <div class="toolbar">
         <input
+          class="search"
           type="search"
           aria-label="Search tasks"
           placeholder="Search tasks"
@@ -362,6 +739,41 @@ class TasksTaskTable extends LitElement {
             this.search = (event.currentTarget as HTMLInputElement).value;
           }}
         >
+        <details>
+          <summary>Filters${filterCount ? ` (${filterCount})` : ""}</summary>
+          <div class="filter-panel">
+            <div class="filter-grid">
+              ${this.filterGroup("Assignment", "assignee")}
+              ${this.filterGroup("Labels", "labels")}
+              ${this.filterGroup("Notifications", "notifications")}
+              ${this.filterGroup("Trigger", "trigger")}
+            </div>
+            <div class="filter-footer">
+              ${this.registryError
+                ? html`<p class="registry-error">${this.registryError}</p>`
+                : html`<span></span>`}
+              <div class="filter-actions">
+                <button
+                  type="button"
+                  @click=${() => {
+                    this.filters = emptyFilters();
+                  }}
+                >
+                  Clear filters
+                </button>
+                <button
+                  type="button"
+                  @click=${() =>
+                    this.renderRoot
+                      .querySelector("details")
+                      ?.removeAttribute("open")}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
       <div class="table-wrap">
         <table>
@@ -369,6 +781,7 @@ class TasksTaskTable extends LitElement {
             <tr>
               ${this.header("Task", "name")}
               ${this.header("Due", "due", "due-column")}
+              ${this.header("Assignee", "assignee", "assignee-column")}
               ${this.header("Trigger", "trigger", "trigger-column")}
               ${this.header("Status", "status", "status-column")}
               <th class="actions" aria-label="Actions"></th>
@@ -387,12 +800,13 @@ class TasksTaskTable extends LitElement {
                         >
                           ${task.task_name}
                           <span class="mobile-details">
-                            ${this.due(task)} · ${this.trigger(task)} ·
-                            ${this.status(task)}
+                            ${this.due(task)} · ${this.assignee(task)} ·
+                            ${this.trigger(task)} · ${this.status(task)}
                           </span>
                         </button>
                       </td>
                       <td class="due-column">${this.due(task)}</td>
+                      <td class="assignee-column">${this.assignee(task)}</td>
                       <td class="trigger-column">${this.trigger(task)}</td>
                       <td class="status-column">
                         <span class="status">${this.status(task)}</span>
@@ -410,7 +824,7 @@ class TasksTaskTable extends LitElement {
                 )
               : html`
                   <tr>
-                    <td class="empty" colspan="5">
+                    <td class="empty" colspan="6">
                       ${this.search ? "No matching tasks" : "No tasks"}
                     </td>
                   </tr>
