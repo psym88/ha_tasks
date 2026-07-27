@@ -43,8 +43,6 @@ _COMPLETION_FIELDS = frozenset(
         "user_id",
         "user_name",
         "notes",
-        "task_due_before",
-        "task_due_after",
     )
 )
 _ATTACHMENT_FIELDS = frozenset(
@@ -377,8 +375,6 @@ class Completion:
     user_id: str | None
     user_name: str
     notes: str | None = None
-    due_before: datetime | None = None
-    due_after: datetime | None = None
     extra: dict[str, Any] = field(default_factory=dict, compare=False)
 
     @classmethod
@@ -390,16 +386,6 @@ class Completion:
             user_id=data.get("user_id"),
             user_name=str(data.get("user_name") or "system"),
             notes=str(data.get("notes") or "").strip() or None,
-            due_before=(
-                parse_aware_datetime(data["task_due_before"])
-                if data.get("task_due_before") is not None
-                else None
-            ),
-            due_after=(
-                parse_aware_datetime(data["task_due_after"])
-                if data.get("task_due_after") is not None
-                else None
-            ),
             extra=deepcopy(
                 {
                     key: value
@@ -418,16 +404,6 @@ class Completion:
             "user_id": self.user_id,
             "user_name": self.user_name,
             "notes": self.notes,
-            "task_due_before": (
-                normalize_utc_datetime(self.due_before)
-                if self.due_before is not None
-                else None
-            ),
-            "task_due_after": (
-                normalize_utc_datetime(self.due_after)
-                if self.due_after is not None
-                else None
-            ),
         }
 
 

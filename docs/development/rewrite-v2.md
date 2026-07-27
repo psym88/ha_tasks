@@ -152,7 +152,7 @@ not replaced the path yet.
 | Recurrence preview | legacy | pending | same authoritative calculation |
 | Problem-sensor trigger | legacy | pending | startup and off-to-on behavior |
 | Completion notes | legacy | pending | trimming and attribution |
-| Delete history | legacy | pending | deletion does not alter current due |
+| Delete history | legacy | complete | deletion does not alter current due |
 | NFC completion | legacy | pending | user/context attribution |
 | Persistent notification | legacy | pending | create and dismiss |
 | Mobile notification | legacy | pending | device target and critical payload |
@@ -197,7 +197,7 @@ not replaced the path yet.
 - [ ] Isolate Home Assistant Store access in the repository.
 - [ ] Add atomic in-memory mutation semantics.
 - [ ] Route task CRUD and completion through `TaskManager`.
-- [ ] Simplify history deletion.
+- [x] Simplify history deletion.
 - [ ] Route attachment mutations through `TaskManager`.
 
 ### Phase 3 - Runtime adapters
@@ -258,6 +258,10 @@ not replaced the path yet.
   creation through the typed boundary.
 - Verified all published schema-3 fixture values cross the typed boundary and
   all 124 backend plus 121 frontend tests pass.
+- Changed completion history to an audit log: new entries no longer store
+  scheduling snapshots and deletion no longer recalculates the task.
+- Preserved legacy scheduling snapshot fields through migrations and archives.
+- Removed 51 production lines and verified all 123 backend tests.
 
 ## Next action
 

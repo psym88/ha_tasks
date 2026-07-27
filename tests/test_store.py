@@ -311,7 +311,7 @@ def test_problem_trigger_sets_due_once_until_task_is_completed():
             "task", "2026-07-25T10:15:00+00:00", "user-1", "Marco"
         )
         assert completed["task_due"] is None
-        assert store.history("task")[0]["task_due_after"] is None
+        assert "task_due_after" not in store.history("task")[0]
 
         retriggered = await store.async_trigger_problem_task(
             "task", "2026-07-26T08:00:00+00:00"

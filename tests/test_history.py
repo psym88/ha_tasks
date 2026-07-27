@@ -75,7 +75,8 @@ def test_completing_task_sets_next_task_due_from_completion_datetime():
         )
 
         assert completed["task_due"] == "2026-08-25T10:15:00+00:00"
-        assert store.history("task-1")[0]["task_due_after"] == "2026-08-25T10:15:00+00:00"
+        assert "task_due_before" not in store.history("task-1")[0]
+        assert "task_due_after" not in store.history("task-1")[0]
         assert store._store.data["tasks"][0]["task_due"] == "2026-08-25T10:15:00+00:00"
 
     asyncio.run(run())
@@ -106,7 +107,6 @@ def test_completing_calendar_task_early_keeps_upcoming_task_due():
         )
 
         assert completed["task_due"] == "2026-07-22T10:15:00+00:00"
-        assert store.history("task-1")[0]["task_due_after"] == "2026-07-22T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -130,7 +130,7 @@ def _history_store(schedule_type="sliding"):
     return store
 
 
-def test_deleting_completions_oldest_first_replays_remaining_history():
+def test_deleting_completions_only_removes_audit_records():
     async def run():
         store = _history_store()
         await store.async_complete_task("task-1", "2026-07-21T10:15:00+00:00", "user-1", "Marco")
@@ -140,49 +140,33 @@ def test_deleting_completions_oldest_first_replays_remaining_history():
         )
 
         task = await store.async_delete_history("task-1", oldest["history_entry_id"])
-        remaining = store.history("task-1")[0]
         assert task["task_due"] == "2026-07-23T10:15:00+00:00"
-        assert remaining["task_due_before"] == "2026-07-21T10:15:00+00:00"
-        assert remaining["task_due_after"] == "2026-07-23T10:15:00+00:00"
+        assert [
+            entry["history_entry_id"] for entry in store.history("task-1")
+        ] == [newest["history_entry_id"]]
 
         task = await store.async_delete_history("task-1", newest["history_entry_id"])
-        assert task["task_due"] == "2026-07-21T10:15:00+00:00"
+        assert task["task_due"] == "2026-07-23T10:15:00+00:00"
         assert store.history("task-1") == []
 
     asyncio.run(run())
 
 
-def test_deleting_completions_newest_first_restores_original_task_due():
-    async def run():
-        store = _history_store()
-        await store.async_complete_task("task-1", "2026-07-21T10:15:00+00:00", "user-1", "Marco")
-        await store.async_complete_task("task-1", "2026-07-22T10:15:00+00:00", "user-1", "Marco")
-        oldest, newest = sorted(
-            store._data["history"]["task-1"], key=lambda entry: entry["completed_at"]
-        )
-
-        task = await store.async_delete_history("task-1", newest["history_entry_id"])
-        assert task["task_due"] == "2026-07-22T10:15:00+00:00"
-        task = await store.async_delete_history("task-1", oldest["history_entry_id"])
-        assert task["task_due"] == "2026-07-21T10:15:00+00:00"
-
-    asyncio.run(run())
-
-
-def test_deleting_calendar_completion_replays_fixed_schedule():
+def test_deleting_legacy_completion_context_keeps_current_due():
     async def run():
         store = _history_store("fixed")
-        await store.async_complete_task("task-1", "2026-07-21T10:15:00+00:00", "user-1", "Marco")
-        await store.async_complete_task("task-1", "2026-07-22T10:15:00+00:00", "user-1", "Marco")
-        oldest = min(
-            store._data["history"]["task-1"], key=lambda entry: entry["completed_at"]
-        )
+        store._data["history"]["task-1"] = [
+            {
+                "history_entry_id": "legacy",
+                "completed_at": "2026-07-20T10:15:00+00:00",
+                "task_due_before": "2026-07-21T10:15:00+00:00",
+                "task_due_after": "2026-07-22T10:15:00+00:00",
+            }
+        ]
 
-        task = await store.async_delete_history("task-1", oldest["history_entry_id"])
-        remaining = store.history("task-1")[0]
-        assert task["task_due"] == "2026-07-23T10:15:00+00:00"
-        assert remaining["task_due_before"] == "2026-07-21T10:15:00+00:00"
-        assert remaining["task_due_after"] == "2026-07-23T10:15:00+00:00"
+        task = await store.async_delete_history("task-1", "legacy")
+        assert task["task_due"] == "2026-07-21T10:15:00+00:00"
+        assert store.history("task-1") == []
 
     asyncio.run(run())
 

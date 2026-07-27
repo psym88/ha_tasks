@@ -324,7 +324,6 @@ class TasksStore:
     ) -> dict[str, Any]:
         async with self._lock:
             task = self._find("tasks", task_id)
-            task_due_before = task.get("task_due")
             completion = parse_aware_datetime(completed_at)
             if task.get("schedule_type") == "sensor":
                 task_due_after = None
@@ -338,8 +337,6 @@ class TasksStore:
                 "user_id": user_id,
                 "user_name": user_name,
                 "notes": str(notes or "").strip() or None,
-                "task_due_before": task_due_before,
-                "task_due_after": task_due_after,
             }).storage_fields()
             task["task_due"] = task_due_after
             self._data["history"].setdefault(task_id, []).append(record)
@@ -358,40 +355,16 @@ class TasksStore:
         async with self._lock:
             task = self._find("tasks", task_id)
             entries = self._data["history"].get(task_id, [])
-            removed = next((x for x in entries if x["history_entry_id"] == history_entry_id), None)
-            if removed is None:
-                raise ValueError("unknown_history_entry")
-            if (
-                task.get("schedule_type") == "sensor"
-                or removed.get("task_due_before") is None
-                or removed.get("task_due_after") is None
+            if not any(
+                entry["history_entry_id"] == history_entry_id
+                for entry in entries
             ):
-                self._data["history"][task_id] = [
-                    entry
-                    for entry in entries
-                    if entry["history_entry_id"] != history_entry_id
-                ]
-                await self._save()
-                return task
-            chronological = sorted(
-                entries, key=lambda entry: entry["completed_at"]
-            )
-            original_due = chronological[0]["task_due_before"]
-            remaining = [entry for entry in chronological if entry["history_entry_id"] != history_entry_id]
-            replay_task = {**task, "task_due": original_due}
-            for entry in remaining:
-                entry["task_due_before"] = replay_task["task_due"]
-                entry["task_due_after"] = normalize_utc_datetime(
-                    next(
-                        occurrences(
-                            replay_task,
-                            parse_aware_datetime(entry["completed_at"]),
-                        )
-                    )
-                )
-                replay_task["task_due"] = entry["task_due_after"]
-            self._data["history"][task_id] = remaining
-            task["task_due"] = replay_task["task_due"]
+                raise ValueError("unknown_history_entry")
+            self._data["history"][task_id] = [
+                entry
+                for entry in entries
+                if entry["history_entry_id"] != history_entry_id
+            ]
             await self._save()
             return task
 

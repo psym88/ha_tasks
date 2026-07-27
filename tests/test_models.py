@@ -282,7 +282,7 @@ def test_completion_round_trips_schema_three_and_normalizes_notes():
         "user_name": "Marco",
         "notes": "Replaced filter",
         "task_due_before": "2026-07-27T08:00:00+00:00",
-        "task_due_after": "2026-08-27T10:00:00+00:00",
+        "task_due_after": "2026-08-27T12:00:00+02:00",
     }
 
 
