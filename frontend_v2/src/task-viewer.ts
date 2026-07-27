@@ -7,7 +7,7 @@ import {
   loadAttachmentUrls,
   loadTaskHistory,
 } from "./api";
-import { t } from "./localize";
+import { errorText, t } from "./localize";
 import type {
   Attachment,
   Completion,
@@ -270,13 +270,11 @@ class TasksTaskViewer extends LitElement {
   configure(
     hass: HomeAssistant,
     task: Task,
-    attachments: Attachment[],
+    _attachments: Attachment[] = [],
   ): void {
     this.hass = hass;
     this.task = task;
-    this.attachments = attachments.filter(
-      (attachment) => attachment.task_id === task.task_id,
-    );
+    this.attachments = [...task.attachments];
     void this.loadDetails();
   }
 
@@ -290,8 +288,8 @@ class TasksTaskViewer extends LitElement {
     this.attachmentError = "";
     const [assignment, history, files] = await Promise.allSettled([
       loadAssignmentOptions(this.hass),
-      loadTaskHistory(this.hass, this.task.task_id),
-      loadAttachmentUrls(this.hass, this.task.task_id),
+      loadTaskHistory(this.hass, this.task.id),
+      loadAttachmentUrls(this.hass, this.task.id),
     ]);
     if (assignment.status === "fulfilled") {
       this.users = assignment.value.users;
@@ -342,16 +340,16 @@ class TasksTaskViewer extends LitElement {
   }
 
   private scheduleText(): string {
-    if (this.task.schedule_type === "sensor") {
-      const entityId = this.task.problem_sensor || "";
+    if (this.task.schedule.type === "sensor") {
+      const entityId = this.task.schedule.entity_id || "";
       const name =
         this.hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
       return name
         ? `${t("schedule.problem_sensor_description")} (${name})`
         : t("schedule.problem_sensor_description");
     }
-    const interval = Math.max(1, Number(this.task.schedule_interval) || 1);
-    const unit = this.task.schedule_unit || "monthly";
+    const interval = Math.max(1, Number(this.task.schedule.interval) || 1);
+    const unit = this.task.schedule.unit || "monthly";
     const periodKey: Record<string, string> = {
       daily: "day",
       weekly: "week",
@@ -360,7 +358,7 @@ class TasksTaskViewer extends LitElement {
     };
     const singular = t(`schedule.period_${periodKey[unit] || "month"}`);
     const plural = t(`schedule.period_${periodKey[unit] || "month"}s`);
-    if (this.task.schedule_type === "sliding") {
+    if (this.task.schedule.type === "sliding") {
       return t(
         interval === 1
           ? "schedule.after_completion_one"
@@ -371,7 +369,7 @@ class TasksTaskViewer extends LitElement {
         },
       );
     }
-    const time = this.task.schedule_time || "00:00";
+    const time = this.task.schedule.time || "00:00";
     if (unit === "weekly") {
       const names = Array.from({ length: 7 }, (_, index) =>
         new Intl.DateTimeFormat(this.hass?.locale?.language, {
@@ -379,7 +377,7 @@ class TasksTaskViewer extends LitElement {
           timeZone: "UTC",
         }).format(new Date(Date.UTC(2024, 0, index + 1))),
       );
-      const weekdays = (this.task.schedule_weekdays || [])
+      const weekdays = (this.task.schedule.weekdays || [])
         .map((day) => names[day])
         .filter(Boolean);
       const joined =
@@ -397,10 +395,10 @@ class TasksTaskViewer extends LitElement {
     }
     if (unit === "monthly") {
       const day =
-        this.task.schedule_day === "last"
+        this.task.schedule.day === "last"
           ? t("schedule.on_last_day")
           : t("schedule.on_day_number", {
-              day: Number(this.task.schedule_day || 1),
+              day: Number(this.task.schedule.day || 1),
             });
       const description = t(
         interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
@@ -411,12 +409,12 @@ class TasksTaskViewer extends LitElement {
     if (unit === "yearly") {
       const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
         month: "long",
-      }).format(new Date(2024, (this.task.schedule_month || 1) - 1, 1));
+      }).format(new Date(2024, (this.task.schedule.month || 1) - 1, 1));
       const day =
-        this.task.schedule_day === "last"
+        this.task.schedule.day === "last"
           ? t("schedule.on_last_day_of_month", { month })
           : t("schedule.on_day_of_month", {
-              day: Number(this.task.schedule_day || 1),
+              day: Number(this.task.schedule.day || 1),
               month,
             });
       const description = t(
@@ -469,7 +467,7 @@ class TasksTaskViewer extends LitElement {
   }
 
   private renderDescription() {
-    const lines = (this.task.task_description || "").split(/\r?\n/);
+    const lines = (this.task.description || "").split(/\r?\n/);
     if (!lines.some((line) => line.trim())) {
       return html`<p class="hint">${t("task.no_description")}.</p>`;
     }
@@ -518,7 +516,7 @@ class TasksTaskViewer extends LitElement {
   }
 
   private async openAttachment(attachment: Attachment): Promise<void> {
-    const url = this.signedFiles[attachment.attachment_id];
+    const url = this.signedFiles[attachment.id];
     if (!url) {
       return;
     }
@@ -540,7 +538,7 @@ class TasksTaskViewer extends LitElement {
     const result = await openTasksDialog({
       heading: t("task.complete_title"),
       content: html`<p>
-        ${t("task.complete_confirm", { name: this.task.task_name })}
+        ${t("task.complete_confirm", { name: this.task.name })}
       </p>`,
       actions: [
         { label: t("common.cancel"), value: "cancel" },
@@ -553,11 +551,10 @@ class TasksTaskViewer extends LitElement {
     this.completing = true;
     this.completionError = "";
     try {
-      await completeTask(this.hass, this.task.task_id, this.completionNotes);
+      await completeTask(this.hass, this.task.id, this.completionNotes);
       return true;
     } catch (error) {
-      this.completionError =
-        error instanceof Error ? error.message : String(error);
+      this.completionError = errorText(error);
       return false;
     } finally {
       this.completing = false;
@@ -576,7 +573,7 @@ class TasksTaskViewer extends LitElement {
       .filter((label): label is TasksLabel => Boolean(label));
     return staticHtml`
       <div class="pills">
-        <${pillTag}>${this.formatDate(this.task.task_due)}</${pillTag}>
+        <${pillTag}>${this.formatDate(this.task.due)}</${pillTag}>
         <${pillTag}>${assignee}</${pillTag}>
         <${pillTag} tone=${this.task.active === false ? "muted" : "positive"}>
           ${this.task.active === false ? t("v2.inactive") : t("v2.active")}
@@ -613,7 +610,7 @@ class TasksTaskViewer extends LitElement {
       <ul class="records">
         ${this.attachments.map((attachment) => {
           const available = Boolean(
-            this.signedFiles[attachment.attachment_id],
+            this.signedFiles[attachment.id],
           );
           return html`
             <li>
@@ -677,7 +674,7 @@ class TasksTaskViewer extends LitElement {
         <${expandableTag} heading=${t("task.planning")} open>
           <dl class="planning-details">
             <dt>${t("task.due")}</dt>
-            <dd>${this.formatDate(this.task.task_due)}</dd>
+            <dd>${this.formatDate(this.task.due)}</dd>
             <dt>${t("v2.rule")}</dt>
             <dd>${this.scheduleText()}</dd>
           </dl>
@@ -713,14 +710,14 @@ if (!customElements.get(taskViewerElementName)) {
 export const openTaskViewer = async (
   hass: HomeAssistant,
   task: Task,
-  attachments: Attachment[],
+  attachments: Attachment[] = [],
 ): Promise<boolean> => {
   const viewer = document.createElement(
     taskViewerElementName,
   ) as TasksTaskViewer;
   viewer.configure(hass, task, attachments);
   const result = await openTasksDialog({
-    heading: task.task_name,
+    heading: task.name,
     content: viewer,
     actions: [
       { label: t("common.close"), value: "close" },

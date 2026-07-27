@@ -45,6 +45,39 @@ export const t = (key: string, variables: Variables = {}): string =>
     (_, name: string) => String(variables[name] ?? `{${name}}`),
   );
 
+const localizedError = (value: unknown): string | undefined => {
+  if (typeof value !== "string" || !value) {
+    return undefined;
+  }
+  const key = `error.${value}`;
+  const localized = t(key);
+  return localized === key ? undefined : localized;
+};
+
+export const errorText = (error: unknown): string => {
+  if (error && typeof error === "object") {
+    const payload = error as { code?: unknown; message?: unknown };
+    const fromCode = localizedError(payload.code);
+    if (fromCode) {
+      return fromCode;
+    }
+    const fromMessage = localizedError(payload.message);
+    if (fromMessage) {
+      return fromMessage;
+    }
+    if (typeof payload.message === "string" && payload.message) {
+      return payload.message;
+    }
+  }
+  if (error instanceof Error) {
+    return localizedError(error.message) || error.message;
+  }
+  if (typeof error === "string" && error) {
+    return localizedError(error) || error;
+  }
+  return t("error.unknown");
+};
+
 export async function setLanguage(value?: string): Promise<void> {
   const next = normalizeLanguage(value);
   requestedLanguage = next;

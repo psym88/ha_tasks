@@ -7,7 +7,7 @@ import {
   mutateTasks,
   type BulkTaskOperation,
 } from "./api";
-import { t } from "./localize";
+import { errorText, t } from "./localize";
 import type {
   HomeAssistant,
   Task,
@@ -579,10 +579,10 @@ class TasksTaskTable extends LitElement {
   }
 
   private trigger(task: Task): string {
-    if (task.schedule_type === "sensor") {
+    if (task.schedule.type === "sensor") {
       return t("task.problem_sensor");
     }
-    return task.schedule_type === "fixed"
+    return task.schedule.type === "fixed"
       ? t("task.fixed")
       : t("task.sliding");
   }
@@ -620,7 +620,7 @@ class TasksTaskTable extends LitElement {
   }
 
   private notificationDevices(task: Task): TasksDevice[] {
-    const ids = new Set(task.notification_target?.device_id || []);
+    const ids = new Set(task.notification.device_ids || []);
     return this.devices
       .filter((device) => ids.has(device.id))
       .sort((left, right) =>
@@ -637,7 +637,7 @@ class TasksTaskTable extends LitElement {
 
   private notificationsText(task: Task): string {
     return [
-      ...(task.notification_persistent
+      ...(task.notification.persistent
         ? [t("task.notification_persistent")]
         : []),
       ...this.notificationDevices(task).map((device) =>
@@ -657,12 +657,12 @@ class TasksTaskTable extends LitElement {
     }
     if (key === "notifications") {
       const values = [
-        ...(task.notification_persistent ? ["panel"] : []),
+        ...(task.notification.persistent ? ["panel"] : []),
         ...this.notificationDevices(task).map((device) => device.id),
       ];
       return values.length ? values : ["__none__"];
     }
-    return [task.schedule_type];
+    return [task.schedule.type];
   }
 
   private filterLabel(key: FilterKey, value: string): string {
@@ -722,10 +722,10 @@ class TasksTaskTable extends LitElement {
   }
 
   private dueValue(task: Task): number | undefined {
-    if (task.active === false || !task.task_due) {
+    if (task.active === false || !task.due) {
       return undefined;
     }
-    const value = Date.parse(task.task_due);
+    const value = Date.parse(task.due);
     return Number.isNaN(value) ? undefined : value;
   }
 
@@ -758,7 +758,7 @@ class TasksTaskTable extends LitElement {
     } else {
       const value = (task: Task): string =>
         this.sortKey === "name"
-          ? task.task_name
+          ? task.name
           : this.sortKey === "assignee"
             ? this.assignee(task)
           : this.sortKey === "trigger"
@@ -772,8 +772,8 @@ class TasksTaskTable extends LitElement {
     if (result !== 0) {
       return this.sortDirection === "asc" ? result : -result;
     }
-    return left.task_name.localeCompare(
-      right.task_name,
+    return left.name.localeCompare(
+      right.name,
       this.hass?.locale?.language,
     );
   }
@@ -788,8 +788,8 @@ class TasksTaskTable extends LitElement {
           this.matchesFilters(task) &&
           (!query ||
             [
-              task.task_name,
-              task.task_description,
+              task.name,
+              task.description,
               this.assignee(task),
               this.taskLabels(task).map((label) => label.name).join(" "),
               this.notificationDevices(task)
@@ -904,7 +904,7 @@ class TasksTaskTable extends LitElement {
 
   private selectedTasks(): Task[] {
     const ids = new Set(this.selectedIds);
-    return this.tasks.filter((task) => ids.has(task.task_id));
+    return this.tasks.filter((task) => ids.has(task.id));
   }
 
   private toggleTask(taskId: string, selected: boolean): void {
@@ -917,9 +917,9 @@ class TasksTaskTable extends LitElement {
     const ids = new Set(this.selectedIds);
     for (const task of tasks) {
       if (selected) {
-        ids.add(task.task_id);
+        ids.add(task.id);
       } else {
-        ids.delete(task.task_id);
+        ids.delete(task.id);
       }
     }
     this.selectedIds = [...ids];
@@ -972,10 +972,10 @@ class TasksTaskTable extends LitElement {
   private bulkOperations(): BulkTaskOperation[] {
     return this.selectedTasks().map((task) => {
       if (this.bulkAction === "complete") {
-        return { action: "complete", task_id: task.task_id, notes: null };
+        return { action: "complete", id: task.id, notes: null };
       }
       if (this.bulkAction === "delete") {
-        return { action: "delete", task_id: task.task_id };
+        return { action: "delete", id: task.id };
       }
       let changes: Partial<Task>;
       if (this.bulkAction === "pause" || this.bulkAction === "resume") {
@@ -997,16 +997,19 @@ class TasksTaskTable extends LitElement {
               : [...new Set([...labels, this.bulkTarget])],
         };
       } else {
-        const devices = task.notification_target?.device_id || [];
+        const devices = task.notification.device_ids || [];
         if (this.bulkTarget === "panel") {
           changes = {
-            notification_persistent:
-              this.bulkAction === "add-notification",
+            notification: {
+              ...task.notification,
+              persistent: this.bulkAction === "add-notification",
+            },
           };
         } else {
           changes = {
-            notification_target: {
-              device_id:
+            notification: {
+              ...task.notification,
+              device_ids:
                 this.bulkAction === "remove-notification"
                   ? devices.filter((id) => id !== this.bulkTarget)
                   : [...new Set([...devices, this.bulkTarget])],
@@ -1014,7 +1017,7 @@ class TasksTaskTable extends LitElement {
           };
         }
       }
-      return { action: "update", task_id: task.task_id, changes };
+      return { action: "update", id: task.id, changes };
     });
   }
 
@@ -1063,8 +1066,7 @@ class TasksTaskTable extends LitElement {
       this.bulkAction = "";
       this.bulkTarget = "";
     } catch (error) {
-      this.bulkError =
-        error instanceof Error ? error.message : String(error);
+      this.bulkError = errorText(error);
     } finally {
       this.bulkBusy = false;
     }
@@ -1179,9 +1181,9 @@ class TasksTaskTable extends LitElement {
     const selectedIds = new Set(this.selectedIds);
     const allVisibleSelected =
       tasks.length > 0 &&
-      tasks.every((task) => selectedIds.has(task.task_id));
+      tasks.every((task) => selectedIds.has(task.id));
     const someVisibleSelected = tasks.some((task) =>
-      selectedIds.has(task.task_id),
+      selectedIds.has(task.id),
     );
     const bulkTargets = this.bulkTargets();
     return staticHtml`
@@ -1367,18 +1369,18 @@ class TasksTaskTable extends LitElement {
                   (task) => staticHtml`
                     <tr
                       class=${task.active === false ? "inactive" : ""}
-                      aria-selected=${selectedIds.has(task.task_id)}
+                      aria-selected=${selectedIds.has(task.id)}
                     >
                       <td class="selection">
                         <input
                           type="checkbox"
                           aria-label=${t("v2.select_task", {
-                            name: task.task_name,
+                            name: task.name,
                           })}
-                          .checked=${selectedIds.has(task.task_id)}
+                          .checked=${selectedIds.has(task.id)}
                           @change=${(event: Event) =>
                             this.toggleTask(
-                              task.task_id,
+                              task.id,
                               (event.currentTarget as HTMLInputElement)
                                 .checked,
                             )}
@@ -1390,7 +1392,7 @@ class TasksTaskTable extends LitElement {
                           type="button"
                           @click=${() => this.open(task)}
                         >
-                          ${task.task_name}
+                          ${task.name}
                           <span class="mobile-details">
                             ${this.mobileDetails(task)}
                           </span>
@@ -1401,7 +1403,7 @@ class TasksTaskTable extends LitElement {
                       <td class="actions">
                         <${actionMenuTag}
                           label=${t("v2.actions_for", {
-                            name: task.task_name,
+                            name: task.name,
                           })}
                           .items=${taskActions(task)}
                           @tasks-action=${(event: CustomEvent<string>) =>

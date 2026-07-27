@@ -160,8 +160,8 @@ test("V2 owns its text textarea select combobox and switch controls", () => {
 test("V2 editor saves task details and planning in one transaction", () => {
   assert.match(api, /type: "tasks\/task\/save"/);
   assert.match(api, /schedulePayload\(details\.schedule\)/);
-  assert.match(api, /task_id: task\.task_id/);
-  assert.match(api, /schedule_type: task\.schedule_type/);
+  assert.match(api, /task_id: task\.id/);
+  assert.match(api, /schedule: task\.schedule/);
   assert.match(api, /deleted_attachment_ids: details\.files\?/);
   assert.match(taskForm, /run: \(\) => form\.save\(\)/);
   assert.match(taskForm, /if \(!name\)/);
@@ -172,18 +172,18 @@ test("V2 creates tasks through the shared editor with complete defaults", () => 
   assert.match(taskForm, /existingTask\?: Task/);
   assert.match(taskForm, /existingTask\s*\?\s*`\$\{t\("task\.edit"\)\}/);
   assert.match(taskForm, /: t\("task\.new"\)/);
-  assert.match(taskForm, /const isNew = !task\.task_id/);
+  assert.match(taskForm, /const isNew = !task\.id/);
   assert.match(taskForm, /this\.scheduleDirty = isNew/);
   assert.match(taskForm, /this\.assignmentDirty = isNew/);
   assert.match(taskForm, /this\.notificationDirty = isNew/);
-  assert.match(taskForm, /this\.task\.task_id \? this\.task : undefined/);
+  assert.match(taskForm, /this\.task\.id \? this\.task : undefined/);
   assert.match(source, /openTaskEditor\(this\.hass\)/);
 });
 
 test("V2 deletes tasks only after its owned confirmation", () => {
   assert.match(api, /type: "tasks\/task\/delete"/);
   assert.match(source, /heading: t\("task\.delete_title"\)/);
-  assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.task_id\)/);
+  assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.id\)/);
   assert.match(
     taskTable,
     /\{ label: t\("common\.delete"\), value: "delete", destructive: true \}/,
@@ -200,7 +200,7 @@ test("V2 pauses and resumes tasks through the minimal update contract", () => {
   assert.match(taskTable, /value: "active"/);
   assert.match(
     source,
-    /setTaskActive\(\s*this\.hass,\s*task\.task_id,\s*task\.active === false/,
+    /setTaskActive\(\s*this\.hass,\s*task\.id,\s*task\.active === false/,
   );
 });
 
@@ -219,7 +219,7 @@ test("V2 task table owns search sorting and responsive rows", () => {
 test("V2 task table keeps missing and paused due values sorted last", () => {
   assert.match(
     taskTable,
-    /if \(task\.active === false \|\| !task\.task_due\)/,
+    /if \(task\.active === false \|\| !task\.due\)/,
   );
   assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
@@ -308,8 +308,8 @@ test("V2 bulk actions cover existing assignment and notification behavior", () =
   ]) {
     assert.match(taskTable, new RegExp(`"${action}"`));
   }
-  assert.match(taskTable, /notification_persistent:/);
-  assert.match(taskTable, /notification_target:/);
+  assert.match(taskTable, /notification: \{/);
+  assert.match(taskTable, /device_ids:/);
   assert.match(taskTable, /label_ids:/);
   assert.match(taskTable, /assignee_id:/);
   assert.match(taskTable, /openTasksDialog/);
@@ -337,7 +337,7 @@ test("V2 dashboard card uses live snapshots and owned task actions", () => {
   assert.match(dashboardCard, /subscribeTasks\(hass/);
   assert.match(dashboardCard, /task\.active !== false/);
   assert.match(dashboardCard, /currentUserFilter/);
-  assert.match(dashboardCard, /dateKey\(task\.task_due/);
+  assert.match(dashboardCard, /dateKey\(task\.due/);
   assert.match(dashboardCard, /openTaskViewer/);
   assert.match(dashboardCard, /openTaskEditor/);
   assert.match(dashboardCard, /taskActions\(task\)/);
@@ -361,7 +361,6 @@ test("V2 panel streams archive export and import through the owned backup UI", (
   assert.match(api, /"Content-Type": "application\/zip"/);
   assert.match(api, /URL\.revokeObjectURL\(url\)/);
   assert.match(archive, /accept="\.zip,application\/zip"/);
-  assert.match(archive, /report\.conversions/);
   assert.match(archive, /report\.tasks_skipped/);
   assert.match(archive, /report\.attachments_skipped/);
 });
@@ -379,10 +378,10 @@ test("V2 planning uses the authoritative preview API for every recurrence", () =
 
 test("V2 planning sends only fields used by the selected trigger", () => {
   assert.match(api, /if \(schedule\.type === "sensor"\)/);
-  assert.match(api, /problem_sensor: schedule\.problemSensor\.trim\(\)/);
+  assert.match(api, /entity_id: schedule\.problemSensor\.trim\(\)/);
   assert.match(api, /if \(schedule\.type === "fixed"\)/);
-  assert.match(api, /schedule_weekdays = schedule\.weekdays/);
-  assert.match(api, /schedule_month = schedule\.month/);
+  assert.match(api, /payload\.weekdays = schedule\.weekdays/);
+  assert.match(api, /payload\.month = schedule\.month/);
 });
 
 test("V2 assignment loads registries and saves only after editing", () => {
@@ -416,16 +415,16 @@ test("V2 notification editor loads mobile devices and saves only after editing",
   assert.match(api, /identifier\?\.\[0\] === "mobile_app"/);
   assert.match(
     api,
-    /notification_target: details\.notification\.deviceIds\.length/,
+    /device_ids: details\.notification\.deviceIds/,
   );
   assert.match(
     api,
-    /notification_persistent: details\.notification\.persistent/,
+    /persistent: details\.notification\.persistent/,
   );
-  assert.match(api, /notification_critical: details\.notification\.critical/);
+  assert.match(api, /critical: details\.notification\.critical/);
   assert.match(
     api,
-    /notification_route: details\.notification\.route\.trim\(\) \|\| null/,
+    /route: details\.notification\.route\.trim\(\) \|\| null/,
   );
   assert.match(taskForm, /this\.notificationDirty/);
   assert.match(taskForm, /this\.notificationDirty[\s\S]*?notification:/);
@@ -450,7 +449,7 @@ test("V2 stages attachments and commits file changes transactionally", () => {
   assert.match(taskForm, /type="file"/);
   assert.match(taskForm, /this\.stagedFiles/);
   assert.match(taskForm, /this\.deletedAttachmentIds/);
-  assert.match(source, /snapshot\?\.attachments/);
+  assert.match(taskForm, /this\.attachments = \[\.\.\.task\.attachments\]/);
   assert.doesNotMatch(taskForm, /ha-file-upload|ha-selector/);
 });
 
@@ -470,7 +469,7 @@ test("V2 task viewer loads assignment history and signed attachments", () => {
   assert.match(taskViewer, /loadTaskHistory/);
   assert.match(taskViewer, /loadAttachmentUrls/);
   assert.match(api, /type: "tasks\/attachment\/urls"/);
-  assert.match(taskViewer, /this\.signedFiles\[attachment\.attachment_id\]/);
+  assert.match(taskViewer, /this\.signedFiles\[attachment\.id\]/);
   assert.match(source, /openTaskViewer/);
 });
 
@@ -493,13 +492,13 @@ test("V2 completion requires confirmation and sends trimmed notes", () => {
 });
 
 test("V2 viewer renders complete trigger rules and responsive details", () => {
-  assert.match(taskViewer, /schedule_type === "sensor"/);
-  assert.match(taskViewer, /schedule_type === "sliding"/);
+  assert.match(taskViewer, /schedule\.type === "sensor"/);
+  assert.match(taskViewer, /schedule\.type === "sliding"/);
   assert.match(taskViewer, /unit === "weekly"/);
   assert.match(taskViewer, /unit === "monthly"/);
   assert.match(taskViewer, /unit === "yearly"/);
-  assert.match(taskViewer, /schedule_weekdays/);
-  assert.match(taskViewer, /schedule_month/);
+  assert.match(taskViewer, /schedule\.weekdays/);
+  assert.match(taskViewer, /schedule\.month/);
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 

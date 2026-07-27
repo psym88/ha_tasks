@@ -29,8 +29,8 @@ def test_bulk_command_passes_one_validated_operation_set(monkeypatch):
             return [
                 {
                     "action": "update",
-                    "task_id": "task-1",
-                    "task": {"task_id": "task-1", "active": False},
+                    "id": "task-1",
+                    "task": {"id": "task-1", "active": False},
                 }
             ]
 
@@ -51,7 +51,7 @@ def test_bulk_command_passes_one_validated_operation_set(monkeypatch):
         operations = [
             {
                 "action": "update",
-                "task_id": "task-1",
+                "id": "task-1",
                 "changes": {"active": False},
             }
         ]
@@ -81,8 +81,8 @@ def test_bulk_command_passes_one_validated_operation_set(monkeypatch):
                     "results": [
                         {
                             "action": "update",
-                            "task_id": "task-1",
-                            "task": {"task_id": "task-1", "active": False},
+                            "id": "task-1",
+                            "task": {"id": "task-1", "active": False},
                         }
                     ]
                 },

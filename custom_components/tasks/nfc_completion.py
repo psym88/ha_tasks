@@ -26,7 +26,7 @@ async def async_handle_tag_scanned(
     user_id = event.context.user_id
     user = await hass.auth.async_get_user(user_id) if user_id else None
     await manager.async_complete_task(
-        task["task_id"],
+        task["id"],
         dt_util.utcnow().isoformat(),
         user.id if user else None,
         user.name if user and user.name else "NFC tag",

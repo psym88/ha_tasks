@@ -36,8 +36,10 @@ def notification_id(task_id: str) -> str:
 
 def has_due_notification(task: dict[str, Any]) -> bool:
     """Return whether a task has any due notification enabled."""
-    target = task.get("notification_target") or {}
-    return bool(target.get("device_id") or task.get("notification_persistent"))
+    notification = task["notification"]
+    return bool(
+        notification["device_ids"] or notification["persistent"]
+    )
 
 
 async def _notification_content(
@@ -46,8 +48,8 @@ async def _notification_content(
 ) -> tuple[str, str]:
     language = getattr(getattr(hass, "config", None), "language", "en")
     translations = await hass.async_add_executor_job(_load_translations, language)
-    task_name = task["task_name"]
-    kind = "problem" if task.get("schedule_type") == "sensor" else "due"
+    task_name = task["name"]
+    kind = "problem" if task["schedule"]["type"] == "sensor" else "due"
     return (
         translations[f"notification.{kind}_title"],
         translations[f"notification.{kind}_message"].format(task_name=task_name),
@@ -55,11 +57,12 @@ async def _notification_content(
 
 
 def _mobile_data(task: dict[str, Any]) -> dict[str, Any]:
-    data: dict[str, Any] = {"tag": notification_id(task["task_id"])}
-    if notification_route := task.get("notification_route"):
+    data: dict[str, Any] = {"tag": notification_id(task["id"])}
+    notification = task["notification"]
+    if notification_route := notification.get("route"):
         data["url"] = notification_route
         data["clickAction"] = notification_route
-    if task.get("notification_critical"):
+    if notification["critical"]:
         data.update(
             {
                 "ttl": 0,
@@ -83,15 +86,15 @@ async def async_notify_task_due(
 ) -> None:
     """Send every notification configured for a due task."""
     title, message = await _notification_content(hass, task)
-    if task.get("notification_persistent"):
+    if task["notification"]["persistent"]:
         persistent_notification.async_create(
             hass,
             message,
             title=title,
-            notification_id=notification_id(task["task_id"]),
+            notification_id=notification_id(task["id"]),
         )
 
-    for device_id in (task.get("notification_target") or {}).get("device_id", []):
+    for device_id in task["notification"]["device_ids"]:
         try:
             await device_action.async_call_action_from_config(
                 hass,
@@ -110,7 +113,7 @@ async def async_notify_task_due(
             _LOGGER.exception(
                 "Failed to notify mobile app device %s for task %s",
                 device_id,
-                task["task_id"],
+                task["id"],
             )
 
 

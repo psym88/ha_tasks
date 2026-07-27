@@ -12,7 +12,7 @@ from .models import (
     AfterCompletionSchedule,
     FixedSchedule,
     ProblemTrigger,
-    trigger_from_mapping,
+    trigger_from_record,
 )
 
 def _resolve_local(value: datetime) -> datetime:
@@ -26,9 +26,9 @@ def _with_date(value: datetime, year: int, month: int, day: int) -> datetime:
     return _resolve_local(value.replace(year=year, month=month, day=day))
 
 
-def _with_schedule_time(task: dict[str, Any], value: datetime) -> datetime:
+def _with_schedule_time(schedule: dict[str, Any], value: datetime) -> datetime:
     """Apply an optional fixed wall-clock time to a local datetime."""
-    if not (schedule_time := task.get("schedule_time")):
+    if not (schedule_time := schedule.get("time")):
         return value
     hour, minute = (int(part) for part in schedule_time.split(":"))
     return _resolve_local(
@@ -70,11 +70,11 @@ def _calendar_datetime(
 
 
 def _fixed_due_on_or_after(
-    task: dict[str, Any], anchor: datetime, boundary: datetime
+    schedule: dict[str, Any], anchor: datetime, boundary: datetime
 ) -> datetime:
     """Return the first anchored fixed occurrence on or after a boundary."""
-    schedule_interval = max(1, int(task.get("schedule_interval") or 1))
-    schedule_unit = task.get("schedule_unit", "monthly")
+    schedule_interval = max(1, int(schedule["interval"]))
+    schedule_unit = schedule["unit"]
     if schedule_unit == "daily":
         elapsed = max(0, boundary.toordinal() - anchor.toordinal())
         steps = elapsed // schedule_interval
@@ -83,7 +83,9 @@ def _fixed_due_on_or_after(
             candidate = add_interval(candidate, schedule_interval, "day")
         return candidate
     if schedule_unit == "weekly":
-        schedule_weekdays = sorted(set(int(day) for day in task["schedule_weekdays"]))
+        schedule_weekdays = sorted(
+            set(int(day) for day in schedule["weekdays"])
+        )
         anchor_week = anchor.toordinal() - anchor.weekday()
         for offset in range(schedule_interval * 7 + 7):
             target = add_interval(boundary, offset, "day")
@@ -98,7 +100,7 @@ def _fixed_due_on_or_after(
                 return candidate
         raise ValueError("invalid_weekly_schedule")
     if schedule_unit == "monthly":
-        selected = task["schedule_day"]
+        selected = schedule["day"]
         month_delta = (
             (boundary.year - anchor.year) * 12 + boundary.month - anchor.month
         )
@@ -115,8 +117,8 @@ def _fixed_due_on_or_after(
                 return candidate
         raise ValueError("invalid_monthly_schedule")
     if schedule_unit == "yearly":
-        month = int(task["schedule_month"])
-        selected = task["schedule_day"]
+        month = int(schedule["month"])
+        selected = schedule["day"]
         for year in range(
             max(boundary.year, anchor.year),
             max(boundary.year, anchor.year) + schedule_interval + 2,
@@ -136,17 +138,18 @@ def occurrences(
     """Yield local datetimes after a completion or new schedule boundary."""
     if from_datetime.tzinfo is None:
         raise ValueError("recurrence_timezone_required")
-    trigger = trigger_from_mapping(task)
+    schedule = task["schedule"]
+    trigger = trigger_from_record(schedule)
     if isinstance(trigger, ProblemTrigger):
         raise ValueError("invalid_frequency")
     boundary = dt_util.as_local(from_datetime)
     current_due = (
-        dt_util.as_local(parse_aware_datetime(task["task_due"]))
-        if task.get("task_due")
+        dt_util.as_local(parse_aware_datetime(task["due"]))
+        if task.get("due")
         else None
     )
     anchor = (
-        _with_schedule_time(task, current_due or boundary)
+        _with_schedule_time(schedule, current_due or boundary)
         if isinstance(trigger, FixedSchedule)
         else current_due
     )
@@ -164,7 +167,7 @@ def occurrences(
         else:
             assert anchor is not None
             due = _fixed_due_on_or_after(
-                task,
+                schedule,
                 anchor,
                 boundary + timedelta(microseconds=1),
             )
@@ -180,7 +183,7 @@ def occurrences(
             current_due
             if boundary < current_due
             else _fixed_due_on_or_after(
-                task,
+                schedule,
                 anchor,
                 boundary + timedelta(microseconds=1),
             )
@@ -197,7 +200,7 @@ def occurrences(
         else:
             assert anchor is not None
             due = _fixed_due_on_or_after(
-                task,
+                schedule,
                 anchor,
                 due + timedelta(microseconds=1),
             )

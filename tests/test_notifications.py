@@ -8,12 +8,16 @@ from custom_components.tasks import notifications
 
 def _task(**values):
     return {
-        "task_id": "task",
-        "task_name": "Replace water filter",
-        "task_due": "2026-07-25T10:15:00+00:00",
-        "notification_target": {},
-        "notification_persistent": False,
-        "notification_critical": False,
+        "id": "task",
+        "name": "Replace water filter",
+        "due": "2026-07-25T10:15:00+00:00",
+        "schedule": {"type": "sliding", "unit": "daily", "interval": 1},
+        "notification": {
+            "device_ids": [],
+            "persistent": False,
+            "critical": False,
+            "route": None,
+        },
         **values,
     }
 
@@ -41,8 +45,12 @@ def test_due_notification_sends_native_mobile_app_device_actions(monkeypatch):
     )
     hass = _hass()
     task = _task(
-        notification_target={"device_id": ["phone", "tablet"]},
-        notification_critical=True,
+        notification={
+            "device_ids": ["phone", "tablet"],
+            "persistent": False,
+            "critical": True,
+            "route": None,
+        },
     )
 
     asyncio.run(notifications.async_notify_task_due(hass, task))
@@ -82,7 +90,15 @@ def test_panel_notification_uses_stable_id(monkeypatch):
 
     asyncio.run(
         notifications.async_notify_task_due(
-            hass, _task(notification_persistent=True)
+            hass,
+            _task(
+                notification={
+                    "device_ids": [],
+                    "persistent": True,
+                    "critical": False,
+                    "route": None,
+                }
+            ),
         )
     )
 
@@ -110,9 +126,14 @@ def test_problem_notification_uses_problem_wording(monkeypatch):
         notifications.async_notify_task_due(
             _hass(),
             _task(
-                task_name="Check heat pump",
-                schedule_type="sensor",
-                notification_persistent=True,
+                name="Check heat pump",
+                schedule={"type": "sensor", "entity_id": "binary_sensor.pump"},
+                notification={
+                    "device_ids": [],
+                    "persistent": True,
+                    "critical": False,
+                    "route": None,
+                },
             ),
         )
     )
@@ -135,7 +156,14 @@ def test_notification_uses_home_assistant_instance_language(monkeypatch):
     asyncio.run(
         notifications.async_notify_task_due(
             _hass("en"),
-            _task(notification_persistent=True),
+            _task(
+                notification={
+                    "device_ids": [],
+                    "persistent": True,
+                    "critical": False,
+                    "route": None,
+                }
+            ),
         )
     )
 
@@ -157,7 +185,14 @@ def test_notification_falls_back_to_english(monkeypatch):
     asyncio.run(
         notifications.async_notify_task_due(
             _hass("fr-CH"),
-            _task(notification_persistent=True),
+            _task(
+                notification={
+                    "device_ids": [],
+                    "persistent": True,
+                    "critical": False,
+                    "route": None,
+                }
+            ),
         )
     )
 
@@ -185,16 +220,37 @@ def test_task_notification_can_be_dismissed_directly(monkeypatch):
 def test_notification_enablement_requires_a_target_or_panel():
     assert not notifications.has_due_notification(_task())
     assert notifications.has_due_notification(
-        _task(notification_target={"device_id": ["phone"]})
+        _task(
+            notification={
+                "device_ids": ["phone"],
+                "persistent": False,
+                "critical": False,
+                "route": None,
+            }
+        )
     )
     assert notifications.has_due_notification(
-        _task(notification_persistent=True)
+        _task(
+            notification={
+                "device_ids": [],
+                "persistent": True,
+                "critical": False,
+                "route": None,
+            }
+        )
     )
 
 
 def test_mobile_notification_uses_the_configured_route():
     data = notifications._mobile_data(
-        _task(notification_route="/lovelace/maintenance")
+        _task(
+            notification={
+                "device_ids": [],
+                "persistent": False,
+                "critical": False,
+                "route": "/lovelace/maintenance",
+            }
+        )
     )
 
     assert data["url"] == "/lovelace/maintenance"

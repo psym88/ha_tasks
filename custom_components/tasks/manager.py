@@ -122,10 +122,9 @@ class TaskManager:
             "task",
             task_id,
             context=context,
-            resource_name=task["task_name"],
+            resource_name=task["name"],
             problem_trigger_changed=(
-                previous.get("schedule_type") != task.get("schedule_type")
-                or previous.get("problem_sensor") != task.get("problem_sensor")
+                previous["schedule"] != task["schedule"]
                 or previous.get("active", True) != task.get("active", True)
             ),
         )
@@ -142,7 +141,7 @@ class TaskManager:
             "task",
             task_id,
             context=context,
-            resource_name=task["task_name"],
+            resource_name=task["name"],
         )
 
     async def async_complete_task(
@@ -160,7 +159,7 @@ class TaskManager:
             task_id, completed_at, user_id, user_name, notes
         )
         dismiss_task_notification(self._hass, task_id)
-        data = {"resource_name": task.get("task_name")}
+        data = {"resource_name": task.get("name")}
         if source:
             data["source"] = source
         self._changed(
@@ -179,7 +178,7 @@ class TaskManager:
     ) -> list[dict[str, Any]]:
         """Apply task mutations as one persisted and published change."""
         previous = {
-            operation["task_id"]: self._store.task(operation["task_id"])
+            operation["id"]: self._store.task(operation["id"])
             for operation in operations
             if operation["action"] == "update"
         }
@@ -188,7 +187,7 @@ class TaskManager:
         )
         problem_task_ids = []
         for result in results:
-            task_id = result["task_id"]
+            task_id = result["id"]
             if result["action"] in {"complete", "delete"}:
                 dismiss_task_notification(self._hass, task_id)
             if result["action"] != "update":
@@ -196,8 +195,7 @@ class TaskManager:
             before = previous[task_id]
             task = result["task"]
             if (
-                before.get("schedule_type") != task.get("schedule_type")
-                or before.get("problem_sensor") != task.get("problem_sensor")
+                before["schedule"] != task["schedule"]
                 or before.get("active", True) != task.get("active", True)
             ):
                 problem_task_ids.append(task_id)
@@ -208,7 +206,7 @@ class TaskManager:
             operations=[
                 {
                     "action": result["action"],
-                    "task_id": result["task_id"],
+                    "id": result["id"],
                 }
                 for result in results
             ],
@@ -241,14 +239,14 @@ class TaskManager:
         task = result["task"]
         problem_trigger_changed = previous is None or any(
             previous.get(key) != task.get(key)
-            for key in ("schedule_type", "problem_sensor", "active")
+            for key in ("schedule", "active")
         )
         self._changed(
             "saved",
             "task",
-            task["task_id"],
+            task["id"],
             context=context,
-            resource_name=task["task_name"],
+            resource_name=task["name"],
             created=previous is None,
             problem_trigger_changed=problem_trigger_changed,
         )
@@ -268,11 +266,11 @@ class TaskManager:
     def task_became_due(self, task: dict[str, Any]) -> None:
         """Publish and handle a task reaching its due time."""
         self._changed(
-            "task_due",
+            "due",
             "task",
-            task["task_id"],
-            resource_name=task["task_name"],
-            task_due=task["task_due"],
+            task["id"],
+            resource_name=task["name"],
+            due=task["due"],
         )
         if has_due_notification(task):
             self._hass.async_create_task(

@@ -22,7 +22,7 @@ def _store(task):
     store._lock = asyncio.Lock()
     store._repository = MemoryRepository()
     store._data = {
-        "tasks": [store._aggregate_from_fields(task, [], [])]
+        "tasks": [task]
     }
     return store
 
@@ -36,12 +36,7 @@ async def _save_new(store, payload, now):
 def test_completion_notes_are_trimmed_and_optional():
     async def run():
         store = _store({
-            "task_id": "task-1",
-            "task_name": "Task",
-            "task_due": "2026-07-21T10:15:00+00:00",
-            "schedule_type": "sliding",
-            "schedule_unit": "daily",
-            "schedule_interval": 1,
+            **_task(),
         })
 
         await store.async_complete_task(
@@ -62,21 +57,14 @@ def test_completion_notes_are_trimmed_and_optional():
 def test_completing_task_sets_next_task_due_from_completion_datetime():
     async def run():
         store = _store({
-            "task_id": "task-1",
-            "task_name": "Task",
-            "task_due": "2026-07-21T10:15:00+00:00",
-            "schedule_type": "sliding",
-            "schedule_unit": "monthly",
-            "schedule_interval": 1,
+            **_task(unit="monthly"),
         })
 
         completed = await store.async_complete_task(
             "task-1", "2026-07-25T10:15:00+00:00", "user-1", "Marco"
         )
 
-        assert completed["task_due"] == "2026-08-25T10:15:00+00:00"
-        assert "task_due_before" not in store.history("task-1")[0]
-        assert "task_due_after" not in store.history("task-1")[0]
+        assert completed["due"] == "2026-08-25T10:15:00+00:00"
         assert store._repository.data["tasks"][0]["due"] == "2026-08-25T10:15:00+00:00"
 
     asyncio.run(run())
@@ -85,34 +73,58 @@ def test_completing_task_sets_next_task_due_from_completion_datetime():
 def test_completing_calendar_task_early_keeps_upcoming_task_due():
     async def run():
         store = _store({
-            "task_id": "task-1",
-            "task_name": "Task",
-            "task_due": "2026-07-22T10:15:00+00:00",
-            "schedule_type": "fixed",
-            "schedule_unit": "weekly",
-            "schedule_interval": 1,
-            "schedule_weekdays": [2],
+            **_task(
+                schedule_type="fixed",
+                unit="weekly",
+                due="2026-07-22T10:15:00+00:00",
+                weekdays=[2],
+            ),
         })
 
         completed = await store.async_complete_task(
             "task-1", "2026-07-20T10:15:00+00:00", "user-1", "Marco"
         )
 
-        assert completed["task_due"] == "2026-07-22T10:15:00+00:00"
+        assert completed["due"] == "2026-07-22T10:15:00+00:00"
 
     asyncio.run(run())
 
 
-def _history_store(schedule_type="sliding"):
-    task = {
-        "task_id": "task-1",
-        "task_name": "Task",
-        "task_due": "2026-07-21T10:15:00+00:00",
-        "schedule_type": schedule_type,
-        "schedule_unit": "daily",
-        "schedule_interval": 1,
+def _task(
+    schedule_type="sliding",
+    unit="daily",
+    due="2026-07-21T10:15:00+00:00",
+    **schedule,
+):
+    return {
+        "id": "task-1",
+        "name": "Task",
+        "icon": None,
+        "description": None,
+        "active": True,
+        "assignee_id": None,
+        "label_ids": [],
+        "nfc_tag_id": None,
+        "due": due,
+        "schedule": {
+            "type": schedule_type,
+            "unit": unit,
+            "interval": 1,
+            **schedule,
+        },
+        "notification": {
+            "device_ids": [],
+            "persistent": False,
+            "critical": False,
+            "route": None,
+        },
+        "completions": [],
+        "attachments": [],
     }
-    return _store(task)
+
+
+def _history_store(schedule_type="sliding"):
+    return _store(_task(schedule_type))
 
 
 def test_deleting_completions_only_removes_audit_records():
@@ -129,40 +141,16 @@ def test_deleting_completions_only_removes_audit_records():
             "task-1", {}, [], [], [oldest["id"]], date(2026, 7, 23)
         )
         task = result["task"]
-        assert task["task_due"] == "2026-07-23T10:15:00+00:00"
+        assert task["due"] == "2026-07-23T10:15:00+00:00"
         assert [
-            entry["history_entry_id"] for entry in store.history("task-1")
+            entry["id"] for entry in store.history("task-1")
         ] == [newest["id"]]
 
         result = await store.async_save_task(
             "task-1", {}, [], [], [newest["id"]], date(2026, 7, 23)
         )
         task = result["task"]
-        assert task["task_due"] == "2026-07-23T10:15:00+00:00"
-        assert store.history("task-1") == []
-
-    asyncio.run(run())
-
-
-def test_deleting_legacy_completion_context_keeps_current_due():
-    async def run():
-        store = _history_store("fixed")
-        store._data["tasks"][0]["completions"] = [
-            {
-                "id": "legacy",
-                "completed_at": "2026-07-20T10:15:00+00:00",
-                "extra": {
-                    "task_due_before": "2026-07-21T10:15:00+00:00",
-                    "task_due_after": "2026-07-22T10:15:00+00:00",
-                },
-            }
-        ]
-
-        result = await store.async_save_task(
-            "task-1", {}, [], [], ["legacy"], date(2026, 7, 23)
-        )
-        task = result["task"]
-        assert task["task_due"] == "2026-07-21T10:15:00+00:00"
+        assert task["due"] == "2026-07-23T10:15:00+00:00"
         assert store.history("task-1") == []
 
     asyncio.run(run())
@@ -177,28 +165,37 @@ def test_store_calculates_initial_due_and_preserves_it_for_metadata_updates():
         task = await _save_new(
             store,
             {
-                "task_name": "Bins",
-                "task_description": None,
+                "name": "Bins",
+                "description": None,
                 "assignee_id": None,
-                "schedule_type": "fixed",
-                "schedule_unit": "weekly",
-                "schedule_interval": 2,
-                "schedule_weekdays": [3],
-                "schedule_day": None,
-                "schedule_month": None,
+                "schedule": {
+                    "type": "fixed",
+                    "unit": "weekly",
+                    "interval": 2,
+                    "weekdays": [3],
+                },
             },
             date(2026, 7, 21),
         )
-        assert task["task_due"] == "2026-07-23T10:15:00+00:00"
+        assert task["due"] == "2026-07-23T10:15:00+00:00"
 
         updated = await store.async_update_task(
-            task["task_id"], {"task_name": "Recycling bins"}, date(2026, 7, 28)
+            task["id"], {"name": "Recycling bins"}, date(2026, 7, 28)
         )
-        assert updated["task_due"] == "2026-07-23T10:15:00+00:00"
+        assert updated["due"] == "2026-07-23T10:15:00+00:00"
 
         replanned = await store.async_update_task(
-            task["task_id"], {"schedule_weekdays": [4]}, date(2026, 7, 28)
+            task["id"],
+            {
+                "schedule": {
+                    "type": "fixed",
+                    "unit": "weekly",
+                    "interval": 2,
+                    "weekdays": [4],
+                }
+            },
+            date(2026, 7, 28),
         )
-        assert replanned["task_due"] == "2026-07-31T10:15:00+00:00"
+        assert replanned["due"] == "2026-07-31T10:15:00+00:00"
 
     asyncio.run(run())

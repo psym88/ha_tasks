@@ -55,7 +55,6 @@ export interface FileChanges {
 }
 
 export interface ArchiveImportReport {
-  conversions?: Array<[number, number]>;
   attachments_imported?: number;
   attachments_skipped?: number;
   history_entries_imported?: number;
@@ -66,17 +65,17 @@ export interface ArchiveImportReport {
 export type BulkTaskOperation =
   | {
       action: "update";
-      task_id: string;
+      id: string;
       changes: Partial<Task>;
     }
   | {
       action: "complete";
-      task_id: string;
+      id: string;
       notes: null;
     }
   | {
       action: "delete";
-      task_id: string;
+      id: string;
     };
 
 export interface RecurrenceScheduleDetails {
@@ -103,24 +102,24 @@ const schedulePayload = (
 ): Record<string, unknown> => {
   if (schedule.type === "sensor") {
     return {
-      schedule_type: schedule.type,
-      problem_sensor: schedule.problemSensor.trim(),
+      type: schedule.type,
+      entity_id: schedule.problemSensor.trim(),
     };
   }
   const payload: Record<string, unknown> = {
-    schedule_type: schedule.type,
-    schedule_unit: schedule.unit,
-    schedule_interval: schedule.interval,
+    type: schedule.type,
+    unit: schedule.unit,
+    interval: schedule.interval,
   };
   if (schedule.type === "fixed") {
-    payload.schedule_time = schedule.time;
+    payload.time = schedule.time;
     if (schedule.unit === "weekly") {
-      payload.schedule_weekdays = schedule.weekdays;
+      payload.weekdays = schedule.weekdays;
     } else if (schedule.unit === "monthly") {
-      payload.schedule_day = schedule.day;
+      payload.day = schedule.day;
     } else if (schedule.unit === "yearly") {
-      payload.schedule_day = schedule.day;
-      payload.schedule_month = schedule.month;
+      payload.day = schedule.day;
+      payload.month = schedule.month;
     }
   }
   return payload;
@@ -189,15 +188,15 @@ export const saveTaskDetails = async (
   );
   return hass.connection.sendMessagePromise({
     type: "tasks/task/save",
-    ...(task ? { task_id: task.task_id } : {}),
-    task_name: details.name.trim(),
-    task_description: details.description.trim() || null,
-    task_icon: details.icon.trim() || null,
+    ...(task ? { task_id: task.id } : {}),
+    name: details.name.trim(),
+    description: details.description.trim() || null,
+    icon: details.icon.trim() || null,
     active: details.active,
     ...(details.schedule
-      ? schedulePayload(details.schedule)
+      ? { schedule: schedulePayload(details.schedule) }
       : task
-        ? { schedule_type: task.schedule_type }
+        ? { schedule: task.schedule }
         : {}),
     ...(details.assignment
       ? {
@@ -208,12 +207,12 @@ export const saveTaskDetails = async (
       : {}),
     ...(details.notification
       ? {
-          notification_target: details.notification.deviceIds.length
-            ? { device_id: details.notification.deviceIds }
-            : {},
-          notification_persistent: details.notification.persistent,
-          notification_critical: details.notification.critical,
-          notification_route: details.notification.route.trim() || null,
+          notification: {
+            device_ids: details.notification.deviceIds,
+            persistent: details.notification.persistent,
+            critical: details.notification.critical,
+            route: details.notification.route.trim() || null,
+          },
         }
       : {}),
     file_ids: fileIds,
@@ -318,9 +317,9 @@ export const previewTaskSchedule = (
   hass: HomeAssistant,
   schedule: RecurrenceScheduleDetails,
   taskDue?: string,
-): Promise<{ task_dues: string[] }> =>
+): Promise<{ dues: string[] }> =>
   hass.connection.sendMessagePromise({
     type: "tasks/task/preview_next_due",
-    ...schedulePayload(schedule),
-    ...(taskDue ? { task_due: taskDue } : {}),
+    schedule: schedulePayload(schedule),
+    ...(taskDue ? { due: taskDue } : {}),
   });

@@ -5,20 +5,13 @@ import {
   importTasksArchive,
   type ArchiveImportReport,
 } from "./api";
-import { t } from "./localize";
+import { errorText, t } from "./localize";
 import type { HomeAssistant } from "./types";
 import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
 const countText = (count: number, one: string, many: string): string =>
   t(count === 1 ? one : many, { count });
-
-const errorText = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error);
-  const key = `error.${message}`;
-  const localized = t(key);
-  return localized === key ? message : localized;
-};
 
 class TasksArchive extends LitElement {
   static properties = {
@@ -130,9 +123,7 @@ class TasksArchive extends LitElement {
   }
 
   private reportLines(report: ArchiveImportReport): string[] {
-    const lines = (report.conversions || []).map(([from, to]) =>
-      t("settings.progress_convert", { from, to }),
-    );
+    const lines: string[] = [];
     lines.push(
       countText(
         report.attachments_imported || 0,

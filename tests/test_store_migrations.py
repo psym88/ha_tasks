@@ -54,45 +54,45 @@ def test_home_assistant_store_uses_the_tasks_migration_chain():
     assert migrated == current["data"]
 
 
-def test_current_schema_projects_the_existing_transport_shape():
-    """Current clients keep flat tasks and globally listed attachments."""
+def test_current_schema_is_the_only_runtime_transport_shape():
     store = TasksStore.__new__(TasksStore)
     store._data = _fixture(STORAGE_VERSION)["data"]
 
     snapshot = store.snapshot()
 
-    assert snapshot["tasks"][0]["task_id"] == "task-1"
-    assert snapshot["tasks"][0]["schedule_type"] == "fixed"
-    assert snapshot["tasks"][0]["notification_target"] == {}
-    assert snapshot["attachments"] == [
+    assert snapshot["tasks"][0]["id"] == "task-1"
+    assert snapshot["tasks"][0]["schedule"]["type"] == "fixed"
+    assert snapshot["tasks"][0]["notification"]["device_ids"] == []
+    assert snapshot["tasks"][0]["attachments"] == [
         {
-            "attachment_id": "attachment-1",
-            "task_id": "task-1",
+            "id": "attachment-1",
             "filename": "manual.pdf",
             "content_type": "application/pdf",
             "size": 42,
             "uploaded_at": "2026-07-20T10:00:00+00:00",
         }
     ]
-    assert store.history("task-1")[0]["history_entry_id"] == "history-1"
+    assert store.history("task-1")[0]["id"] == "history-1"
 
 
-def test_schema_five_removes_only_retired_schedule_metadata():
-    source = _fixture(4)["data"]
-    migrated = upgrade_store_data(4, source)
+def test_schema_six_removes_every_unknown_field():
+    source = _fixture(5)["data"]
+    migrated = upgrade_store_data(5, source)
 
     assert "extra" not in migrated["tasks"][0]
-    expected = _fixture(5)["data"]
+    expected = _fixture(6)["data"]
     assert migrated == expected
 
 
 def test_version_one_wrapper_preserves_data_written_before_version_bump():
-    """Recent V1 files may already contain fields introduced before this fix."""
+    """A mislabeled aggregate is normalized by the converter chain."""
     current = _fixture(STORAGE_VERSION)["data"]
     current["tasks"][0]["active"] = False
     current["tasks"][0]["schedule_time"] = "08:30"
 
-    assert upgrade_store_data(1, current) == current
+    expected = _fixture(STORAGE_VERSION)["data"]
+    expected["tasks"][0]["active"] = False
+    assert upgrade_store_data(1, current) == expected
 
 
 @pytest.mark.parametrize("version", [0, STORAGE_VERSION + 1])

@@ -21,11 +21,15 @@ from homeassistant.components.http import (
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import raise_if_invalid_filename
-import voluptuous as vol
-
-from .const import ARCHIVE_URL, DOMAIN, DOWNLOAD_URL, UPLOAD_URL
+from .const import (
+    ARCHIVE_URL,
+    DOMAIN,
+    DOWNLOAD_URL,
+    STORAGE_VERSION,
+    UPLOAD_URL,
+)
 from .manager import get_manager
-from .migrations import ARCHIVE_FORMAT, upgrade_archive_manifest
+from .migrations import upgrade_store_data
 
 ONE_MEGABYTE: Final = 1024 * 1024
 MAX_ATTACHMENT_SIZE: Final = 100 * ONE_MEGABYTE
@@ -168,20 +172,6 @@ async def async_consume_uploads(
         file_ids, user_id
     )
 
-ARCHIVE_MANIFEST_SCHEMA = vol.Schema(
-    {
-        vol.Required("integration"): str,
-        vol.Required("format"): int,
-        vol.Required("data"): {
-            vol.Required("tasks"): list,
-            vol.Required("history"): dict,
-            vol.Required("attachments"): list,
-        },
-    },
-    extra=vol.PREVENT_EXTRA,
-)
-
-
 def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
     """Build an archive outside the Home Assistant event loop."""
     output = BytesIO()
@@ -189,7 +179,7 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
         archive.writestr(
             "tasks.json",
             json.dumps(
-                {"integration": DOMAIN, "format": ARCHIVE_FORMAT, "data": data},
+                {"version": STORAGE_VERSION, "data": data},
                 ensure_ascii=False,
                 indent=2,
             ),
@@ -199,10 +189,10 @@ def _build_archive(data: dict, files: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _parse_archive_manifest(
+def _parse_archive_snapshot(
     archive: zipfile.ZipFile,
-) -> tuple[dict, list[zipfile.ZipInfo], list[tuple[int, int]]]:
-    """Validate the archive envelope and return its migrated data."""
+) -> tuple[dict, list[zipfile.ZipInfo]]:
+    """Validate the stored snapshot and return its migrated data."""
     items = archive.infolist()
     names = [item.filename for item in items]
     if len(names) != len(set(names)) or "tasks.json" not in names or any(
@@ -210,26 +200,27 @@ def _parse_archive_manifest(
         for name in names
     ):
         raise ValueError("invalid_archive")
-    conversions: list[tuple[int, int]] = []
-    try:
-        manifest = upgrade_archive_manifest(
-            json.loads(archive.read("tasks.json")), conversions
-        )
-        manifest = ARCHIVE_MANIFEST_SCHEMA(manifest)
-    except vol.Invalid as err:
-        raise ValueError("invalid_archive") from err
-    if manifest["integration"] != DOMAIN:
-        raise ValueError("invalid_archive_integration")
-    return manifest["data"], items, conversions
+    snapshot = json.loads(archive.read("tasks.json"))
+    if (
+        not isinstance(snapshot, dict)
+        or set(snapshot) != {"version", "data"}
+        or type(snapshot["version"]) is not int
+        or not isinstance(snapshot["data"], dict)
+    ):
+        raise ValueError("invalid_archive")
+    data = upgrade_store_data(snapshot["version"], snapshot["data"])
+    if set(data) != {"tasks"} or not isinstance(data["tasks"], list):
+        raise ValueError("invalid_archive")
+    return data, items
 
 
-def _parse_archive_file_with_report(
+def _parse_archive_file(
     archive_path: Path, staging_dir: Path
-) -> tuple[dict, dict[str, Path], dict[str, list[tuple[int, int]]]]:
+) -> tuple[dict, dict[str, Path]]:
     """Parse an archive and stream attachments into a staging directory."""
     files: dict[str, Path] = {}
     with zipfile.ZipFile(archive_path) as archive:
-        data, items, conversions = _parse_archive_manifest(archive)
+        data, items = _parse_archive_snapshot(archive)
         for index, item in enumerate(items):
             if not item.filename.startswith("attachments/") or item.is_dir():
                 continue
@@ -245,7 +236,7 @@ def _parse_archive_file_with_report(
             with archive.open(item) as source, target.open("xb") as output:
                 shutil.copyfileobj(source, output)
             files[file_id] = target
-    return data, files, {"conversions": conversions}
+    return data, files
 
 
 def archive_error_code(error: Exception) -> str:
@@ -253,7 +244,7 @@ def archive_error_code(error: Exception) -> str:
     code = str(error)
     return code if code in {
         "invalid_archive",
-        "invalid_archive_integration",
+        "unsupported_store_version",
     } else "invalid_archive"
 
 
@@ -342,8 +333,8 @@ class ArchiveView(HomeAssistantView):
                 with archive_path.open("wb") as output:
                     while chunk := await request.content.readany():
                         await hass.async_add_executor_job(output.write, chunk)
-                data, files, archive_report = await hass.async_add_executor_job(
-                    _parse_archive_file_with_report, archive_path, temp_path
+                data, files = await hass.async_add_executor_job(
+                    _parse_archive_file, archive_path, temp_path
                 )
                 import_report = await manager.async_import_archive(data, files)
         except (
@@ -354,4 +345,4 @@ class ArchiveView(HomeAssistantView):
         ) as err:
             code = archive_error_code(err)
             return self.json({"code": code}, status_code=400)
-        return self.json({"imported": True, **archive_report, **import_report})
+        return self.json({"imported": True, **import_report})

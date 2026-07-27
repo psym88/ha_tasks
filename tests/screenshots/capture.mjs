@@ -267,142 +267,121 @@ async function seedData(socket, token) {
     if (!userIds.has(name)) throw new Error(`Screenshot user not found: ${name}`);
   }
 
-  const common = {
-    schedule_type: "fixed",
-    schedule_unit: "daily",
-    schedule_interval: 1,
-    schedule_time: "08:00",
-  };
+  const fixed = (unit, values = {}) => ({
+    type: "fixed",
+    unit,
+    interval: 1,
+    time: "08:00",
+    ...values,
+  });
+  const sliding = (unit, interval = 1) => ({
+    type: "sliding",
+    unit,
+    interval,
+  });
+  const sensor = (entity_id) => ({ type: "sensor", entity_id });
+  const notify = (critical = false, route = null) => ({
+    device_ids: [],
+    persistent: true,
+    critical,
+    route,
+  });
   const taskDefinitions = [
     {
-      ...common,
-      task_name: "Clean bathroom extractor fan",
-      task_icon: "mdi:fan",
-      task_due: isoAtOffset(-8),
+      name: "Clean bathroom extractor fan",
+      icon: "mdi:fan",
+      due: isoAtOffset(-8),
+      schedule: fixed("daily"),
       assignee_id: userIds.get("Marco"),
       label_ids: [cleaning.label_id],
-      notification_persistent: true,
+      notification: notify(),
     },
     {
-      task_name: "Vacuum the ground floor",
-      task_icon: "mdi:vacuum",
-      task_due: isoAtOffset(0, 10),
-      schedule_type: "sliding",
-      schedule_unit: "weekly",
-      schedule_interval: 1,
+      name: "Vacuum the ground floor",
+      icon: "mdi:vacuum",
+      due: isoAtOffset(0, 10),
+      schedule: sliding("weekly"),
       assignee_id: userIds.get("Jill"),
       label_ids: [cleaning.label_id],
     },
     {
-      ...common,
-      task_name: "Water the garden",
-      task_icon: "mdi:watering-can-outline",
-      task_due: isoAtOffset(1, 18),
+      name: "Water the garden",
+      icon: "mdi:watering-can-outline",
+      due: isoAtOffset(1, 18),
+      schedule: fixed("daily"),
       label_ids: [outdoor.label_id],
     },
     {
-      task_name: "Change bed linen",
-      task_icon: "mdi:bed-king-outline",
-      task_due: isoAtOffset(2),
-      schedule_type: "fixed",
-      schedule_unit: "weekly",
-      schedule_interval: 2,
-      schedule_weekdays: [5],
-      schedule_time: "08:00",
+      name: "Change bed linen",
+      icon: "mdi:bed-king-outline",
+      due: isoAtOffset(2),
+      schedule: fixed("weekly", { interval: 2, weekdays: [5] }),
       assignee_id: userIds.get("Alex"),
       label_ids: [cleaning.label_id],
     },
     {
-      task_name: "Put out recycling bins",
-      task_icon: "mdi:recycle",
-      task_due: isoAtOffset(6, 19),
-      schedule_type: "fixed",
-      schedule_unit: "weekly",
-      schedule_interval: 1,
-      schedule_weekdays: [2],
-      schedule_time: "19:00",
+      name: "Put out recycling bins",
+      icon: "mdi:recycle",
+      due: isoAtOffset(6, 19),
+      schedule: fixed("weekly", { weekdays: [2], time: "19:00" }),
       label_ids: [outdoor.label_id],
     },
     {
-      task_name: "Test smoke and carbon monoxide alarms",
-      task_icon: "mdi:smoke-detector-variant",
-      task_due: isoAtOffset(8),
-      schedule_type: "fixed",
-      schedule_unit: "monthly",
-      schedule_interval: 1,
-      schedule_day: 15,
-      schedule_time: "08:00",
+      name: "Test smoke and carbon monoxide alarms",
+      icon: "mdi:smoke-detector-variant",
+      due: isoAtOffset(8),
+      schedule: fixed("monthly", { day: 15 }),
       assignee_id: userIds.get("Marco"),
       label_ids: [safety.label_id],
-      notification_persistent: true,
-      notification_critical: true,
+      notification: notify(true),
     },
     {
-      task_name: "Replace drinking water filter",
-      task_icon: "mdi:water-pump",
-      task_due: isoAtOffset(10),
-      schedule_type: "sliding",
-      schedule_unit: "monthly",
-      schedule_interval: 3,
+      name: "Replace drinking water filter",
+      icon: "mdi:water-pump",
+      due: isoAtOffset(10),
+      schedule: sliding("monthly", 3),
       assignee_id: userIds.get("Jill"),
     },
     {
-      task_name: "Deep-clean the refrigerator",
-      task_icon: "mdi:fridge-outline",
-      task_due: isoAtOffset(21),
-      schedule_type: "sliding",
-      schedule_unit: "monthly",
-      schedule_interval: 1,
+      name: "Deep-clean the refrigerator",
+      icon: "mdi:fridge-outline",
+      due: isoAtOffset(21),
+      schedule: sliding("monthly"),
       label_ids: [cleaning.label_id],
     },
     {
-      task_name: "Annual heat pump service",
-      task_icon: "mdi:heat-pump-outline",
-      task_due: isoAtOffset(60),
-      schedule_type: "fixed",
-      schedule_unit: "yearly",
-      schedule_interval: 1,
-      schedule_month: 10,
-      schedule_day: 15,
-      schedule_time: "08:00",
+      name: "Annual heat pump service",
+      icon: "mdi:heat-pump-outline",
+      due: isoAtOffset(60),
+      schedule: fixed("yearly", { month: 10, day: 15 }),
       assignee_id: userIds.get("Alex"),
       label_ids: [safety.label_id],
     },
     {
-      task_name: "Inspect washing machine hoses",
-      task_icon: "mdi:washing-machine",
-      task_due: isoAtOffset(180),
-      schedule_type: "sliding",
-      schedule_unit: "yearly",
-      schedule_interval: 1,
+      name: "Inspect washing machine hoses",
+      icon: "mdi:washing-machine",
+      due: isoAtOffset(180),
+      schedule: sliding("yearly"),
       active: false,
       label_ids: [safety.label_id],
     },
     {
-      task_name: "Check basement leak sensor",
-      task_icon: "mdi:water-alert-outline",
-      schedule_type: "sensor",
-      problem_sensor: "binary_sensor.basement_leak",
+      name: "Check basement leak sensor",
+      icon: "mdi:water-alert-outline",
+      schedule: sensor("binary_sensor.basement_leak"),
       label_ids: [safety.label_id],
-      notification_persistent: true,
+      notification: notify(),
     },
     {
-      task_name: targetTaskName,
-      task_icon: "mdi:clipboard-text-clock-outline",
-      task_description: "Verify telephone numbers, evacuation notes, and the household maintenance checklist.\n\nKeep this information available offline.",
-      task_due: "2030-01-15T07:00:00+00:00",
-      schedule_type: "fixed",
-      schedule_unit: "yearly",
-      schedule_interval: 1,
-      schedule_month: 1,
-      schedule_day: 15,
-      schedule_time: "08:00",
+      name: targetTaskName,
+      icon: "mdi:clipboard-text-clock-outline",
+      description: "Verify telephone numbers, evacuation notes, and the household maintenance checklist.\n\nKeep this information available offline.",
+      due: "2030-01-15T07:00:00+00:00",
+      schedule: fixed("yearly", { month: 1, day: 15 }),
       assignee_id: userIds.get("Alex"),
       label_ids: [safety.label_id, outdoor.label_id],
       nfc_tag_id: tag.id,
-      notification_persistent: true,
-      notification_critical: true,
-      notification_route: "/tasks",
+      notification: notify(true, "/tasks"),
     },
   ];
 
@@ -412,14 +391,14 @@ async function seedData(socket, token) {
     created.push(await socket.call({
       type: "tasks/task/save",
       ...definition,
-      file_ids: definition.task_name === targetTaskName ? [fileId] : [],
+      file_ids: definition.name === targetTaskName ? [fileId] : [],
     }));
   }
 
-  const target = created.find((task) => task.task_name === targetTaskName);
+  const target = created.find((task) => task.name === targetTaskName);
   await socket.call({
     type: "tasks/task/complete",
-    task_id: target.task_id,
+    task_id: target.id,
     completed_at: "2029-01-15T07:30:00+00:00",
     notes: "Updated emergency contacts and checked the printed copy.",
   });
@@ -538,7 +517,7 @@ async function openTaskViewer(page) {
       return null;
     };
     const panel = walk(document);
-    const task = panel.snapshot.tasks.find((item) => item.task_name === taskName);
+    const task = panel.snapshot.tasks.find((item) => item.name === taskName);
     if (!task) throw new Error(`Screenshot task not found: ${taskName}`);
     panel.openTask(task);
   }, targetTaskName);
@@ -562,7 +541,7 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
     };
     const panel = walk(document);
     const task = name
-      ? panel.snapshot.tasks.find((item) => item.task_name === name)
+      ? panel.snapshot.tasks.find((item) => item.name === name)
       : null;
     if (name && !task) throw new Error(`Screenshot task not found: ${name}`);
     if (task) panel.handleTaskAction("edit", task);

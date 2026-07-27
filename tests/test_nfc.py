@@ -22,10 +22,7 @@ def _store(tasks):
     store._lock = asyncio.Lock()
     store._repository = MemoryRepository()
     store._data = {
-        "tasks": [
-            store._aggregate_from_fields(task, [], [])
-            for task in tasks
-        ],
+        "tasks": tasks,
     }
     return store
 
@@ -38,13 +35,19 @@ async def _save_new(store, payload, now):
 
 def _task(task_id="task-1", tag_id=None):
     return {
-        "task_id": task_id,
-        "task_name": task_id,
+        "id": task_id,
+        "name": task_id,
         "nfc_tag_id": tag_id,
-        "task_due": "2026-07-22T10:15:00+00:00",
-        "schedule_type": "sliding",
-        "schedule_unit": "daily",
-        "schedule_interval": 1,
+        "due": "2026-07-22T10:15:00+00:00",
+        "schedule": {"type": "sliding", "unit": "daily", "interval": 1},
+        "notification": {
+            "device_ids": [],
+            "persistent": False,
+            "critical": False,
+            "route": None,
+        },
+        "completions": [],
+        "attachments": [],
     }
 
 
@@ -53,9 +56,6 @@ def test_tag_id_is_trimmed_and_unique():
         store = _store([_task(tag_id="existing")])
         payload = {
             **_task("new", "  tag-2  "),
-            "schedule_type": "sliding",
-            "schedule_unit": "daily",
-            "schedule_interval": 1,
         }
         created = await _save_new(
             store,
@@ -63,7 +63,7 @@ def test_tag_id_is_trimmed_and_unique():
         )
         assert created["nfc_tag_id"] == "tag-2"
         with pytest.raises(ValueError, match="nfc_tag_already_assigned"):
-            await store.async_update_task(created["task_id"], {"nfc_tag_id": "existing"})
+            await store.async_update_task(created["id"], {"nfc_tag_id": "existing"})
 
     asyncio.run(run())
 
@@ -78,7 +78,7 @@ def test_task_labels_are_stored_and_updated_without_duplicates():
         )
         assert created["label_ids"] == ["chores", "upstairs"]
         updated = await store.async_update_task(
-            created["task_id"], {"label_ids": ["garden", "garden"]}
+            created["id"], {"label_ids": ["garden", "garden"]}
         )
         assert updated["label_ids"] == ["garden"]
 

@@ -16,7 +16,7 @@ def _store(task):
     store = TasksStore.__new__(TasksStore)
     store._lock = asyncio.Lock()
     store._data = {
-        "tasks": [store._aggregate_from_fields(task, [], [])]
+        "tasks": [task]
     }
 
     async def commit(data):
@@ -34,19 +34,29 @@ async def _save_new(store, payload, now):
 
 def _weekly_task():
     return {
-        "task_id": "task",
-        "task_name": "Task",
-        "task_description": None,
+        "id": "task",
+        "name": "Task",
+        "icon": None,
+        "description": None,
+        "active": True,
         "assignee_id": None,
         "label_ids": [],
         "nfc_tag_id": None,
-        "task_due": "2026-07-29T10:15:00+00:00",
-        "schedule_type": "fixed",
-        "schedule_unit": "weekly",
-        "schedule_interval": 1,
-        "schedule_weekdays": [2],
-        "schedule_day": 29,
-        "schedule_month": 7,
+        "due": "2026-07-29T10:15:00+00:00",
+        "schedule": {
+            "type": "fixed",
+            "unit": "weekly",
+            "interval": 1,
+            "weekdays": [2],
+        },
+        "notification": {
+            "device_ids": [],
+            "persistent": False,
+            "critical": False,
+            "route": None,
+        },
+        "completions": [],
+        "attachments": [],
     }
 
 
@@ -62,10 +72,10 @@ def test_failed_save_keeps_current_snapshot():
         before = store._data
 
         with pytest.raises(RuntimeError, match="save failed"):
-            await store.async_update_task("task", {"task_name": "Changed"})
+            await store.async_update_task("task", {"name": "Changed"})
 
         assert store._data is before
-        assert store.tasks[0]["task_name"] == "Task"
+        assert store.tasks[0]["name"] == "Task"
 
     asyncio.run(run())
 
@@ -77,18 +87,17 @@ def test_new_sliding_task_starts_due_after_its_first_interval():
         created = await _save_new(
             store,
             {
-                "task_name": "Replace filter",
-                "schedule_type": "sliding",
-                "schedule_unit": "weekly",
-                "schedule_interval": 2,
-                "schedule_weekdays": [],
-                "schedule_day": None,
-                "schedule_month": None,
+                "name": "Replace filter",
+                "schedule": {
+                    "type": "sliding",
+                    "unit": "weekly",
+                    "interval": 2,
+                },
             },
             date(2026, 7, 25),
         )
 
-        assert created["task_due"] == "2026-08-08T10:15:00+00:00"
+        assert created["due"] == "2026-08-08T10:15:00+00:00"
         assert created["active"] is True
 
     asyncio.run(run())
@@ -97,16 +106,16 @@ def test_new_sliding_task_starts_due_after_its_first_interval():
 def test_active_state_does_not_change_the_stored_due():
     async def run():
         store = _store(_weekly_task())
-        due = store.tasks[0]["task_due"]
+        due = store.tasks[0]["due"]
 
         inactive = await store.async_update_task("task", {"active": False})
         assert inactive["active"] is False
-        assert inactive["task_due"] == due
+        assert inactive["due"] == due
         assert not store.is_due(inactive, date(2026, 7, 30))
 
         active = await store.async_update_task("task", {"active": True})
         assert active["active"] is True
-        assert active["task_due"] == due
+        assert active["due"] == due
         assert store.is_due(active, date(2026, 7, 30))
 
     asyncio.run(run())
@@ -118,19 +127,22 @@ def test_schedule_update_discards_inactive_values():
         updated = await store.async_update_task(
             "task",
             {
-                "schedule_type": "fixed",
-                "schedule_unit": "monthly",
-                "schedule_interval": 1,
-                "schedule_weekdays": [2],
-                "schedule_day": 15,
-                "schedule_month": 7,
+                "schedule": {
+                    "type": "fixed",
+                    "unit": "monthly",
+                    "interval": 1,
+                    "day": 15,
+                },
             },
             date(2026, 7, 24),
         )
 
-        assert updated["schedule_weekdays"] == []
-        assert updated["schedule_day"] == 15
-        assert updated["schedule_month"] is None
+        assert updated["schedule"] == {
+            "type": "fixed",
+            "unit": "monthly",
+            "interval": 1,
+            "day": 15,
+        }
 
     asyncio.run(run())
 
@@ -140,11 +152,18 @@ def test_fixed_schedule_time_is_stored_and_recalculates_due():
         store = _store(_weekly_task())
 
         updated = await store.async_update_task(
-            "task", {"schedule_time": "08:30"}, date(2026, 7, 24)
+            "task",
+            {
+                "schedule": {
+                    **_weekly_task()["schedule"],
+                    "time": "08:30",
+                }
+            },
+            date(2026, 7, 24),
         )
 
-        assert updated["schedule_time"] == "08:30"
-        assert updated["task_due"] == "2026-07-29T08:30:00+00:00"
+        assert updated["schedule"]["time"] == "08:30"
+        assert updated["due"] == "2026-07-29T08:30:00+00:00"
 
     asyncio.run(run())
 
@@ -152,40 +171,50 @@ def test_fixed_schedule_time_is_stored_and_recalculates_due():
 def test_sliding_schedule_discards_fixed_time():
     async def run():
         task = _weekly_task()
-        task["schedule_time"] = "08:30"
+        task["schedule"]["time"] = "08:30"
         store = _store(task)
 
         updated = await store.async_update_task(
             "task",
             {
-                "schedule_type": "sliding",
-                "schedule_unit": "weekly",
-                "schedule_interval": 1,
-                "schedule_time": None,
+                "schedule": {
+                    "type": "sliding",
+                    "unit": "weekly",
+                    "interval": 1,
+                },
             },
             date(2026, 7, 24),
         )
 
-        assert updated["schedule_time"] is None
+        assert "time" not in updated["schedule"]
 
     asyncio.run(run())
 
 
-def test_partial_schedule_update_merges_before_normalizing():
+def test_schedule_update_replaces_the_complete_variant():
     async def run():
         task = _weekly_task()
-        task["schedule_day"] = 29
-        task["schedule_month"] = 7
         store = _store(task)
 
         updated = await store.async_update_task(
-            "task", {"schedule_interval": 2}, date(2026, 7, 24)
+            "task",
+            {
+                "schedule": {
+                    "type": "fixed",
+                    "unit": "weekly",
+                    "interval": 2,
+                    "weekdays": [2],
+                }
+            },
+            date(2026, 7, 24),
         )
 
-        assert updated["schedule_unit"] == "weekly"
-        assert updated["schedule_weekdays"] == [2]
-        assert updated["schedule_day"] is None
-        assert updated["schedule_month"] is None
+        assert updated["schedule"] == {
+            "type": "fixed",
+            "unit": "weekly",
+            "interval": 2,
+            "weekdays": [2],
+        }
 
     asyncio.run(run())
 
@@ -194,11 +223,11 @@ def test_task_icon_is_updated_without_affecting_schedule():
     async def run():
         store = _store(_weekly_task())
         updated = await store.async_update_task(
-            "task", {"task_icon": "mdi:washing-machine"}, date(2026, 7, 24)
+            "task", {"icon": "mdi:washing-machine"}, date(2026, 7, 24)
         )
 
-        assert updated["task_icon"] == "mdi:washing-machine"
-        assert updated["task_due"] == "2026-07-29T10:15:00+00:00"
+        assert updated["icon"] == "mdi:washing-machine"
+        assert updated["due"] == "2026-07-29T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -209,23 +238,23 @@ def test_notification_settings_are_normalized_without_affecting_schedule():
         updated = await store.async_update_task(
             "task",
             {
-                "notification_target": {
-                    "device_id": ["phone", "phone", "tablet"]
+                "notification": {
+                    "device_ids": ["phone", "phone", "tablet"],
+                    "persistent": True,
+                    "critical": True,
+                    "route": " /lovelace/maintenance ",
                 },
-                "notification_persistent": True,
-                "notification_critical": True,
-                "notification_route": " /lovelace/maintenance ",
             },
             date(2026, 7, 24),
         )
 
-        assert updated["notification_target"] == {
-            "device_id": ["phone", "tablet"]
+        assert updated["notification"] == {
+            "device_ids": ["phone", "tablet"],
+            "persistent": True,
+            "critical": True,
+            "route": "/lovelace/maintenance",
         }
-        assert updated["notification_persistent"] is True
-        assert updated["notification_critical"] is True
-        assert updated["notification_route"] == "/lovelace/maintenance"
-        assert updated["task_due"] == "2026-07-29T10:15:00+00:00"
+        assert updated["due"] == "2026-07-29T10:15:00+00:00"
 
     asyncio.run(run())
 
@@ -237,7 +266,12 @@ def test_task_notification_route_rejects_absolute_urls():
         try:
             await store.async_update_task(
                 "task",
-                {"notification_route": "https://example.com"},
+                {
+                    "notification": {
+                        **_weekly_task()["notification"],
+                        "route": "https://example.com",
+                    }
+                },
                 date(2026, 7, 24),
             )
         except ValueError as err:
@@ -253,10 +287,17 @@ def test_empty_task_notification_route_is_stored_as_none():
         store = _store(_weekly_task())
 
         updated = await store.async_update_task(
-            "task", {"notification_route": ""}, date(2026, 7, 24)
+            "task",
+            {
+                "notification": {
+                    **_weekly_task()["notification"],
+                    "route": "",
+                }
+            },
+            date(2026, 7, 24),
         )
 
-        assert updated["notification_route"] is None
+        assert updated["notification"]["route"] is None
 
     asyncio.run(run())
 
@@ -269,17 +310,20 @@ def test_sensor_task_waits_without_due_and_discards_recurrence_fields():
         created = await _save_new(
             store,
             {
-                "task_name": "Check heat pump",
-                "schedule_type": "sensor",
-                "problem_sensor": "binary_sensor.heat_pump_problem",
+                "name": "Check heat pump",
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "binary_sensor.heat_pump_problem",
+                },
             },
             date(2026, 7, 25),
         )
 
-        assert created["task_due"] is None
-        assert created["problem_sensor"] == "binary_sensor.heat_pump_problem"
-        assert created["schedule_unit"] is None
-        assert created["schedule_interval"] is None
+        assert created["due"] is None
+        assert created["schedule"] == {
+            "type": "sensor",
+            "entity_id": "binary_sensor.heat_pump_problem",
+        }
 
     asyncio.run(run())
 
@@ -289,17 +333,18 @@ def test_sensor_task_waits_without_due_and_discards_recurrence_fields():
     (
         (
             {
-                "task_name": "Incomplete recurrence",
-                "schedule_type": "sliding",
-                "schedule_interval": 1,
+                "name": "Incomplete recurrence",
+                "schedule": {"type": "sliding", "interval": 1},
             },
             "invalid_frequency",
         ),
         (
             {
-                "task_name": "Invalid problem sensor",
-                "schedule_type": "sensor",
-                "problem_sensor": "sensor.temperature",
+                "name": "Invalid problem sensor",
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "sensor.temperature",
+                },
             },
             "problem_sensor_required",
         ),
@@ -319,11 +364,13 @@ def test_store_rejects_incomplete_trigger_configurations(payload, error):
 def test_problem_trigger_sets_due_once_until_task_is_completed():
     async def run():
         task = {
-            "task_id": "task",
-            "task_name": "Check heat pump",
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.heat_pump_problem",
-            "task_due": None,
+            **_weekly_task(),
+            "name": "Check heat pump",
+            "schedule": {
+                "type": "sensor",
+                "entity_id": "binary_sensor.heat_pump_problem",
+            },
+            "due": None,
         }
         store = _store(task)
 
@@ -334,19 +381,18 @@ def test_problem_trigger_sets_due_once_until_task_is_completed():
             "task", "2026-07-25T10:01:00+00:00"
         )
 
-        assert triggered["task_due"] == "2026-07-25T10:00:00+00:00"
+        assert triggered["due"] == "2026-07-25T10:00:00+00:00"
         assert duplicate is None
 
         completed = await store.async_complete_task(
             "task", "2026-07-25T10:15:00+00:00", "user-1", "Marco"
         )
-        assert completed["task_due"] is None
-        assert "task_due_after" not in store.history("task")[0]
+        assert completed["due"] is None
 
         retriggered = await store.async_trigger_problem_task(
             "task", "2026-07-26T08:00:00+00:00"
         )
-        assert retriggered["task_due"] == "2026-07-26T08:00:00+00:00"
+        assert retriggered["due"] == "2026-07-26T08:00:00+00:00"
 
     asyncio.run(run())
 
@@ -354,19 +400,21 @@ def test_problem_trigger_sets_due_once_until_task_is_completed():
 def test_inactive_problem_task_does_not_trigger():
     async def run():
         task = {
-            "task_id": "task",
-            "task_name": "Check heat pump",
+            **_weekly_task(),
+            "name": "Check heat pump",
             "active": False,
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.heat_pump_problem",
-            "task_due": None,
+            "schedule": {
+                "type": "sensor",
+                "entity_id": "binary_sensor.heat_pump_problem",
+            },
+            "due": None,
         }
         store = _store(task)
 
         assert await store.async_trigger_problem_task(
             "task", "2026-07-25T10:00:00+00:00"
         ) is None
-        assert task["task_due"] is None
+        assert task["due"] is None
 
     asyncio.run(run())
 
@@ -374,10 +422,10 @@ def test_inactive_problem_task_does_not_trigger():
 def test_bulk_mutations_persist_one_snapshot():
     async def run():
         first = _weekly_task()
-        second = {**_weekly_task(), "task_id": "task-2", "task_name": "Second"}
+        second = {**_weekly_task(), "id": "task-2", "name": "Second"}
         store = _store(first)
         store._data["tasks"].append(
-            store._aggregate_from_fields(second, [], [])
+            second
         )
         commits = []
 
@@ -390,12 +438,12 @@ def test_bulk_mutations_persist_one_snapshot():
             [
                 {
                     "action": "update",
-                    "task_id": "task",
+                    "id": "task",
                     "changes": {"assignee_id": "alex"},
                 },
                 {
                     "action": "complete",
-                    "task_id": "task-2",
+                    "id": "task-2",
                     "notes": "Done together",
                 },
             ],
@@ -406,7 +454,7 @@ def test_bulk_mutations_persist_one_snapshot():
 
         assert len(commits) == 1
         assert results[0]["task"]["assignee_id"] == "alex"
-        assert results[1]["task"]["task_due"] == (
+        assert results[1]["task"]["due"] == (
             "2026-08-05T10:15:00+00:00"
         )
         assert store.history("task-2")[0]["notes"] == "Done together"
@@ -430,12 +478,12 @@ def test_failed_bulk_mutation_keeps_the_entire_previous_snapshot():
                 [
                     {
                         "action": "update",
-                        "task_id": "task",
-                        "changes": {"task_name": "Should roll back"},
+                        "id": "task",
+                        "changes": {"name": "Should roll back"},
                     },
                     {
                         "action": "delete",
-                        "task_id": "missing",
+                        "id": "missing",
                     },
                 ],
                 None,
@@ -445,7 +493,7 @@ def test_failed_bulk_mutation_keeps_the_entire_previous_snapshot():
 
         assert commits == []
         assert store._data is before
-        assert store.tasks[0]["task_name"] == "Task"
+        assert store.tasks[0]["name"] == "Task"
 
     asyncio.run(run())
 
@@ -469,7 +517,7 @@ def test_bulk_delete_removes_attachment_files_after_commit():
         store._commit = commit
         store._repository = Repository()
         await store.async_bulk_mutate(
-            [{"action": "delete", "task_id": "task"}],
+            [{"action": "delete", "id": "task"}],
             None,
             "system",
             date(2026, 7, 30),
@@ -502,14 +550,14 @@ def test_failed_bulk_save_keeps_files_and_metadata():
         store._repository = Repository()
         with pytest.raises(RuntimeError, match="save failed"):
             await store.async_bulk_mutate(
-                [{"action": "delete", "task_id": "task"}],
+                [{"action": "delete", "id": "task"}],
                 None,
                 "system",
                 date(2026, 7, 30),
             )
 
         assert store._data is before
-        assert store.tasks[0]["task_id"] == "task"
+        assert store.tasks[0]["id"] == "task"
         assert deleted == []
 
     asyncio.run(run())
@@ -554,7 +602,7 @@ def test_editor_save_commits_task_files_and_history_once(tmp_path):
 
         result = await store.async_save_task(
             "task",
-            {"task_name": "Updated"},
+            {"name": "Updated"},
             [("manual.pdf", "application/pdf", b"new")],
             ["old-file"],
             ["old-history"],
@@ -562,15 +610,15 @@ def test_editor_save_commits_task_files_and_history_once(tmp_path):
         )
 
         assert repository.saves == 1
-        assert result["task"]["task_name"] == "Updated"
+        assert result["task"]["name"] == "Updated"
         assert not old_file.exists()
         assert store.history("task") == []
-        [attachment] = result["attachments"]
-        assert repository.file_path(attachment["attachment_id"]).read_bytes() == b"new"
+        [attachment] = result["task"]["attachments"]
+        assert repository.file_path(attachment["id"]).read_bytes() == b"new"
         assert [
             item["id"]
             for item in store._data["tasks"][0]["attachments"]
-        ] == [attachment["attachment_id"]]
+        ] == [attachment["id"]]
 
     asyncio.run(run())
 
@@ -605,7 +653,7 @@ def test_failed_editor_save_rolls_back_snapshot_and_new_files(tmp_path):
         with pytest.raises(RuntimeError, match="save failed"):
             await store.async_save_task(
                 "task",
-                {"task_name": "Not saved"},
+                {"name": "Not saved"},
                 [("manual.pdf", "application/pdf", b"new")],
                 [],
                 [],
@@ -613,7 +661,7 @@ def test_failed_editor_save_rolls_back_snapshot_and_new_files(tmp_path):
             )
 
         assert store._data is before
-        assert store.tasks[0]["task_name"] == "Task"
+        assert store.tasks[0]["name"] == "Task"
         assert list(tmp_path.iterdir()) == []
 
     asyncio.run(run())

@@ -3,7 +3,7 @@ import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";
 import { openArchive } from "./archive";
-import { setLanguage, t } from "./localize";
+import { errorText, setLanguage, t } from "./localize";
 import { openTaskEditor } from "./task-form";
 import { taskTableElementName } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -147,18 +147,14 @@ class TasksPanelV2 extends LitElement {
       }
     } catch (error) {
       if (this.connection === connection) {
-        this.error = error instanceof Error ? error.message : String(error);
+        this.error = errorText(error);
       }
     }
   }
 
   private openTask(task: Task): void {
     if (this.hass) {
-      void openTaskViewer(
-        this.hass,
-        task,
-        this.snapshot?.attachments || [],
-      );
+      void openTaskViewer(this.hass, task);
     }
   }
 
@@ -169,7 +165,7 @@ class TasksPanelV2 extends LitElement {
     await openTasksDialog({
       heading: t("task.delete_title"),
       content: html`<p>
-        ${t("task.delete_confirm", { name: task.task_name })}
+        ${t("task.delete_confirm", { name: task.name })}
       </p>`,
       actions: [
         { label: t("common.cancel"), value: "cancel" },
@@ -177,7 +173,7 @@ class TasksPanelV2 extends LitElement {
           label: t("common.delete"),
           value: "delete",
           destructive: true,
-          run: () => deleteTask(this.hass!, task.task_id),
+          run: () => deleteTask(this.hass!, task.id),
         },
       ],
     });
@@ -190,15 +186,11 @@ class TasksPanelV2 extends LitElement {
     if (action === "open") {
       this.openTask(task);
     } else if (action === "edit") {
-      void openTaskEditor(
-        this.hass,
-        task,
-        this.snapshot?.attachments || [],
-      );
+      void openTaskEditor(this.hass, task);
     } else if (action === "active") {
       void setTaskActive(
         this.hass,
-        task.task_id,
+        task.id,
         task.active === false,
       );
     } else if (action === "delete") {

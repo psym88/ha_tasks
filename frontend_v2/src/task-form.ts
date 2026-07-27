@@ -9,7 +9,7 @@ import {
   saveTaskDetails,
   type ScheduleDetails,
 } from "./api";
-import { t } from "./localize";
+import { errorText, t } from "./localize";
 import type {
   Attachment,
   Completion,
@@ -406,51 +406,67 @@ class TasksTaskForm extends LitElement {
   configure(
     hass: HomeAssistant,
     task: Task,
-    attachments: Attachment[] = [],
+    _attachments: Attachment[] = [],
   ): void {
-    const parts = localDateParts(hass, task.task_due);
+    const parts = localDateParts(hass, task.due);
     const year = Number(parts.year);
     const month = Number(parts.month);
     const day = Number(parts.day);
     const weekday = (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
     this.hass = hass;
     this.task = task;
-    this.name = task.task_name;
-    this.description = task.task_description || "";
+    this.name = task.name;
+    this.description = task.description || "";
     this.status = task.active === false ? "inactive" : "active";
-    this.icon = task.task_icon || "";
+    this.icon = task.icon || "";
     this.assigneeId = task.assignee_id || "";
     this.labelIds = [...(task.label_ids || [])];
     this.nfcTagId = task.nfc_tag_id || "";
     this.notificationDeviceIds = [
       ...new Set(
-        (task.notification_target?.device_id || []).filter(
+        (task.notification.device_ids || []).filter(
           (id): id is string => typeof id === "string",
         ),
       ),
     ];
-    this.notificationPersistent = Boolean(task.notification_persistent);
-    this.notificationCritical = Boolean(task.notification_critical);
-    this.notificationRoute = task.notification_route || "";
-    this.attachments = attachments.filter(
-      (attachment) => attachment.task_id === task.task_id,
-    );
+    this.notificationPersistent = Boolean(task.notification.persistent);
+    this.notificationCritical = Boolean(task.notification.critical);
+    this.notificationRoute = task.notification.route || "";
+    this.attachments = [...task.attachments];
     this.stagedFiles = [];
     this.deletedAttachmentIds = [];
     this.history = [];
     this.deletedHistoryEntryIds = [];
-    this.scheduleType = task.schedule_type;
-    this.scheduleUnit = task.schedule_unit || "monthly";
-    this.scheduleInterval = task.schedule_interval || 1;
-    this.scheduleWeekdays = task.schedule_weekdays?.length
-      ? [...task.schedule_weekdays]
-      : [weekday];
-    this.scheduleDay = task.schedule_day || day;
-    this.scheduleMonth = task.schedule_month || month;
-    this.scheduleTime =
-      task.schedule_time || `${parts.hour || "09"}:${parts.minute || "00"}`;
-    this.problemSensor = task.problem_sensor || "";
-    const isNew = !task.task_id;
+    this.scheduleType = task.schedule.type;
+    if (task.schedule.type === "sensor") {
+      this.scheduleUnit = "monthly";
+      this.scheduleInterval = 1;
+      this.scheduleWeekdays = [weekday];
+      this.scheduleDay = day;
+      this.scheduleMonth = month;
+      this.scheduleTime = `${parts.hour || "09"}:${parts.minute || "00"}`;
+      this.problemSensor = task.schedule.entity_id;
+    } else {
+      this.scheduleUnit = task.schedule.unit;
+      this.scheduleInterval = task.schedule.interval;
+      this.scheduleWeekdays =
+        task.schedule.type === "fixed" && task.schedule.weekdays?.length
+          ? [...task.schedule.weekdays]
+          : [weekday];
+      this.scheduleDay =
+        task.schedule.type === "fixed" && task.schedule.day
+          ? task.schedule.day
+          : day;
+      this.scheduleMonth =
+        task.schedule.type === "fixed" && task.schedule.month
+          ? task.schedule.month
+          : month;
+      this.scheduleTime =
+        (task.schedule.type === "fixed" && task.schedule.time) ||
+        `${parts.hour || "09"}:${parts.minute || "00"}`;
+      this.problemSensor = "";
+    }
+    const isNew = !task.id;
     this.scheduleDirty = isNew;
     this.assignmentDirty = isNew;
     this.notificationDirty = isNew;
@@ -533,13 +549,13 @@ class TasksTaskForm extends LitElement {
   private async loadHistory(): Promise<void> {
     const hass = this.hass;
     const task = this.task;
-    if (!hass || !task?.task_id) {
+    if (!hass || !task?.id) {
       return;
     }
     this.historyLoading = true;
     this.historyError = "";
     try {
-      const result = await loadTaskHistory(hass, task.task_id);
+      const result = await loadTaskHistory(hass, task.id);
       this.history = Array.isArray(result.history) ? result.history : [];
     } catch {
       this.historyError = t("v2.history_load_error");
@@ -655,10 +671,10 @@ class TasksTaskForm extends LitElement {
       const result = await previewTaskSchedule(
         hass,
         schedule,
-        this.scheduleDirty ? undefined : task.task_due || undefined,
+        this.scheduleDirty ? undefined : task.due || undefined,
       );
       if (request === this.previewRequest) {
-        this.preview = result.task_dues;
+        this.preview = result.dues;
       }
     } catch {
       if (request === this.previewRequest) {
@@ -706,7 +722,7 @@ class TasksTaskForm extends LitElement {
     try {
       await saveTaskDetails(
         this.hass,
-        this.task.task_id ? this.task : undefined,
+        this.task.id ? this.task : undefined,
         {
           name,
           description: this.description,
@@ -737,7 +753,7 @@ class TasksTaskForm extends LitElement {
       );
       return true;
     } catch (error) {
-      this.saveError = error instanceof Error ? error.message : String(error);
+      this.saveError = errorText(error);
       return false;
     } finally {
       this.saving = false;
@@ -1106,7 +1122,7 @@ class TasksTaskForm extends LitElement {
               <ul class="records">
                 ${this.attachments.map((attachment) => {
                   const pending = this.deletedAttachmentIds.includes(
-                    attachment.attachment_id,
+                    attachment.id,
                   );
                   return html`
                     <li class="record ${pending ? "pending" : ""}">
@@ -1128,7 +1144,7 @@ class TasksTaskForm extends LitElement {
                         ?disabled=${this.saving}
                         @click=${() => {
                           this.deletedAttachmentIds = this.toggleId(
-                            attachment.attachment_id,
+                            attachment.id,
                             this.deletedAttachmentIds,
                           );
                         }}
@@ -1205,7 +1221,7 @@ class TasksTaskForm extends LitElement {
       <ul class="records">
         ${this.history.map((entry) => {
           const pending = this.deletedHistoryEntryIds.includes(
-            entry.history_entry_id,
+            entry.id,
           );
           const notes =
             entry.notes === "tasks.history.completed_via_nfc"
@@ -1229,7 +1245,7 @@ class TasksTaskForm extends LitElement {
                 ?disabled=${this.saving}
                 @click=${() => {
                   this.deletedHistoryEntryIds = this.toggleId(
-                    entry.history_entry_id,
+                    entry.id,
                     this.deletedHistoryEntryIds,
                   );
                 }}
@@ -1296,7 +1312,7 @@ class TasksTaskForm extends LitElement {
         <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}
         </${expandableTag}>
-        ${this.task?.task_id
+        ${this.task?.id
           ? staticHtml`
               <${expandableTag} heading=${t("task.history")}>
                 ${this.renderHistory()}
@@ -1323,18 +1339,29 @@ export const openTaskEditor = async (
   attachments: Attachment[] = [],
 ): Promise<boolean> => {
   const task: Task = existingTask || {
-    task_id: "",
-    task_name: "",
+    id: "",
+    name: "",
     active: true,
-    schedule_type: "sliding",
-    schedule_unit: "monthly",
-    schedule_interval: 1,
+    schedule: {
+      type: "sliding",
+      unit: "monthly",
+      interval: 1,
+    },
+    notification: {
+      device_ids: [],
+      persistent: false,
+      critical: false,
+      route: null,
+    },
+    due: null,
+    completions: [],
+    attachments: [],
   };
   const form = document.createElement(taskFormElementName) as TasksTaskForm;
   form.configure(hass, task, attachments);
   const result = await openTasksDialog({
     heading: existingTask
-      ? `${t("task.edit")}: ${task.task_name}`
+      ? `${t("task.edit")}: ${task.name}`
       : t("task.new"),
     content: form,
     actions: [

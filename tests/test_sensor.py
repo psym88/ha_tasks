@@ -10,12 +10,12 @@ from custom_components.tasks.sensor import TasksDueSensor
 def test_tasks_due_counts_reached_datetimes():
     store = SimpleNamespace(
         tasks=[
-            {"task_due": "2026-07-22T12:00:00+00:00"},
-            {"task_due": "2026-07-23T12:00:00+00:00"},
-            {"active": False, "task_due": "2026-07-22T12:00:00+00:00"},
+            {"due": "2026-07-22T12:00:00+00:00"},
+            {"due": "2026-07-23T12:00:00+00:00"},
+            {"active": False, "due": "2026-07-22T12:00:00+00:00"},
         ],
         is_due=lambda task, now: (
-            task.get("active", True) and task["task_due"] <= now.isoformat()
+            task.get("active", True) and task["due"] <= now.isoformat()
         ),
     )
 

@@ -1,4 +1,4 @@
-import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m as n,n as y,o as D,q as I,r as v,s as Z,t as A,v as M}from"./chunk-UV3GXWAD.js";var d="tasks-card",k="tasks-card-editor",p=[{value:"due",label:"task.due"},{value:"assignee",label:"task.user"},{value:"nfc_tag",label:"task.nfc_tag_id"},{value:"labels",label:"task.labels"}],m=()=>({type:`custom:${d}`,show_action_menu:!1,show_add_task:!1,secondary_info:p.map(i=>i.value),due_days:0,assignee_filter:"all"}),P=()=>{let{type:i,...e}=m();return e},L=(i={})=>{let e=Number(i.due_days);return{...m(),...i,type:i.type||`custom:${d}`,show_action_menu:i.show_action_menu===!0,show_add_task:i.show_add_task===!0,secondary_info:Array.isArray(i.secondary_info)?i.secondary_info.filter((t,s,a)=>p.some(o=>o.value===t)&&a.indexOf(t)===s):p.map(t=>t.value),due_days:i.due_days===null?null:Number.isInteger(e)&&e>=0?e:0,assignee_filter:typeof i.assignee_filter=="string"&&i.assignee_filter.trim()?i.assignee_filter.trim():"all"}},l=(i,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(i)),s=a=>t.find(o=>o.type===a)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},U=(i,e)=>{let[t,s,a]=i.split("-").map(Number);return new Date(Date.UTC(t,s-1,a+e)).toISOString().slice(0,10)},w=class extends _{static properties={hass:{attribute:!1},config:{state:!0}};static styles=b`
+import{a as b,b as c,c as u,d as y,e as k,f as h,g as T,j as C,k as E,l as S,m as n,n as D,o as v,p as I,r as Z,s as _,t as A,u as M,w as H}from"./chunk-JMBHIJCV.js";var d="tasks-card",w="tasks-card-editor",p=[{value:"due",label:"task.due"},{value:"assignee",label:"task.user"},{value:"nfc_tag",label:"task.nfc_tag_id"},{value:"labels",label:"task.labels"}],m=()=>({type:`custom:${d}`,show_action_menu:!1,show_add_task:!1,secondary_info:p.map(i=>i.value),due_days:0,assignee_filter:"all"}),U=()=>{let{type:i,...e}=m();return e},P=(i={})=>{let e=Number(i.due_days);return{...m(),...i,type:i.type||`custom:${d}`,show_action_menu:i.show_action_menu===!0,show_add_task:i.show_add_task===!0,secondary_info:Array.isArray(i.secondary_info)?i.secondary_info.filter((t,s,a)=>p.some(o=>o.value===t)&&a.indexOf(t)===s):p.map(t=>t.value),due_days:i.due_days===null?null:Number.isInteger(e)&&e>=0?e:0,assignee_filter:typeof i.assignee_filter=="string"&&i.assignee_filter.trim()?i.assignee_filter.trim():"all"}},l=(i,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(i)),s=a=>t.find(o=>o.type===a)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},z=(i,e)=>{let[t,s,a]=i.split("-").map(Number);return new Date(Date.UTC(t,s-1,a+e)).toISOString().slice(0,10)},x=class extends y{static properties={hass:{attribute:!1},config:{state:!0}};static styles=b`
     :host {
       display: grid;
       gap: 18px;
@@ -50,7 +50,7 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
       border-radius: 8px;
       font: inherit;
     }
-  `;language;constructor(){super(),this.config=m()}setConfig(e){this.config=L(e)}updated(){this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,y(this.language).then(()=>this.requestUpdate()))}change(e){this.config={...this.config,...e},this.dispatchEvent(new CustomEvent("config-changed",{bubbles:!0,composed:!0,detail:{config:this.config}}))}render(){let e=!["all","current_user"].includes(this.config.assignee_filter);return c`
+  `;language;constructor(){super(),this.config=m()}setConfig(e){this.config=P(e)}updated(){this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,v(this.language).then(()=>this.requestUpdate()))}change(e){this.config={...this.config,...e},this.dispatchEvent(new CustomEvent("config-changed",{bubbles:!0,composed:!0,detail:{config:this.config}}))}render(){let e=!["all","current_user"].includes(this.config.assignee_filter);return c`
       <fieldset>
         <legend>${n("card.options")}</legend>
         <label>
@@ -111,7 +111,7 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
           </select>
         </label>
       </fieldset>
-    `}},H=$(Z),x=class extends _{static properties={hass:{attribute:!1},config:{state:!0},snapshot:{state:!0},users:{state:!0},tags:{state:!0},labels:{state:!0},error:{state:!0}};static styles=b`
+    `}},L=k(A),$=class extends y{static properties={hass:{attribute:!1},config:{state:!0},snapshot:{state:!0},users:{state:!0},tags:{state:!0},labels:{state:!0},error:{state:!0}};static styles=b`
     :host {
       display: block;
       color: var(--primary-text-color);
@@ -233,9 +233,9 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
       font-size: 22px;
       line-height: 1;
     }
-  `;connection;unsubscribe;language;static getStubConfig(){return P()}static getConfigElement(){return document.createElement(k)}constructor(){super(),this.config=m(),this.users=[],this.tags=[],this.labels=[],this.error=""}setConfig(e){if(!e||typeof e!="object")throw new Error("Card configuration is required");this.config=L(e)}getCardSize(){return Math.max(1,Math.min(8,this.visibleTasks().length))}updated(){this.hass?.connection!==this.connection&&this.connect(),this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,y(this.language).then(()=>this.requestUpdate()))}disconnectedCallback(){this.disconnect(),super.disconnectedCallback()}disconnect(){this.unsubscribe?.(),this.unsubscribe=void 0,this.connection=void 0}async connect(){if(this.disconnect(),!this.hass)return;let e=this.hass,t=e.connection;this.connection=t,this.error="";let s=C(e);try{let a=await T(e,o=>{this.snapshot=o});this.connection===t?this.unsubscribe=a:a()}catch(a){this.connection===t&&(this.error=a instanceof Error?a.message:String(a))}try{let a=await s;this.connection===t&&(this.users=a.users,this.tags=a.tags,this.labels=a.labels)}catch{}}timeZone(){return this.hass?.config?.time_zone}visibleTasks(){if(!this.snapshot)return[];let e=l(this.snapshot.now,this.timeZone()),t=this.config.due_days===null?void 0:U(e,this.config.due_days),s=this.config.assignee_filter==="current_user",a=this.hass?.user?.id,o=["all","current_user"].includes(this.config.assignee_filter)?void 0:new Set(this.users.filter(r=>r.name.localeCompare(this.config.assignee_filter,void 0,{sensitivity:"accent"})===0).map(r=>r.id));return this.snapshot.tasks.filter(r=>r.active!==!1&&(!t||!!r.task_due&&l(r.task_due,this.timeZone())<=t)&&(!s||!!a&&r.assignee_id===a)&&(!o||o.has(r.assignee_id||""))).sort((r,f)=>!!r.task_due!=!!f.task_due?r.task_due?-1:1:Date.parse(r.task_due||"")-Date.parse(f.task_due||"")||r.task_name.localeCompare(f.task_name,this.hass?.locale?.language))}due(e){if(!e.task_due||!this.snapshot)return"";let t=l(e.task_due,this.timeZone()),s=l(this.snapshot.now,this.timeZone()),a=(Date.parse(`${t}T00:00:00Z`)-Date.parse(`${s}T00:00:00Z`))/864e5,o=a>=-1&&a<=2?new Intl.RelativeTimeFormat(this.hass?.locale?.language,{numeric:"auto"}).format(a,"day"):new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeZone:this.timeZone()}).format(new Date(e.task_due));return a>=0&&a<=2?`${o} \xB7 ${new Intl.DateTimeFormat(this.hass?.locale?.language,{timeStyle:"short",timeZone:this.timeZone()}).format(new Date(e.task_due))}`:o}dueStatus(e){if(!e.task_due||!this.snapshot)return"";let t=l(e.task_due,this.timeZone()),s=l(this.snapshot.now,this.timeZone());return t<s?"overdue":t===s?"today":"future"}metadata(e){let t={due:this.due(e),assignee:this.users.find(s=>s.id===e.assignee_id)?.name||"",nfc_tag:this.tags.find(s=>s.id===e.nfc_tag_id)?.name||"",labels:this.labels.filter(s=>e.label_ids?.includes(s.label_id)).map(s=>s.name).join(", ")};return this.config.secondary_info.map(s=>t[s]).filter(Boolean).join(" \xB7 ")}open(e){this.hass&&M(this.hass,e,this.snapshot?.attachments||[])}action(e,t){this.hass&&(t==="open"?this.open(e):t==="edit"?v(this.hass,e,this.snapshot?.attachments||[]):t==="active"?S(this.hass,e.task_id,e.active===!1):t==="delete"&&this.confirmDelete(e))}async confirmDelete(e){this.hass&&await I({heading:n("task.delete_title"),content:c`<p>
-        ${n("task.delete_confirm",{name:e.task_name})}
-      </p>`,actions:[{label:n("common.cancel"),value:"cancel"},{label:n("common.delete"),value:"delete",destructive:!0,run:()=>E(this.hass,e.task_id)}]})}render(){let e=this.visibleTasks();return this.error?c`<article class="card error">${this.error}</article>`:h`
+  `;connection;unsubscribe;language;static getStubConfig(){return U()}static getConfigElement(){return document.createElement(w)}constructor(){super(),this.config=m(),this.users=[],this.tags=[],this.labels=[],this.error=""}setConfig(e){if(!e||typeof e!="object")throw new Error("Card configuration is required");this.config=P(e)}getCardSize(){return Math.max(1,Math.min(8,this.visibleTasks().length))}updated(){this.hass?.connection!==this.connection&&this.connect(),this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,v(this.language).then(()=>this.requestUpdate()))}disconnectedCallback(){this.disconnect(),super.disconnectedCallback()}disconnect(){this.unsubscribe?.(),this.unsubscribe=void 0,this.connection=void 0}async connect(){if(this.disconnect(),!this.hass)return;let e=this.hass,t=e.connection;this.connection=t,this.error="";let s=C(e);try{let a=await T(e,o=>{this.snapshot=o});this.connection===t?this.unsubscribe=a:a()}catch(a){this.connection===t&&(this.error=D(a))}try{let a=await s;this.connection===t&&(this.users=a.users,this.tags=a.tags,this.labels=a.labels)}catch{}}timeZone(){return this.hass?.config?.time_zone}visibleTasks(){if(!this.snapshot)return[];let e=l(this.snapshot.now,this.timeZone()),t=this.config.due_days===null?void 0:z(e,this.config.due_days),s=this.config.assignee_filter==="current_user",a=this.hass?.user?.id,o=["all","current_user"].includes(this.config.assignee_filter)?void 0:new Set(this.users.filter(r=>r.name.localeCompare(this.config.assignee_filter,void 0,{sensitivity:"accent"})===0).map(r=>r.id));return this.snapshot.tasks.filter(r=>r.active!==!1&&(!t||!!r.due&&l(r.due,this.timeZone())<=t)&&(!s||!!a&&r.assignee_id===a)&&(!o||o.has(r.assignee_id||""))).sort((r,f)=>!!r.due!=!!f.due?r.due?-1:1:Date.parse(r.due||"")-Date.parse(f.due||"")||r.name.localeCompare(f.name,this.hass?.locale?.language))}due(e){if(!e.due||!this.snapshot)return"";let t=l(e.due,this.timeZone()),s=l(this.snapshot.now,this.timeZone()),a=(Date.parse(`${t}T00:00:00Z`)-Date.parse(`${s}T00:00:00Z`))/864e5,o=a>=-1&&a<=2?new Intl.RelativeTimeFormat(this.hass?.locale?.language,{numeric:"auto"}).format(a,"day"):new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeZone:this.timeZone()}).format(new Date(e.due));return a>=0&&a<=2?`${o} \xB7 ${new Intl.DateTimeFormat(this.hass?.locale?.language,{timeStyle:"short",timeZone:this.timeZone()}).format(new Date(e.due))}`:o}dueStatus(e){if(!e.due||!this.snapshot)return"";let t=l(e.due,this.timeZone()),s=l(this.snapshot.now,this.timeZone());return t<s?"overdue":t===s?"today":"future"}metadata(e){let t={due:this.due(e),assignee:this.users.find(s=>s.id===e.assignee_id)?.name||"",nfc_tag:this.tags.find(s=>s.id===e.nfc_tag_id)?.name||"",labels:this.labels.filter(s=>e.label_ids?.includes(s.label_id)).map(s=>s.name).join(", ")};return this.config.secondary_info.map(s=>t[s]).filter(Boolean).join(" \xB7 ")}open(e){this.hass&&H(this.hass,e)}action(e,t){this.hass&&(t==="open"?this.open(e):t==="edit"?_(this.hass,e):t==="active"?S(this.hass,e.id,e.active===!1):t==="delete"&&this.confirmDelete(e))}async confirmDelete(e){this.hass&&await Z({heading:n("task.delete_title"),content:c`<p>
+        ${n("task.delete_confirm",{name:e.name})}
+      </p>`,actions:[{label:n("common.cancel"),value:"cancel"},{label:n("common.delete"),value:"delete",destructive:!0,run:()=>E(this.hass,e.id)}]})}render(){let e=this.visibleTasks();return this.error?c`<article class="card error">${this.error}</article>`:h`
       <article class="card">
         <ul aria-label=${n("v2.title")}>
           ${e.length?e.map(t=>h`
@@ -247,17 +247,17 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
                   >
                     <span class="dot" aria-hidden="true"></span>
                     <span class="copy">
-                      <span class="name">${t.task_name}</span>
+                      <span class="name">${t.name}</span>
                       ${this.metadata(t)?c`<span class="meta">${this.metadata(t)}</span>`:u}
                     </span>
                   </button>
                   ${this.config.show_action_menu?h`
                         <span class="menu">
-                          <${H}
-                            label=${n("v2.actions_for",{name:t.task_name})}
-                            .items=${A(t)}
+                          <${L}
+                            label=${n("v2.actions_for",{name:t.name})}
+                            .items=${M(t)}
                             @tasks-action=${s=>this.action(t,s.detail)}
-                          ></${H}>
+                          ></${L}>
                         </span>
                       `:u}
                 </li>
@@ -267,7 +267,7 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
                   <button
                     class="add"
                     type="button"
-                    @click=${()=>this.hass&&void v(this.hass)}
+                    @click=${()=>this.hass&&void _(this.hass)}
                   >
                     <span class="plus" aria-hidden="true">+</span>
                     <span>${n("common.add_task")}</span>
@@ -276,4 +276,4 @@ import{a as b,b as c,c as u,d as _,e as $,f as h,g as T,j as C,k as E,l as S,m a
               `:u}
         </ul>
       </article>
-    `}};customElements.get(d)||customElements.define(d,x);customElements.get(k)||customElements.define(k,w);window.customCards||=[];var g=window.customCards.find(i=>i.type===d);g||(g={type:d,name:"Tasks"},window.customCards.push(g));D.then(()=>{g.description=n("card.description")});
+    `}};customElements.get(d)||customElements.define(d,$);customElements.get(w)||customElements.define(w,x);window.customCards||=[];var g=window.customCards.find(i=>i.type===d);g||(g={type:d,name:"Tasks"},window.customCards.push(g));I.then(()=>{g.description=n("card.description")});

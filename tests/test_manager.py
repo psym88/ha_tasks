@@ -26,11 +26,13 @@ def test_update_publishes_one_committed_domain_change():
     class Store:
         def task(self, task_id):
             return {
-                "task_id": task_id,
-                "task_name": "Pump",
+                "id": task_id,
+                "name": "Pump",
                 "active": False,
-                "schedule_type": "sensor",
-                "problem_sensor": "binary_sensor.pump",
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "binary_sensor.pump",
+                },
             }
 
         async def async_update_task(self, task_id, payload, now):
@@ -97,7 +99,7 @@ def test_failed_mutation_does_not_publish_a_change():
         with pytest.raises(RuntimeError, match="save failed"):
             await manager.async_save_task(
                 None,
-                {"task_name": "Pump"},
+                {"name": "Pump"},
                 [],
                 [],
                 [],
@@ -114,10 +116,16 @@ def test_problem_trigger_notifies_internal_and_public_consumers():
     class Store:
         async def async_trigger_problem_task(self, task_id, triggered_at):
             return {
-                "task_id": task_id,
-                "task_name": "Pump",
-                "task_due": triggered_at,
-                "schedule_type": "sensor",
+                "id": task_id,
+                "name": "Pump",
+                "due": triggered_at,
+                "schedule": {"type": "sensor"},
+                "notification": {
+                    "device_ids": [],
+                    "persistent": False,
+                    "critical": False,
+                    "route": None,
+                },
             }
 
     async def run():
@@ -130,9 +138,9 @@ def test_problem_trigger_notifies_internal_and_public_consumers():
             "task-1", "2026-07-27T10:00:00+00:00"
         )
 
-        assert [change.action for change in changes] == ["task_due"]
-        assert events[0][1]["action"] == "task_due"
-        assert events[0][1]["task_due"] == "2026-07-27T10:00:00+00:00"
+        assert [change.action for change in changes] == ["due"]
+        assert events[0][1]["action"] == "due"
+        assert events[0][1]["due"] == "2026-07-27T10:00:00+00:00"
 
     asyncio.run(run())
 
@@ -141,11 +149,13 @@ def test_bulk_mutation_publishes_one_revision(monkeypatch):
     class Store:
         def task(self, task_id):
             return {
-                "task_id": task_id,
-                "task_name": "Pump",
+                "id": task_id,
+                "name": "Pump",
                 "active": True,
-                "schedule_type": "sensor",
-                "problem_sensor": "binary_sensor.old",
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "binary_sensor.old",
+                },
             }
 
         async def async_bulk_mutate(
@@ -154,16 +164,19 @@ def test_bulk_mutation_publishes_one_revision(monkeypatch):
             return [
                 {
                     "action": "update",
-                    "task_id": "task-1",
+                    "id": "task-1",
                     "task": {
                         **self.task("task-1"),
-                        "problem_sensor": "binary_sensor.new",
+                        "schedule": {
+                            "type": "sensor",
+                            "entity_id": "binary_sensor.new",
+                        },
                     },
                 },
                 {
                     "action": "complete",
-                    "task_id": "task-2",
-                    "task": {"task_id": "task-2", "task_name": "Filter"},
+                    "id": "task-2",
+                    "task": {"id": "task-2", "name": "Filter"},
                 },
             ]
 
@@ -182,12 +195,15 @@ def test_bulk_mutation_publishes_one_revision(monkeypatch):
             [
                 {
                     "action": "update",
-                    "task_id": "task-1",
+                    "id": "task-1",
                     "changes": {
-                        "problem_sensor": "binary_sensor.new",
+                        "schedule": {
+                            "type": "sensor",
+                            "entity_id": "binary_sensor.new",
+                        },
                     },
                 },
-                {"action": "complete", "task_id": "task-2"},
+                {"action": "complete", "id": "task-2"},
             ],
             "user-1",
             "Alex",
@@ -208,10 +224,12 @@ def test_editor_save_publishes_one_task_change():
     class Store:
         def task(self, task_id):
             return {
-                "task_id": task_id,
-                "task_name": "Pump",
-                "schedule_type": "sensor",
-                "problem_sensor": "binary_sensor.old",
+                "id": task_id,
+                "name": "Pump",
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "binary_sensor.old",
+                },
                 "active": True,
             }
 
@@ -237,7 +255,6 @@ def test_editor_save_publishes_one_task_change():
                     **self.task(task_id),
                     **payload,
                 },
-                "attachments": [],
             }
 
     async def run():
@@ -250,14 +267,19 @@ def test_editor_save_publishes_one_task_change():
 
         result = await manager.async_save_task(
             "task-1",
-            {"problem_sensor": "binary_sensor.new"},
+            {
+                "schedule": {
+                    "type": "sensor",
+                    "entity_id": "binary_sensor.new",
+                }
+            },
             [],
             ["file-1"],
             ["history-1"],
             now,
         )
 
-        assert result["task"]["problem_sensor"] == "binary_sensor.new"
+        assert result["task"]["schedule"]["entity_id"] == "binary_sensor.new"
         assert manager.revision == 1
         assert changes[0].action == "saved"
         assert changes[0].resource_id == "task-1"

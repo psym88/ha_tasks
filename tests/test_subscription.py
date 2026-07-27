@@ -9,13 +9,13 @@ from custom_components.tasks import task_api
 
 class Manager:
     def __init__(self):
-        self.tasks = [{"task_id": "task-1", "task_name": "Initial"}]
+        self.tasks = [{"id": "task-1", "name": "Initial"}]
         self.revision = 0
         self.listener = None
         self.unsubscribed = False
 
     def snapshot(self):
-        return {"tasks": list(self.tasks), "attachments": []}
+        return {"tasks": list(self.tasks)}
 
     def subscribe(self, listener):
         self.listener = listener
@@ -61,15 +61,14 @@ def test_subscription_sends_initial_and_updated_snapshots(monkeypatch):
             {
                 "type": "snapshot",
                 "revision": 0,
-                "tasks": [{"task_id": "task-1", "task_name": "Initial"}],
-                "attachments": [],
+                "tasks": [{"id": "task-1", "name": "Initial"}],
                 "now": now.isoformat(),
             },
         )
     ]
     assert callable(connection.subscriptions[7])
 
-    manager.tasks[0] = {"task_id": "task-1", "task_name": "Updated"}
+    manager.tasks[0] = {"id": "task-1", "name": "Updated"}
     manager.listener(
         TaskChange(
             "updated",
@@ -83,8 +82,7 @@ def test_subscription_sends_initial_and_updated_snapshots(monkeypatch):
     assert connection.events[-1][1] == {
         "type": "snapshot",
         "revision": 1,
-        "tasks": [{"task_id": "task-1", "task_name": "Updated"}],
-        "attachments": [],
+        "tasks": [{"id": "task-1", "name": "Updated"}],
         "now": now.isoformat(),
         "change": {
             "action": "updated",

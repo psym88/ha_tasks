@@ -34,30 +34,30 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
     manager = SimpleNamespace(
         tasks=[
             {
-                "task_id": "waiting",
-                "task_name": "Waiting",
-                "task_due": None,
+                "id": "waiting",
+                "name": "Waiting",
+                "due": None,
             },
             {
-                "task_id": "one",
-                "task_name": "One",
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "id": "one",
+                "name": "One",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "two",
-                "task_name": "Two",
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "id": "two",
+                "name": "Two",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "inactive",
-                "task_name": "Inactive",
+                "id": "inactive",
+                "name": "Inactive",
                 "active": False,
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "later",
-                "task_name": "Later",
-                "task_due": "2026-07-25T09:00:00+00:00",
+                "id": "later",
+                "name": "Later",
+                "due": "2026-07-25T09:00:00+00:00",
             },
         ],
         task_became_due=lambda task: due.append(task),
@@ -70,7 +70,7 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
         datetime(2026, 7, 25, 8, 0, 1, tzinfo=timezone.utc),
     )
 
-    assert [task["task_id"] for task in due] == ["one", "two"]
+    assert [task["id"] for task in due] == ["one", "two"]
 
 
 def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
@@ -81,9 +81,9 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
     store = SimpleNamespace(
         tasks=[
             {
-                "task_id": "one",
-                "task_name": "One",
-                "task_due": target.isoformat(),
+                "id": "one",
+                "name": "One",
+                "due": target.isoformat(),
             }
         ]
     )
@@ -115,10 +115,10 @@ def test_due_scheduler_ignores_inactive_future_tasks(monkeypatch):
         tasks=[
             {
                 "active": False,
-                "task_due": (now + timedelta(seconds=5)).isoformat(),
+                "due": (now + timedelta(seconds=5)).isoformat(),
             },
             {
-                "task_due": (now + timedelta(seconds=10)).isoformat(),
+                "due": (now + timedelta(seconds=10)).isoformat(),
             },
         ]
     )

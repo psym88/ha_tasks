@@ -72,9 +72,7 @@ class TasksRepository:
         self, attachments: list[dict[str, Any]]
     ) -> dict[str, bytes]:
         return {
-            item["attachment_id"]: self.file_path(
-                item["attachment_id"]
-            ).read_bytes()
+            item["id"]: self.file_path(item["id"]).read_bytes()
             for item in attachments
         }
 

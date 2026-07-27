@@ -30,7 +30,7 @@ def test_save_command_consumes_uploads_and_forwards_one_transaction(monkeypatch)
                 now,
                 context,
             )
-            return {"task": {"task_id": task_id}, "attachments": []}
+            return {"task": {"id": task_id}}
 
     async def run():
         now = datetime(2026, 7, 27, 10, tzinfo=timezone.utc)
@@ -62,7 +62,11 @@ def test_save_command_consumes_uploads_and_forwards_one_transaction(monkeypatch)
             "id": 4,
             "type": "tasks/task/save",
             "task_id": "task-1",
-            "task_name": "Pump",
+            "name": "Pump",
+            "schedule": {
+                "type": "sensor",
+                "entity_id": "binary_sensor.pump",
+            },
             "file_ids": ["upload-1"],
             "deleted_attachment_ids": ["file-1"],
             "deleted_history_entry_ids": ["history-1"],
@@ -85,8 +89,7 @@ def test_save_command_consumes_uploads_and_forwards_one_transaction(monkeypatch)
             (
                 4,
                 {
-                    "task": {"task_id": "task-1"},
-                    "attachments": [],
+                    "task": {"id": "task-1"},
                 },
             )
         ]

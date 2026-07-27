@@ -28,44 +28,56 @@ SCHEDULE_MONTH = vol.Any(
     vol.All(vol.Coerce(int), vol.Range(min=1, max=12)), None
 )
 SCHEDULE_TIME = vol.Match(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
-SCHEDULE_DETAILS = {
-    vol.Optional("schedule_weekdays", default=[]): SCHEDULE_WEEKDAYS,
-    vol.Optional("schedule_day"): SCHEDULE_DAY,
-    vol.Optional("schedule_month"): SCHEDULE_MONTH,
-    vol.Optional("schedule_time"): SCHEDULE_TIME,
-}
-RECURRENCE_FIELDS = {
-    vol.Required("schedule_type"): vol.In(("fixed", "sliding")),
-    vol.Required("schedule_unit"): SCHEDULE_UNIT,
-    vol.Required("schedule_interval"): SCHEDULE_INTERVAL,
-    **SCHEDULE_DETAILS,
-}
-SCHEDULE_FIELDS = {
-    vol.Required("schedule_type"): vol.In(("fixed", "sliding", "sensor")),
-    vol.Optional("schedule_unit"): SCHEDULE_UNIT,
-    vol.Optional("schedule_interval"): SCHEDULE_INTERVAL,
-    **SCHEDULE_DETAILS,
-    vol.Optional("problem_sensor"): TEXT,
-}
+FIXED_SCHEDULE = vol.Schema(
+    {
+        vol.Required("type"): "fixed",
+        vol.Required("unit"): SCHEDULE_UNIT,
+        vol.Required("interval"): SCHEDULE_INTERVAL,
+        vol.Optional("weekdays", default=[]): SCHEDULE_WEEKDAYS,
+        vol.Optional("day"): SCHEDULE_DAY,
+        vol.Optional("month"): SCHEDULE_MONTH,
+        vol.Optional("time"): SCHEDULE_TIME,
+    },
+    extra=vol.PREVENT_EXTRA,
+)
+SLIDING_SCHEDULE = vol.Schema(
+    {
+        vol.Required("type"): "sliding",
+        vol.Required("unit"): SCHEDULE_UNIT,
+        vol.Required("interval"): SCHEDULE_INTERVAL,
+    },
+    extra=vol.PREVENT_EXTRA,
+)
+SENSOR_SCHEDULE = vol.Schema(
+    {
+        vol.Required("type"): "sensor",
+        vol.Required("entity_id"): str,
+    },
+    extra=vol.PREVENT_EXTRA,
+)
+SCHEDULE = vol.Any(FIXED_SCHEDULE, SLIDING_SCHEDULE, SENSOR_SCHEDULE)
+NOTIFICATION = vol.Schema(
+    {
+        vol.Optional("device_ids", default=[]): [str],
+        vol.Optional("persistent", default=False): cv.boolean,
+        vol.Optional("critical", default=False): cv.boolean,
+        vol.Optional("route"): vol.Any(
+            None, vol.All(str, vol.Length(max=2048))
+        ),
+    },
+    extra=vol.PREVENT_EXTRA,
+)
 TASK_FIELDS = {
-    vol.Required("task_name"): str,
-    vol.Optional("task_icon"): TEXT,
-    vol.Optional("task_description"): TEXT,
+    vol.Required("name"): str,
+    vol.Optional("icon"): TEXT,
+    vol.Optional("description"): TEXT,
     vol.Optional("active"): cv.boolean,
     vol.Optional("assignee_id"): TEXT,
     vol.Optional("label_ids"): [str],
     vol.Optional("nfc_tag_id"): TEXT,
-    vol.Optional("notification_target"): vol.Schema(
-        {vol.Optional("device_id"): [str]},
-        extra=vol.PREVENT_EXTRA,
-    ),
-    vol.Optional("notification_persistent"): cv.boolean,
-    vol.Optional("notification_critical"): cv.boolean,
-    vol.Optional("notification_route"): vol.Any(
-        None, vol.All(str, vol.Length(max=2048))
-    ),
-    vol.Optional("task_due"): vol.Any(str, None),
-    **SCHEDULE_FIELDS,
+    vol.Optional("notification"): NOTIFICATION,
+    vol.Optional("due"): vol.Any(str, None),
+    vol.Required("schedule"): SCHEDULE,
 }
 TASK_UPDATE_FIELDS = {
     vol.Optional(key.schema): validator
@@ -75,7 +87,7 @@ BULK_OPERATION = vol.Any(
     vol.Schema(
         {
             vol.Required("action"): "update",
-            vol.Required("task_id"): str,
+            vol.Required("id"): str,
             vol.Required("changes"): vol.Schema(
                 TASK_UPDATE_FIELDS, extra=vol.PREVENT_EXTRA
             ),
@@ -85,7 +97,7 @@ BULK_OPERATION = vol.Any(
     vol.Schema(
         {
             vol.Required("action"): "complete",
-            vol.Required("task_id"): str,
+            vol.Required("id"): str,
             vol.Optional("completed_at"): str,
             vol.Optional("notes"): TEXT,
         },
@@ -94,14 +106,14 @@ BULK_OPERATION = vol.Any(
     vol.Schema(
         {
             vol.Required("action"): "delete",
-            vol.Required("task_id"): str,
+            vol.Required("id"): str,
         },
         extra=vol.PREVENT_EXTRA,
     ),
 )
 PREVIEW_FIELDS = {
-    vol.Optional("task_due"): str,
-    **RECURRENCE_FIELDS,
+    vol.Optional("due"): str,
+    vol.Required("schedule"): vol.Any(FIXED_SCHEDULE, SLIDING_SCHEDULE),
 }
 PREVIEW_COUNT = 24
 @callback
@@ -271,20 +283,23 @@ async def ws_task_delete(hass, connection, msg, manager):
 @require_manager
 async def ws_task_preview_next_due(hass, connection, msg, manager):
     """Preview recurrence using the authoritative backend scheduler."""
-    if msg.get("task_due"):
-        current = parse_aware_datetime(msg["task_due"])
-        task_dues = [
+    recurrence = {"schedule": msg["schedule"], "due": msg.get("due")}
+    if msg.get("due"):
+        current = parse_aware_datetime(msg["due"])
+        dues = [
             current,
-            *islice(occurrences(msg, current), PREVIEW_COUNT - 1),
+            *islice(occurrences(recurrence, current), PREVIEW_COUNT - 1),
         ]
     else:
-        task_dues = list(
-            islice(occurrences(msg, dt_util.utcnow()), PREVIEW_COUNT)
+        dues = list(
+            islice(
+                occurrences(recurrence, dt_util.utcnow()), PREVIEW_COUNT
+            )
         )
-    serialized = [normalize_utc_datetime(due) for due in task_dues]
+    serialized = [normalize_utc_datetime(due) for due in dues]
     connection.send_result(
         msg["id"],
-        {"task_dues": serialized},
+        {"dues": serialized},
     )
 
 
@@ -334,14 +349,13 @@ async def ws_attachment_urls(hass, connection, msg, manager):
         msg["id"],
         {
             "signed_files": {
-                item["attachment_id"]: async_sign_path(
+                item["id"]: async_sign_path(
                     hass,
-                    f"{DOWNLOAD_URL}/{item['attachment_id']}",
+                    f"{DOWNLOAD_URL}/{item['id']}",
                     timedelta(hours=1),
                     refresh_token_id=connection.refresh_token_id,
                 )
-                for item in manager.snapshot()["attachments"]
-                if item["task_id"] == msg["task_id"]
+                for item in manager.task(msg["task_id"])["attachments"]
             }
         },
     )

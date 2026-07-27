@@ -7,7 +7,7 @@ import {
   setTaskActive,
   subscribeTasks,
 } from "./api";
-import { ready, setLanguage, t } from "./localize";
+import { errorText, ready, setLanguage, t } from "./localize";
 import { openTaskEditor } from "./task-form";
 import { taskActions } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -541,7 +541,7 @@ class TasksDashboardCard extends LitElement {
       }
     } catch (error) {
       if (this.connection === connection) {
-        this.error = error instanceof Error ? error.message : String(error);
+        this.error = errorText(error);
       }
     }
     try {
@@ -593,21 +593,21 @@ class TasksDashboardCard extends LitElement {
         (task) =>
           task.active !== false &&
           (!limit ||
-            (!!task.task_due &&
-              dateKey(task.task_due, this.timeZone()) <= limit)) &&
+            (!!task.due &&
+              dateKey(task.due, this.timeZone()) <= limit)) &&
           (!currentUserFilter ||
             (!!currentUser && task.assignee_id === currentUser)) &&
           (!namedUsers || namedUsers.has(task.assignee_id || "")),
       )
       .sort((left, right) => {
-        if (!!left.task_due !== !!right.task_due) {
-          return left.task_due ? -1 : 1;
+        if (!!left.due !== !!right.due) {
+          return left.due ? -1 : 1;
         }
         return (
-          Date.parse(left.task_due || "") -
-            Date.parse(right.task_due || "") ||
-          left.task_name.localeCompare(
-            right.task_name,
+          Date.parse(left.due || "") -
+            Date.parse(right.due || "") ||
+          left.name.localeCompare(
+            right.name,
             this.hass?.locale?.language,
           )
         );
@@ -615,10 +615,10 @@ class TasksDashboardCard extends LitElement {
   }
 
   private due(task: Task): string {
-    if (!task.task_due || !this.snapshot) {
+    if (!task.due || !this.snapshot) {
       return "";
     }
-    const dueKey = dateKey(task.task_due, this.timeZone());
+    const dueKey = dateKey(task.due, this.timeZone());
     const todayKey = dateKey(this.snapshot.now, this.timeZone());
     const difference =
       (Date.parse(`${dueKey}T00:00:00Z`) -
@@ -632,7 +632,7 @@ class TasksDashboardCard extends LitElement {
         : new Intl.DateTimeFormat(this.hass?.locale?.language, {
             dateStyle: "medium",
             timeZone: this.timeZone(),
-          }).format(new Date(task.task_due));
+          }).format(new Date(task.due));
     return difference >= 0 && difference <= 2
       ? `${relative} · ${new Intl.DateTimeFormat(
           this.hass?.locale?.language,
@@ -640,15 +640,15 @@ class TasksDashboardCard extends LitElement {
             timeStyle: "short",
             timeZone: this.timeZone(),
           },
-        ).format(new Date(task.task_due))}`
+        ).format(new Date(task.due))}`
       : relative;
   }
 
   private dueStatus(task: Task): string {
-    if (!task.task_due || !this.snapshot) {
+    if (!task.due || !this.snapshot) {
       return "";
     }
-    const due = dateKey(task.task_due, this.timeZone());
+    const due = dateKey(task.due, this.timeZone());
     const today = dateKey(this.snapshot.now, this.timeZone());
     return due < today ? "overdue" : due === today ? "today" : "future";
   }
@@ -673,11 +673,7 @@ class TasksDashboardCard extends LitElement {
 
   private open(task: Task): void {
     if (this.hass) {
-      void openTaskViewer(
-        this.hass,
-        task,
-        this.snapshot?.attachments || [],
-      );
+      void openTaskViewer(this.hass, task);
     }
   }
 
@@ -688,15 +684,11 @@ class TasksDashboardCard extends LitElement {
     if (action === "open") {
       this.open(task);
     } else if (action === "edit") {
-      void openTaskEditor(
-        this.hass,
-        task,
-        this.snapshot?.attachments || [],
-      );
+      void openTaskEditor(this.hass, task);
     } else if (action === "active") {
       void setTaskActive(
         this.hass,
-        task.task_id,
+        task.id,
         task.active === false,
       );
     } else if (action === "delete") {
@@ -711,7 +703,7 @@ class TasksDashboardCard extends LitElement {
     await openTasksDialog({
       heading: t("task.delete_title"),
       content: html`<p>
-        ${t("task.delete_confirm", { name: task.task_name })}
+        ${t("task.delete_confirm", { name: task.name })}
       </p>`,
       actions: [
         { label: t("common.cancel"), value: "cancel" },
@@ -719,7 +711,7 @@ class TasksDashboardCard extends LitElement {
           label: t("common.delete"),
           value: "delete",
           destructive: true,
-          run: () => deleteTask(this.hass!, task.task_id),
+          run: () => deleteTask(this.hass!, task.id),
         },
       ],
     });
@@ -743,7 +735,7 @@ class TasksDashboardCard extends LitElement {
                   >
                     <span class="dot" aria-hidden="true"></span>
                     <span class="copy">
-                      <span class="name">${task.task_name}</span>
+                      <span class="name">${task.name}</span>
                       ${this.metadata(task)
                         ? html`<span class="meta">${this.metadata(task)}</span>`
                         : nothing}
@@ -754,7 +746,7 @@ class TasksDashboardCard extends LitElement {
                         <span class="menu">
                           <${actionMenuTag}
                             label=${t("v2.actions_for", {
-                              name: task.task_name,
+                              name: task.name,
                             })}
                             .items=${taskActions(task)}
                             @tasks-action=${(event: CustomEvent<string>) =>

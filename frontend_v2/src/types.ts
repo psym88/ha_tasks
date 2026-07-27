@@ -2,35 +2,55 @@ export type ScheduleType = "fixed" | "sliding" | "sensor";
 export type ScheduleUnit = "daily" | "weekly" | "monthly" | "yearly";
 export type ScheduleDay = number | "last";
 
+export interface FixedTaskSchedule {
+  type: "fixed";
+  unit: ScheduleUnit;
+  interval: number;
+  weekdays?: number[];
+  day?: ScheduleDay | null;
+  month?: number | null;
+  time?: string | null;
+}
+
+export interface SlidingTaskSchedule {
+  type: "sliding";
+  unit: ScheduleUnit;
+  interval: number;
+}
+
+export interface SensorTaskSchedule {
+  type: "sensor";
+  entity_id: string;
+}
+
+export type TaskSchedule =
+  | FixedTaskSchedule
+  | SlidingTaskSchedule
+  | SensorTaskSchedule;
+
 export interface Task {
-  task_id: string;
-  task_name: string;
-  task_icon?: string | null;
-  task_description?: string | null;
+  id: string;
+  name: string;
+  icon?: string | null;
+  description?: string | null;
   active: boolean;
   assignee_id?: string | null;
   label_ids?: string[];
   nfc_tag_id?: string | null;
-  notification_target?: {
-    device_id?: string[];
+  notification: {
+    device_ids: string[];
+    persistent: boolean;
+    critical: boolean;
+    route?: string | null;
   };
-  notification_persistent?: boolean;
-  notification_critical?: boolean;
-  notification_route?: string | null;
-  task_due?: string | null;
-  schedule_type: ScheduleType;
-  schedule_unit?: ScheduleUnit | null;
-  schedule_interval?: number | null;
-  schedule_weekdays?: number[];
-  schedule_day?: ScheduleDay | null;
-  schedule_month?: number | null;
-  schedule_time?: string | null;
-  problem_sensor?: string | null;
+  due?: string | null;
+  schedule: TaskSchedule;
+  completions: Completion[];
+  attachments: Attachment[];
 }
 
 export interface Attachment {
-  attachment_id: string;
-  task_id: string;
+  id: string;
   filename: string;
   content_type: string;
   size: number;
@@ -38,7 +58,7 @@ export interface Attachment {
 }
 
 export interface Completion {
-  history_entry_id: string;
+  id: string;
   completed_at: string;
   user_id?: string | null;
   user_name: string;
@@ -55,7 +75,6 @@ export interface TasksSnapshot {
   type: "snapshot";
   revision: number;
   tasks: Task[];
-  attachments: Attachment[];
   now: string;
   change?: TasksChange;
 }

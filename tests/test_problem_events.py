@@ -21,29 +21,44 @@ class ProblemStore:
         return lambda: self.listeners.remove(listener)
 
     def task(self, task_id):
-        return next(task for task in self.tasks if task["task_id"] == task_id)
+        return next(task for task in self.tasks if task["id"] == task_id)
 
     async def async_trigger_problem_task(self, task_id, triggered_at):
         task = self.task(task_id)
-        if task.get("task_due"):
+        if task.get("due"):
             return None
-        task["task_due"] = triggered_at
+        task["due"] = triggered_at
         self.triggered.append(task_id)
         result = dict(task)
         self.due.append(result)
         return result
 
 
+def _problem_task(active=True):
+    return {
+        "id": "pump",
+        "name": "Check pump",
+        "active": active,
+        "schedule": {
+            "type": "sensor",
+            "entity_id": "binary_sensor.pump_problem",
+        },
+        "due": None,
+        "notification": {
+            "device_ids": [],
+            "persistent": False,
+            "critical": False,
+            "route": None,
+        },
+        "completions": [],
+        "attachments": [],
+    }
+
+
 def test_problem_sensor_triggers_only_when_state_becomes_on():
     async def run():
         pending = []
-        task = {
-            "task_id": "pump",
-            "task_name": "Check pump",
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.pump_problem",
-            "task_due": None,
-        }
+        task = _problem_task()
         store = ProblemStore(task)
         hass = SimpleNamespace(
             async_create_task=lambda coroutine: pending.append(
@@ -66,8 +81,8 @@ def test_problem_sensor_triggers_only_when_state_becomes_on():
         await asyncio.gather(*pending)
 
         assert store.triggered == ["pump"]
-        assert task["task_due"] == fired_at.isoformat()
-        assert [item["task_id"] for item in store.due] == ["pump"]
+        assert task["due"] == fired_at.isoformat()
+        assert [item["id"] for item in store.due] == ["pump"]
 
         pending.clear()
         scheduler._handle_state_event(
@@ -88,13 +103,7 @@ def test_problem_sensor_triggers_only_when_state_becomes_on():
 def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
     async def run():
         tracked = []
-        task = {
-            "task_id": "pump",
-            "task_name": "Check pump",
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.pump_problem",
-            "task_due": None,
-        }
+        task = _problem_task()
         store = ProblemStore(task)
         hass = SimpleNamespace(
             states=SimpleNamespace(
@@ -116,7 +125,7 @@ def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
         assert tracked == [{"binary_sensor.pump_problem"}]
         assert len(store.listeners) == 1
         assert store.triggered == ["pump"]
-        assert [item["task_id"] for item in store.due] == ["pump"]
+        assert [item["id"] for item in store.due] == ["pump"]
 
     asyncio.run(run())
 
@@ -124,14 +133,7 @@ def test_problem_sensor_catches_up_active_problem_on_start(monkeypatch):
 def test_problem_sensor_ignores_inactive_task(monkeypatch):
     async def run():
         tracked = []
-        task = {
-            "task_id": "pump",
-            "task_name": "Check pump",
-            "active": False,
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.pump_problem",
-            "task_due": None,
-        }
+        task = _problem_task(False)
         store = ProblemStore(task)
         hass = SimpleNamespace(
             states=SimpleNamespace(is_state=lambda *_args: True)
@@ -155,14 +157,8 @@ def test_problem_sensor_ignores_inactive_task(monkeypatch):
 def test_problem_sensor_subscription_updates_only_for_trigger_changes(
     monkeypatch,
 ):
-    task = {
-        "task_id": "pump",
-        "task_name": "Check pump",
-        "active": True,
-        "schedule_type": "sensor",
-        "problem_sensor": "binary_sensor.pump",
-        "task_due": None,
-    }
+    task = _problem_task()
+    task["schedule"]["entity_id"] = "binary_sensor.pump"
     manager = ProblemStore(task)
     tracked = []
     monkeypatch.setattr(
@@ -181,7 +177,7 @@ def test_problem_sensor_subscription_updates_only_for_trigger_changes(
     scheduler._handle_problem_change(
         TaskChange("updated", "task", "pump", {"problem_trigger_changed": False})
     )
-    task["problem_sensor"] = "binary_sensor.replacement"
+    task["schedule"]["entity_id"] = "binary_sensor.replacement"
     scheduler._handle_problem_change(
         TaskChange("updated", "task", "pump", {"problem_trigger_changed": True})
     )
@@ -202,17 +198,11 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(
         )
         pending = []
         events = []
-        task = {
-            "task_id": "pump",
-            "task_name": "Check pump",
-            "schedule_type": "sensor",
-            "problem_sensor": "binary_sensor.pump_problem",
-            "task_due": None,
-        }
+        task = _problem_task()
         store = TasksStore.__new__(TasksStore)
         store._lock = asyncio.Lock()
         store._data = {
-            "tasks": [store._aggregate_from_fields(task, [], [])]
+            "tasks": [task]
         }
 
         async def commit(data):
@@ -261,10 +251,10 @@ def test_problem_sensor_retriggers_after_completion_and_new_transition(
         await asyncio.gather(*pending)
 
         assert [
-            event["task_due"]
+            event["due"]
             for event in events
-            if event["action"] == "task_due"
+            if event["action"] == "due"
         ] == [first.isoformat(), second.isoformat()]
-        assert manager.tasks[0]["task_due"] == second.isoformat()
+        assert manager.tasks[0]["due"] == second.isoformat()
 
     asyncio.run(run())

@@ -34,7 +34,7 @@ class TaskEngine:
         self._subscribe_sensors()
         for task in self._manager.tasks:
             if self._is_active_problem(task):
-                await self._trigger(task["task_id"])
+                await self._trigger(task["id"])
 
     @callback
     def stop(self) -> None:
@@ -52,7 +52,7 @@ class TaskEngine:
 
     @callback
     def _handle_change(self, change: TaskChange) -> None:
-        if change.affects_tasks and change.action != "task_due":
+        if change.affects_tasks and change.action != "due":
             self.reschedule()
         self._handle_problem_change(change)
 
@@ -67,8 +67,8 @@ class TaskEngine:
             due
             for task in self._manager.tasks
             if task.get("active", True)
-            and task.get("task_due")
-            and (due := parse_aware_datetime(task["task_due"])) > now
+            and task.get("due")
+            and (due := parse_aware_datetime(task["due"])) > now
         ]
         if future:
             target = min(future)
@@ -88,9 +88,9 @@ class TaskEngine:
         """Fire each task due at the scheduled time and plan the next one."""
         self._cancel_timer = None
         for task in self._manager.tasks:
-            if not task.get("active", True) or not task.get("task_due"):
+            if not task.get("active", True) or not task.get("due"):
                 continue
-            due = parse_aware_datetime(task["task_due"])
+            due = parse_aware_datetime(task["due"])
             if target <= due <= fired_at:
                 self._manager.task_became_due(task)
         self.reschedule()
@@ -101,8 +101,8 @@ class TaskEngine:
         """Return whether a task is active and uses a problem sensor."""
         return (
             task.get("active", True)
-            and task.get("schedule_type") == "sensor"
-            and bool(task.get("problem_sensor"))
+            and task["schedule"]["type"] == "sensor"
+            and bool(task["schedule"].get("entity_id"))
         )
 
     @callback
@@ -113,7 +113,7 @@ class TaskEngine:
         self._cancel_state_listener = async_track_state_change_event(
             self._hass,
             {
-                task["problem_sensor"]
+                task["schedule"]["entity_id"]
                 for task in self._manager.tasks
                 if self._is_problem_task(task)
             },
@@ -121,7 +121,7 @@ class TaskEngine:
         )
 
     def _is_active_problem(self, task: dict[str, Any]) -> bool:
-        entity_id = task.get("problem_sensor")
+        entity_id = task["schedule"].get("entity_id")
         return self._is_problem_task(task) and self._hass.states.is_state(
             entity_id, STATE_ON
         )
@@ -140,10 +140,10 @@ class TaskEngine:
         for task in self._manager.tasks:
             if (
                 self._is_problem_task(task)
-                and task.get("problem_sensor") == entity_id
+                and task["schedule"].get("entity_id") == entity_id
             ):
                 self._hass.async_create_task(
-                    self._trigger(task["task_id"], event.time_fired)
+                    self._trigger(task["id"], event.time_fired)
                 )
 
     @callback
