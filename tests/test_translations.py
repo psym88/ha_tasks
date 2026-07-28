@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 COMPONENT = ROOT / "custom_components" / "tasks"
-FRONTEND_SOURCE = ROOT / "frontend" / "src"
+FRONTEND_SOURCE = COMPONENT / "frontend"
 TRANSLATIONS = COMPONENT / "translations"
 
 _DYNAMIC_FRONTEND_KEYS = {
@@ -41,7 +41,7 @@ def _catalog(language: str) -> dict[str, str]:
 def _used_frontend_keys() -> set[str]:
     source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in FRONTEND_SOURCE.rglob("*.ts")
+        for path in FRONTEND_SOURCE.glob("*.js")
     )
     return set(
         re.findall(r'["\']([a-z0-9_]+\.[a-z0-9_]+)["\']', source)

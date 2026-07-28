@@ -45,7 +45,7 @@ async def _frontend_urls(
     return (
         base_url,
         f"{base_url}/panel.js",
-        f"{base_url}/card.js",
+        f"{base_url}/dashboard-card.js",
     )
 
 
