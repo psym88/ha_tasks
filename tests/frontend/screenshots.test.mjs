@@ -22,6 +22,8 @@ test("documentation screenshots target the production frontend elements", () => 
   assert.match(source, /panel\?\.snapshot\?\.tasks\?\.length/);
   assert.match(source, /panel\.openTask\(task\)/);
   assert.match(source, /panel\.handleTaskAction\("edit", task\)/);
+  assert.match(source, /walk\(document, "ha-tasks-dialog"\)/);
+  assert.match(source, /content && dialog\?\.open/);
   assert.match(source, /ha-tasks-task-viewer/);
   assert.match(source, /ha-tasks-task-form/);
   assert.match(source, /ha-tasks-expandable/);

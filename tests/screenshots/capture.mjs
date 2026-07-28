@@ -485,21 +485,20 @@ async function openPanel(page) {
 
 async function waitForDialogContent(page, contentTag) {
   await page.waitForFunction((tag) => {
-    const walk = (root) => {
-      const direct = root.querySelector?.(tag);
+    const walk = (root, selector) => {
+      const direct = root.querySelector?.(selector);
       if (direct) return direct;
       for (const node of root.querySelectorAll?.("*") || []) {
         if (node.shadowRoot) {
-          const found = walk(node.shadowRoot);
+          const found = walk(node.shadowRoot, selector);
           if (found) return found;
         }
       }
       return null;
     };
-    const content = walk(document);
-    const dialog = walk(document)?.closest?.("ha-tasks-dialog")
-      || document.querySelector("ha-tasks-dialog");
-    return Boolean(content && dialog?.shadowRoot?.querySelector("dialog[open]"));
+    const content = walk(document, tag);
+    const dialog = walk(document, "ha-tasks-dialog");
+    return Boolean(content && dialog?.open);
   }, contentTag, { timeout: 30_000 });
 }
 
