@@ -28,10 +28,7 @@ import type {
 import { openTasksDialog } from "./ui/dialog";
 import { expandableElementName } from "./ui/expandable";
 import {
-  comboboxFieldElementName,
-  multiSelectFieldElementName,
   selectFieldElementName,
-  switchFieldElementName,
   textFieldElementName,
   type FieldOption,
 } from "./ui/fields";
@@ -39,18 +36,8 @@ import { elementName } from "./version";
 
 const textFieldTag = unsafeStatic(textFieldElementName);
 const selectFieldTag = unsafeStatic(selectFieldElementName);
-const comboboxFieldTag = unsafeStatic(comboboxFieldElementName);
-const multiSelectFieldTag = unsafeStatic(multiSelectFieldElementName);
-const switchFieldTag = unsafeStatic(switchFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
-
-const iconOptions = (): FieldOption[] => [
-  { label: t("app.title"), value: "mdi:clipboard-check-outline" },
-  { label: "🛠", value: "mdi:wrench-outline" },
-  { label: "🧹", value: "mdi:broom" },
-  { label: "⌂", value: "mdi:home-outline" },
-  { label: "📅", value: "mdi:calendar-check-outline" },
-];
+const haFormTag = unsafeStatic("ha-form");
 
 const triggerOptions = (): FieldOption[] => [
   { label: t("task.sliding"), value: "sliding" },
@@ -139,6 +126,7 @@ class TasksTaskForm extends LocalizedLitElement {
     scheduleError: { state: true },
     saveError: { state: true },
     saving: { state: true },
+    fileDropActive: { state: true },
   };
 
   static styles = css`
@@ -153,6 +141,26 @@ class TasksTaskForm extends LocalizedLitElement {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
+    }
+
+    .selector-field {
+      display: grid;
+      gap: 6px;
+      color: var(--primary-text-color);
+    }
+
+    .selector-field[data-native-picker-spacing] {
+      gap: 0;
+    }
+
+    .selector-label {
+      margin: 0;
+      color: var(--primary-text-color);
+      font-size: 13px;
+    }
+
+    .section-divider {
+      border-top: 1px solid var(--divider-color);
     }
 
     .weekdays {
@@ -302,15 +310,46 @@ class TasksTaskForm extends LocalizedLitElement {
     }
 
     .file-picker {
-      display: grid;
-      gap: 6px;
+      display: flex;
+      min-height: 112px;
+      box-sizing: border-box;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--ha-space-1);
+      padding: var(--ha-space-4);
+      color: var(--primary-text-color);
+      background: var(--primary-background-color);
+      border: 2px dashed var(--divider-color);
+      border-radius: var(--ha-border-radius-lg);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .file-picker:hover,
+    .file-picker.drag-active {
+      background: var(--secondary-background-color);
+      border-color: var(--primary-color);
+    }
+
+    .file-picker:focus-within {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    .file-picker-secondary {
       color: var(--secondary-text-color);
       font-size: 13px;
     }
 
     .file-picker input {
-      color: var(--primary-text-color);
-      font: inherit;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
 
     @media (max-width: 520px) {
@@ -363,6 +402,7 @@ class TasksTaskForm extends LocalizedLitElement {
   declare scheduleError: string;
   declare saveError: string;
   declare saving: boolean;
+  declare fileDropActive: boolean;
 
   private hass?: HomeAssistant;
   private task?: Task;
@@ -416,6 +456,7 @@ class TasksTaskForm extends LocalizedLitElement {
     this.scheduleError = "";
     this.saveError = "";
     this.saving = false;
+    this.fileDropActive = false;
   }
 
   configure(
@@ -595,16 +636,6 @@ class TasksTaskForm extends LocalizedLitElement {
         timeZone: "UTC",
       }).format(new Date(Date.UTC(2024, 0, index + 1))),
     );
-  }
-
-  private problemSensorOptions(): FieldOption[] {
-    return Object.values(this.hass?.states || {})
-      .filter((state) => state.entity_id.startsWith("binary_sensor."))
-      .map((state) => ({
-        label: state.attributes?.friendly_name || state.entity_id,
-        value: state.entity_id,
-      }))
-      .sort((left, right) => left.label.localeCompare(right.label));
   }
 
   private scheduleDetails(reportError: boolean): ScheduleDetails | undefined {
@@ -871,7 +902,7 @@ class TasksTaskForm extends LocalizedLitElement {
     let unitOptions: unknown = nothing;
     if (this.scheduleUnit === "weekly") {
       unitOptions = html`
-        <p class="caption">${t("task.schedule_weekdays")}</p>
+        <p class="selector-label">${t("task.schedule_weekdays")}</p>
         <div class="weekdays">
           ${this.weekdayLabels().map(
             (label, day) => html`
@@ -965,7 +996,7 @@ class TasksTaskForm extends LocalizedLitElement {
     }
     if (this.scheduleType === "sliding") {
       return html`
-        <p class="caption">${t("task.first_due")}</p>
+        <p class="selector-label">${t("task.first_due")}</p>
         <p class="hint">
           ${this.preview[0] ? this.formatDue(this.preview[0]) : "—"}
         </p>
@@ -975,7 +1006,7 @@ class TasksTaskForm extends LocalizedLitElement {
       ? this.preview
       : this.preview.slice(0, 4);
     return html`
-      <p class="caption">${t("task.preview_task_dues")}</p>
+      <p class="selector-label">${t("task.preview_task_dues")}</p>
       <ol class="preview">
         ${visible.map((due) => html`<li>${this.formatDue(due)}</li>`)}
       </ol>
@@ -1009,18 +1040,33 @@ class TasksTaskForm extends LocalizedLitElement {
                 this.scheduleType = event.detail as ScheduleType;
               })}
           ></${selectFieldTag}>
-          <${comboboxFieldTag}
-            label=${t("task.problem_sensor")}
-            required
-            .value=${this.problemSensor}
-            .options=${this.problemSensorOptions()}
-            .error=${this.scheduleError}
-            ?disabled=${this.saving}
-            @value-changed=${(event: CustomEvent<string>) =>
+          <${haFormTag}
+            .hass=${this.hass}
+            .data=${{ problemSensor: this.problemSensor }}
+            .schema=${[
+              {
+                name: "problemSensor",
+                required: true,
+                selector: {
+                  entity: { filter: { domain: "binary_sensor" } },
+                },
+              },
+            ]}
+            .computeLabel=${() => t("task.problem_sensor")}
+            .disabled=${this.saving}
+            @value-changed=${(
+              event: CustomEvent<{
+                value: { problemSensor?: string };
+              }>,
+            ) =>
               this.scheduleChanged(() => {
-                this.problemSensor = event.detail;
+                this.problemSensor =
+                  event.detail.value.problemSensor || "";
               })}
-          ></${comboboxFieldTag}>
+          ></${haFormTag}>
+          ${this.scheduleError
+            ? html`<p class="error" role="alert">${this.scheduleError}</p>`
+            : nothing}
           <p class="hint">
             ${t("schedule.problem_sensor_description")}
           </p>
@@ -1093,21 +1139,8 @@ class TasksTaskForm extends LocalizedLitElement {
         value: tag.id,
       })),
     ];
-    const labelOptions = this.labels.map((label) => ({
-      label: label.name,
-      value: label.label_id,
-    }));
     return staticHtml`
       <div class="planning">
-        <${comboboxFieldTag}
-          label=${t("task.icon")}
-          .value=${this.icon}
-          .options=${iconOptions()}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string>) => {
-            this.icon = event.detail;
-          }}
-        ></${comboboxFieldTag}>
         <${selectFieldTag}
           label=${t("task.user")}
           .value=${this.assigneeId}
@@ -1128,16 +1161,47 @@ class TasksTaskForm extends LocalizedLitElement {
               this.nfcTagId = event.detail;
             })}
         ></${selectFieldTag}>
-        <${multiSelectFieldTag}
-          label=${t("task.labels")}
-          .value=${this.labelIds}
-          .options=${labelOptions}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string[]>) =>
-            this.assignmentChanged(() => {
-              this.labelIds = event.detail;
-            })}
-        ></${multiSelectFieldTag}>
+        <div
+          class="selector-field"
+          role="group"
+          aria-label=${t("task.icon")}
+        >
+          <span class="selector-label">${t("task.icon")}</span>
+          <${haFormTag}
+            .hass=${this.hass}
+            .data=${{ icon: this.icon }}
+            .schema=${[{ name: "icon", selector: { icon: {} } }]}
+            .computeLabel=${() => ""}
+            .disabled=${this.saving}
+            @value-changed=${(
+              event: CustomEvent<{ value: { icon?: string } }>,
+            ) => {
+              this.icon = event.detail.value.icon || "";
+            }}
+          ></${haFormTag}>
+        </div>
+        <div
+          class="selector-field"
+          role="group"
+          aria-label=${t("task.labels")}
+        >
+          <span class="selector-label">${t("task.labels")}</span>
+          <${haFormTag}
+            .hass=${this.hass}
+            .data=${{ labels: this.labelIds }}
+            .schema=${[
+              { name: "labels", selector: { label: { multiple: true } } },
+            ]}
+            .computeLabel=${() => ""}
+            .disabled=${this.saving}
+            @value-changed=${(
+              event: CustomEvent<{ value: { labels?: string[] } }>,
+            ) =>
+              this.assignmentChanged(() => {
+                this.labelIds = event.detail.value.labels || [];
+              })}
+          ></${haFormTag}>
+        </div>
       </div>
     `;
   }
@@ -1151,56 +1215,96 @@ class TasksTaskForm extends LocalizedLitElement {
     if (this.notificationError) {
       return html`<p class="error" role="alert">${this.notificationError}</p>`;
     }
-    const deviceOptions = this.devices.map((device) => ({
-      label: this.deviceName(device),
-      value: device.id,
-    }));
     return staticHtml`
       <div class="planning">
-        <${multiSelectFieldTag}
-          label=${t("app.mobile_devices")}
-          .value=${this.notificationDeviceIds}
-          .options=${deviceOptions}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string[]>) =>
-            this.notificationChanged(() => {
-              this.notificationDeviceIds = event.detail;
-            })}
-        ></${multiSelectFieldTag}>
-        ${deviceOptions.length
-          ? nothing
-          : html`<p class="hint">${t("app.no_mobile_devices")}</p>`}
-        <${switchFieldTag}
-          label=${t("task.notification_persistent")}
-          description=${t("task.notification_persistent_description")}
-          .checked=${this.notificationPersistent}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<boolean>) =>
-            this.notificationChanged(() => {
-              this.notificationPersistent = event.detail;
-            })}
-        ></${switchFieldTag}>
-        <${switchFieldTag}
-          label=${t("task.notification_critical")}
-          description=${t("task.notification_critical_description")}
-          .checked=${this.notificationCritical}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<boolean>) =>
-            this.notificationChanged(() => {
-              this.notificationCritical = event.detail;
-            })}
-        ></${switchFieldTag}>
-        <${textFieldTag}
-          label=${t("app.navigation_target")}
-          .value=${this.notificationRoute}
-          .error=${this.notificationRouteError}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string>) =>
-            this.notificationChanged(() => {
-              this.notificationRoute = event.detail;
-            })}
-        ></${textFieldTag}>
+        <div class="selector-field" data-native-picker-spacing>
+          <span class="selector-label">${t("app.mobile_devices")}</span>
+          <${haFormTag}
+            .hass=${this.hass}
+            .data=${{ devices: this.notificationDeviceIds }}
+            .schema=${[
+              {
+                name: "devices",
+                selector: {
+                  device: {
+                    multiple: true,
+                    filter: { integration: "mobile_app" },
+                  },
+                },
+              },
+            ]}
+            .computeLabel=${() => ""}
+            .disabled=${this.saving}
+            @value-changed=${(
+              event: CustomEvent<{ value: { devices?: string[] } }>,
+            ) =>
+              this.notificationChanged(() => {
+                this.notificationDeviceIds =
+                  event.detail.value.devices || [];
+              })}
+          ></${haFormTag}>
+        </div>
+        <div class="selector-field">
+          <span class="selector-label">${t("app.navigation_target")}</span>
+          <${haFormTag}
+            .hass=${this.hass}
+            .data=${{ route: this.notificationRoute }}
+            .schema=${[
+              { name: "route", selector: { navigation: null } },
+            ]}
+            .computeLabel=${() => t("app.navigation_target")}
+            .disabled=${this.saving}
+            @value-changed=${(
+              event: CustomEvent<{ value: { route?: string } }>,
+            ) =>
+              this.notificationChanged(() => {
+                this.notificationRoute = event.detail.value.route || "";
+              })}
+          ></${haFormTag}>
+        </div>
+        ${this.notificationRouteError
+          ? html`<p class="error" role="alert">
+              ${this.notificationRouteError}
+            </p>`
+          : nothing}
         <p class="hint">${t("app.navigation_hint")}</p>
+        <${haFormTag}
+          .hass=${this.hass}
+          .data=${{ critical: this.notificationCritical }}
+          .schema=${[
+            { name: "critical", selector: { boolean: {} } },
+          ]}
+          .computeLabel=${() => t("task.notification_critical")}
+          .computeHelper=${() =>
+            t("task.notification_critical_description")}
+          .disabled=${this.saving}
+          @value-changed=${(
+            event: CustomEvent<{ value: { critical?: boolean } }>,
+          ) =>
+            this.notificationChanged(() => {
+              this.notificationCritical =
+                event.detail.value.critical ?? false;
+            })}
+        ></${haFormTag}>
+        <div class="section-divider" role="separator"></div>
+        <${haFormTag}
+          .hass=${this.hass}
+          .data=${{ persistent: this.notificationPersistent }}
+          .schema=${[
+            { name: "persistent", selector: { boolean: {} } },
+          ]}
+          .computeLabel=${() => t("task.notification_persistent")}
+          .computeHelper=${() =>
+            t("task.notification_persistent_description")}
+          .disabled=${this.saving}
+          @value-changed=${(
+            event: CustomEvent<{ value: { persistent?: boolean } }>,
+          ) =>
+            this.notificationChanged(() => {
+              this.notificationPersistent =
+                event.detail.value.persistent ?? false;
+            })}
+        ></${haFormTag}>
       </div>
     `;
   }
@@ -1219,6 +1323,13 @@ class TasksTaskForm extends LocalizedLitElement {
     return values.includes(id)
       ? values.filter((value) => value !== id)
       : [...values, id];
+  }
+
+  private stageFiles(files: FileList | File[]): void {
+    if (this.saving) {
+      return;
+    }
+    this.stagedFiles = [...this.stagedFiles, ...Array.from(files)];
   }
 
   private renderAttachments() {
@@ -1309,18 +1420,45 @@ class TasksTaskForm extends LocalizedLitElement {
               </ul>
             `
           : html`<p class="hint">${t("task.no_files")}.</p>`}
-        <label class="file-picker">
-          <span>${t("app.add_files")}</span>
+        <label
+          class=${`file-picker ${this.fileDropActive ? "drag-active" : ""}`}
+          @dragenter=${(event: DragEvent) => {
+            event.preventDefault();
+            if (!this.saving) {
+              this.fileDropActive = true;
+            }
+          }}
+          @dragover=${(event: DragEvent) => {
+            event.preventDefault();
+          }}
+          @dragleave=${(event: DragEvent) => {
+            if (
+              !event.relatedTarget ||
+              !event.currentTarget ||
+              !(event.currentTarget as HTMLElement).contains(
+                event.relatedTarget as Node,
+              )
+            ) {
+              this.fileDropActive = false;
+            }
+          }}
+          @drop=${(event: DragEvent) => {
+            event.preventDefault();
+            this.fileDropActive = false;
+            if (event.dataTransfer?.files.length) {
+              this.stageFiles(event.dataTransfer.files);
+            }
+          }}
+        >
+          <span>${t("app.drop_files")}</span>
+          <span class="file-picker-secondary">${t("app.click_to_upload")}</span>
           <input
             type="file"
             multiple
             ?disabled=${this.saving}
             @change=${(event: Event) => {
               const input = event.target as HTMLInputElement;
-              this.stagedFiles = [
-                ...this.stagedFiles,
-                ...Array.from(input.files || []),
-              ];
+              this.stageFiles(input.files || []);
               input.value = "";
             }}
           />
@@ -1475,7 +1613,6 @@ export const openTaskEditor = async (
     heading: existingTask ? t("task.edit") : t("task.new"),
     content: form,
     actions: [
-      { label: t("common.cancel"), value: "cancel" },
       { label: t("common.save"), value: "save", run: () => form.save() },
     ],
   });

@@ -281,6 +281,5 @@ export const openArchive = (hass: HomeAssistant): Promise<string> => {
   return openTasksDialog({
     heading: t("settings.title"),
     content,
-    actions: [{ label: t("common.close"), value: "close" }],
   });
 };

@@ -208,6 +208,8 @@
     "ui_app_navigation_target": "Navigation target",
     "ui_app_navigation_hint": "Internal path, for example /lovelace/tasks.",
     "ui_app_add_files": "Add files",
+    "ui_app_drop_files": "Drop files here to upload",
+    "ui_app_click_to_upload": "or click here",
     "ui_app_new_file": "New",
     "ui_app_remove_named": "Remove {name}",
     "ui_app_undo_remove_named": "Undo removal of {name}",

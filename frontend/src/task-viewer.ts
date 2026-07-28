@@ -658,7 +658,6 @@ export const openTaskViewer = async (
     heading: task.name,
     content: viewer,
     actions: [
-      { label: t("common.close"), value: "close" },
       {
         label: t("app.complete"),
         value: "complete",

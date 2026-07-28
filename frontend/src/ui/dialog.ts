@@ -134,7 +134,8 @@ export const openTasksDialog = ({
   dialog.content = content;
   dialog.actions = actions;
   dialog.width = width;
-  document.body.append(dialog);
+  const appRoot = document.querySelector("home-assistant")?.shadowRoot;
+  (appRoot || document.body).append(dialog);
   dialog.open = true;
   return new Promise((resolve) => {
     dialog.addEventListener(

@@ -247,6 +247,7 @@ class TasksTaskTable extends LocalizedLitElement {
     bulkAction: { state: true },
     bulkTarget: { state: true },
     openBulkPicker: { state: true },
+    openToolbarPanel: { state: true },
     bulkBusy: { state: true },
     bulkError: { state: true },
   };
@@ -445,6 +446,10 @@ class TasksTaskTable extends LocalizedLitElement {
       position: relative;
     }
 
+    .toolbar-popover {
+      position: relative;
+    }
+
     summary,
     .toolbar-button {
       height: 40px;
@@ -476,7 +481,8 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     .toolbar > details[open] > summary,
-    .selection-toolbar > details[open] > summary {
+    .selection-toolbar > details[open] > summary,
+    .toolbar-button.active {
       color: var(--primary-color);
       background: var(--secondary-background-color);
       border-color: var(--primary-color);
@@ -818,7 +824,8 @@ class TasksTaskTable extends LocalizedLitElement {
       }
 
       .toolbar > details,
-      .selection-toolbar > details {
+      .selection-toolbar > details,
+      .toolbar > .toolbar-popover {
         position: static;
       }
 
@@ -877,6 +884,10 @@ class TasksTaskTable extends LocalizedLitElement {
       position: static;
     }
 
+    :host([compact]) .toolbar > .toolbar-popover {
+      position: static;
+    }
+
     :host([compact]) .toolbar .popover-panel {
       top: calc(100% + 6px);
       right: 0;
@@ -928,6 +939,7 @@ class TasksTaskTable extends LocalizedLitElement {
   declare bulkAction: BulkAction;
   declare bulkTarget: string;
   declare openBulkPicker: "" | "action" | "target";
+  declare openToolbarPanel: "" | "filters" | "columns";
   declare bulkBusy: boolean;
   declare bulkError: string;
 
@@ -938,6 +950,15 @@ class TasksTaskTable extends LocalizedLitElement {
       if (!path.includes(details)) {
         details.removeAttribute("open");
       }
+    }
+    if (
+      !path.some(
+        (item) =>
+          item instanceof HTMLElement &&
+          item.classList.contains("toolbar-popover"),
+      )
+    ) {
+      this.openToolbarPanel = "";
     }
   };
 
@@ -999,6 +1020,7 @@ class TasksTaskTable extends LocalizedLitElement {
     this.bulkAction = "";
     this.bulkTarget = "";
     this.openBulkPicker = "";
+    this.openToolbarPanel = "";
     this.bulkBusy = false;
     this.bulkError = "";
   }
@@ -2023,79 +2045,116 @@ class TasksTaskTable extends LocalizedLitElement {
                 : nothing}
               ${this.showFilters
                 ? html`
-                    <details>
-                      <summary>
+                    <div class="toolbar-popover">
+                      <button
+                        class=${this.openToolbarPanel === "filters"
+                          ? "toolbar-button active"
+                          : "toolbar-button"}
+                        type="button"
+                        aria-expanded=${this.openToolbarPanel === "filters"}
+                        @click=${() => {
+                          this.openToolbarPanel =
+                            this.openToolbarPanel === "filters"
+                              ? ""
+                              : "filters";
+                        }}
+                      >
                         ${t("table.filters")}${filterCount
                           ? ` (${filterCount})`
                           : ""}
-                      </summary>
-                      <div class="popover-panel filter-panel">
-                        <div class="filter-grid">
-                          ${filterKeys.map((key) =>
-                            this.filterGroup(t(filterLabels[key]), key))}
-                        </div>
-                        <div class="filter-footer">
-                          ${this.registryError
-                            ? html`<p class="registry-error">
-                                ${this.registryError}
-                              </p>`
-                            : nothing}
-                          <ha-button
-                            appearance="plain"
-                            variant="neutral"
-                            @click=${() => {
-                              this.filters = emptyFilters();
-                              this.storeSessionView();
-                            }}
-                          >
-                            ${t("table.reset_filters")}
-                          </ha-button>
-                        </div>
-                      </div>
-                    </details>
+                      </button>
+                      ${this.openToolbarPanel === "filters"
+                        ? html`
+                            <div class="popover-panel filter-panel">
+                              <div class="filter-grid">
+                                ${filterKeys.map((key) =>
+                                  this.filterGroup(
+                                    t(filterLabels[key]),
+                                    key,
+                                  ))}
+                              </div>
+                              <div class="filter-footer">
+                                ${this.registryError
+                                  ? html`<p class="registry-error">
+                                      ${this.registryError}
+                                    </p>`
+                                  : nothing}
+                                <ha-button
+                                  appearance="plain"
+                                  variant="neutral"
+                                  @click=${() => {
+                                    this.filters = emptyFilters();
+                                    this.storeSessionView();
+                                  }}
+                                >
+                                  ${t("table.reset_filters")}
+                                </ha-button>
+                              </div>
+                            </div>
+                          `
+                        : nothing}
+                    </div>
                   `
                 : nothing}
               ${this.showColumns
                 ? html`
-                    <details>
-                      <summary>${t("table.columns")}</summary>
-                      <div class="popover-panel column-panel">
-                        <div class="column-options">
-                          ${(Object.keys(columnLabels) as ColumnKey[]).map(
-                            (key) => html`
-                              <button
-                                class=${this.columns[key]
-                                  ? "option-row active"
-                                  : "option-row"}
-                                type="button"
-                                aria-pressed=${this.columns[key]}
-                                @click=${() =>
-                                  this.toggleColumn(
-                                    key,
-                                    !this.columns[key],
-                                  )}
-                              >
-                                <span>${t(columnLabels[key])}</span>
-                                ${this.columns[key]
-                                  ? html`<ha-icon
-                                      icon="mdi:check"
-                                    ></ha-icon>`
-                                  : nothing}
-                              </button>
-                            `,
-                          )}
-                        </div>
-                        <div class="filter-footer">
-                          <ha-button
-                            appearance="plain"
-                            variant="neutral"
-                            @click=${this.resetColumns}
-                          >
-                            ${t("table.reset_columns")}
-                          </ha-button>
-                        </div>
-                      </div>
-                    </details>
+                    <div class="toolbar-popover">
+                      <button
+                        class=${this.openToolbarPanel === "columns"
+                          ? "toolbar-button active"
+                          : "toolbar-button"}
+                        type="button"
+                        aria-expanded=${this.openToolbarPanel === "columns"}
+                        @click=${() => {
+                          this.openToolbarPanel =
+                            this.openToolbarPanel === "columns"
+                              ? ""
+                              : "columns";
+                        }}
+                      >
+                        ${t("table.columns")}
+                      </button>
+                      ${this.openToolbarPanel === "columns"
+                        ? html`
+                            <div class="popover-panel column-panel">
+                              <div class="column-options">
+                                ${(Object.keys(columnLabels) as ColumnKey[]).map(
+                                  (key) => html`
+                                    <button
+                                      class=${this.columns[key]
+                                        ? "option-row active"
+                                        : "option-row"}
+                                      type="button"
+                                      aria-pressed=${this.columns[key]}
+                                      @click=${() =>
+                                        this.toggleColumn(
+                                          key,
+                                          !this.columns[key],
+                                        )}
+                                    >
+                                      <span>${t(columnLabels[key])}</span>
+                                      ${this.columns[key]
+                                        ? html`<ha-icon
+                                            icon="mdi:check"
+                                          ></ha-icon>`
+                                        : nothing}
+                                    </button>
+                                  `,
+                                )}
+                              </div>
+                              <div class="filter-footer">
+                                <ha-button
+                                  appearance="plain"
+                                  variant="neutral"
+                                  @click=${this.resetColumns}
+                                >
+                                  ${t("table.reset_columns")}
+                                </ha-button>
+                              </div>
+                            </div>
+                          `
+                        : nothing}
+                    </div>
                   `
                 : nothing}
             </div>

@@ -46,6 +46,19 @@ const taskForm = await readFile(
   new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
+
+test("task editor uses Home Assistant selectors for registry-backed fields", () => {
+  assert.match(taskForm, /selector: \{ icon: \{\} \}/);
+  assert.match(
+    taskForm,
+    /selector: \{ label: \{ multiple: true \} \}/,
+  );
+  assert.match(
+    taskForm,
+    /device:[\s\S]*?multiple: true,[\s\S]*?filter: \{ integration: "mobile_app" \}/,
+  );
+  assert.match(taskForm, /selector: \{ navigation: null \}/);
+});
 const taskViewer = await readFile(
   new URL("../../frontend/src/task-viewer.ts", import.meta.url),
   "utf8",
@@ -96,6 +109,10 @@ test("frontend dialog is owned and accepts rendered content", () => {
   assert.match(dialog, /<ha-adaptive-dialog/);
   assert.match(dialog, /\.open=\$\{this\.open\}/);
   assert.match(dialog, /\$\{this\.content\}/);
+  assert.match(
+    dialog,
+    /document\.querySelector\("home-assistant"\)\?\.shadowRoot/,
+  );
   assert.doesNotMatch(dialog, /show-dialog/);
 });
 
@@ -135,15 +152,15 @@ test("frontend pill owns its presentation", () => {
   assert.doesNotMatch(pill, /ha-chip|ha-assist-chip/);
 });
 
-test("frontend owns its text textarea select combobox and switch controls", () => {
+test("frontend owns its remaining text textarea and select controls", () => {
   assert.match(fields, /<input/);
   assert.match(fields, /<textarea/);
   assert.match(fields, /<select/);
-  assert.match(fields, /role="combobox"/);
-  assert.match(fields, /<datalist/);
-  assert.match(fields, /type="checkbox"/);
-  assert.match(fields, /elementName\("multi-select-field"\)/);
-  assert.match(fields, /elementName\("switch-field"\)/);
+  assert.doesNotMatch(fields, /role="combobox"/);
+  assert.doesNotMatch(fields, /<datalist/);
+  assert.doesNotMatch(fields, /type="checkbox"/);
+  assert.doesNotMatch(fields, /elementName\("multi-select-field"\)/);
+  assert.doesNotMatch(fields, /elementName\("switch-field"\)/);
   assert.doesNotMatch(
     fields,
     /ha-textfield|ha-selector|ha-combo-box|ha-switch/,
@@ -491,6 +508,13 @@ test("frontend planning uses the authoritative preview API for every recurrence"
   assert.match(taskForm, /scheduleUnit === "yearly"/);
   assert.match(taskForm, /t\("error\.select_at_least_one_weekday"\)/);
   assert.match(taskForm, /startsWith\("binary_sensor\."\)/);
+  assert.match(
+    taskForm,
+    /entity: \{ filter: \{ domain: "binary_sensor" \} \}/,
+  );
+  assert.match(taskForm, /\.inputType=\$\{"time"\}/);
+  assert.match(fields, /input\[type="time"\]/);
+  assert.match(fields, /max-inline-size: 100%/);
 });
 
 test("frontend planning sends only fields used by the selected trigger", () => {
@@ -564,6 +588,10 @@ test("frontend stages attachments and commits file changes transactionally", () 
     /deleted_attachment_ids: details\.files\?\.deletedAttachmentIds/,
   );
   assert.match(taskForm, /type="file"/);
+  assert.match(taskForm, /@drop=\$\{/);
+  assert.match(taskForm, /event\.dataTransfer\?\.files/);
+  assert.match(taskForm, /t\("app\.drop_files"\)/);
+  assert.match(taskForm, /t\("app\.click_to_upload"\)/);
   assert.match(taskForm, /this\.stagedFiles/);
   assert.match(taskForm, /this\.deletedAttachmentIds/);
   assert.match(taskForm, /this\.attachments = \[\.\.\.task\.attachments\]/);
