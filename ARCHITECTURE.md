@@ -68,22 +68,21 @@ separate archive schema or archive version.
 
 ## Frontend
 
-The framework-free ES modules live directly under
-`custom_components/tasks/frontend`. Home Assistant registers the stable
-`tasks-panel` and `tasks-card` custom elements from the manifest-versioned
-`panel.js` and `dashboard-card.js` entry points. The task table uses the
-vendored TanStack Table core; there is no frontend build step or framework
-runtime.
+The TypeScript frontend under `frontend/src` builds bundled ES modules into
+`custom_components/tasks/frontend`. Home Assistant registers
+the stable `tasks-panel` and `tasks-card` custom elements from those versioned
+assets. Lit is bundled with the integration; no Home Assistant-internal UI
+component or table library is a runtime dependency.
 
 The panel and card consume the revisioned `tasks/subscribe` snapshot. Registry
 lookups are loaded independently. Task changes do not reload unrelated Home
 Assistant registries.
 
-`tasks-data-table.js` owns table state while `sidebar-task-list.js` owns search,
-filters, selection, bulk actions, and persisted view preferences.
-`dashboard-card.js` owns the compact Lovelace presentation and its editor.
-Dialogs and form controls use the Home Assistant custom-element contracts
-available to loaded custom panels and cards.
+`task-table.ts` owns search, filters, sorting, selection, bulk actions,
+responsive rows, and persisted view preferences. `dashboard-card.ts` owns the
+compact Lovelace presentation and its editor. Dialogs, menus, fields,
+expandable sections, and status pills use integration-owned custom elements and
+browser primitives.
 
 The engine, due sensor, and notification coordinator receive committed changes
 directly from `TaskManager`. The public Home Assistant `tasks_event` remains
@@ -101,6 +100,7 @@ paths are task-scoped and served through signed URLs.
 - Backend tests: `pytest`
 - Frontend tests: `node --test tests/frontend/*.test.mjs`
 - `manifest.json` is the release-version source.
-- Frontend assets use stable filenames under a manifest-versioned URL prefix.
+- Built frontend assets use stable filenames under a manifest-versioned URL
+  prefix.
 - Development releases are tagged from `dev` and published as GitHub
   pre-releases.
