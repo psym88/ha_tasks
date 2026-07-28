@@ -8,7 +8,7 @@ from homeassistant.util import dt as dt_util
 
 from . import TasksData
 from .const import TASKS_DEVICE_INFO
-from .manager import TaskChange
+from .manager import TaskChange, TaskManager
 
 
 async def async_setup_entry(
@@ -17,15 +17,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     manager = entry.runtime_data.manager
-    entity = TasksDueSensor(manager)
-    async_add_entities([entity])
-
-    @callback
-    def refresh(change: TaskChange) -> None:
-        if change.affects_tasks:
-            entity.async_write_ha_state()
-
-    entry.async_on_unload(manager.subscribe(refresh))
+    async_add_entities([TasksDueSensor(manager)])
 
 
 class TasksDueSensor(SensorEntity):
@@ -39,8 +31,19 @@ class TasksDueSensor(SensorEntity):
     _attr_icon = "mdi:clipboard-alert-outline"
     _attr_should_poll = False
 
-    def __init__(self, manager) -> None:
+    def __init__(self, manager: TaskManager) -> None:
         self._manager = manager
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to task changes after the entity is registered."""
+        await super().async_added_to_hass()
+        self.async_on_remove(self._manager.subscribe(self._handle_change))
+
+    @callback
+    def _handle_change(self, change: TaskChange) -> None:
+        """Refresh the state after a committed task change."""
+        if change.affects_tasks:
+            self.async_write_ha_state()
 
     @property
     def suggested_object_id(self) -> str:
