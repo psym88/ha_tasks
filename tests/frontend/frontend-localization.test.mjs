@@ -124,6 +124,18 @@ test("every direct frontend translation key exists in English and German", () =>
   }
 });
 
+test("frontend translation values have no surrounding whitespace", () => {
+  for (const [language, catalog] of Object.entries(languages)) {
+    for (const [key, value] of Object.entries(catalog)) {
+      assert.equal(
+        value,
+        value.trim(),
+        `${language}.${key} has surrounding whitespace`,
+      );
+    }
+  }
+});
+
 test("frontend panel and card follow Home Assistant language changes", () => {
   assert.match(source, /setLanguage\(this\.language\)/);
   assert.match(source, /this\.hass\?\.locale\?\.language/);

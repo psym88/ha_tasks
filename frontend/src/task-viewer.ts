@@ -382,13 +382,13 @@ class TasksTaskViewer extends LitElement {
         .filter(Boolean);
       const joined =
         weekdays.length > 1
-          ? `${weekdays.slice(0, -1).join(", ")}${t("schedule.and")}${weekdays.at(-1)}`
+          ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
           : weekdays[0] || "";
       const description = t(
         interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
         {
           schedule_interval: interval,
-          days: joined ? t("schedule.on_days", { days: joined }) : "",
+          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
         },
       );
       return `${description} ${t("app.at_time", { time })}`;
