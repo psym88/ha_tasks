@@ -210,9 +210,7 @@ class TasksPanel extends LocalizedLitElement {
     if (!this.hass) {
       return;
     }
-    if (action === "open") {
-      this.openTask(task);
-    } else if (action === "edit") {
+    if (action === "edit") {
       void openTaskEditor(this.hass, task);
     } else if (action === "active") {
       void setTaskActive(

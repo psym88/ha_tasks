@@ -192,13 +192,13 @@ test("frontend pauses and resumes tasks through the minimal update contract", ()
   );
 });
 
-test("frontend task table owns search sorting and responsive rows", () => {
+test("frontend task table owns search, fixed due sorting, and responsive rows", () => {
   assert.match(source, /taskTableElementName/);
   assert.match(taskTable, /<table>/);
   assert.match(taskTable, /type="search"/);
   assert.match(taskTable, /private visibleTasks\(\)/);
-  assert.match(taskTable, /private compare\(left: Task, right: Task\)/);
-  assert.match(taskTable, /aria-sort=/);
+  assert.match(taskTable, /private compareDue\(left: Task, right: Task\)/);
+  assert.doesNotMatch(taskTable, /aria-sort=|sortDirection|sortKey/);
   assert.match(taskTable, /@media \(max-width: 640px\)/);
   assert.match(taskTable, /class="mobile-details"/);
   assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
@@ -258,12 +258,13 @@ test("frontend table owns optional column visibility without grouping", () => {
 });
 
 test("frontend table persists durable and per-tab view state separately", () => {
-  assert.match(taskTable, /tasks-table-state-v1/);
+  assert.match(taskTable, /tasks-table-state-v2/);
   assert.match(taskTable, /tasks-table-session-v1/);
   assert.match(
     taskTable,
-    /localStorage\?\.setItem\([\s\S]*sortKey:[\s\S]*columns:/,
+    /localStorage\?\.setItem\([\s\S]*columns:/,
   );
+  assert.doesNotMatch(taskTable, /sortKey:|sortDirection:/);
   assert.match(
     taskTable,
     /sessionStorage\?\.setItem\([\s\S]*search:[\s\S]*filters:/,
