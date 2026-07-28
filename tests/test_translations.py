@@ -17,6 +17,17 @@ _DYNAMIC_FRONTEND_KEYS = {
     "notification.due_title",
     "notification.problem_message",
     "notification.problem_title",
+    "schedule.after_completion_many",
+    "schedule.after_completion_one",
+    "schedule.fixed_many",
+    "schedule.fixed_one",
+    "schedule.monthly_many",
+    "schedule.monthly_one",
+    "schedule.on_day_number",
+    "schedule.on_day_of_month",
+    "schedule.on_days",
+    "schedule.on_last_day",
+    "schedule.on_last_day_of_month",
     "schedule.period_day",
     "schedule.period_days",
     "schedule.period_month",
@@ -25,6 +36,10 @@ _DYNAMIC_FRONTEND_KEYS = {
     "schedule.period_weeks",
     "schedule.period_year",
     "schedule.period_years",
+    "schedule.weekly_many",
+    "schedule.weekly_one",
+    "schedule.yearly_many",
+    "schedule.yearly_one",
 }
 
 

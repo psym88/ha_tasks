@@ -10,6 +10,10 @@ const api = await readFile(
   new URL("../../frontend/src/api.ts", import.meta.url),
   "utf8",
 );
+const types = await readFile(
+  new URL("../../frontend/src/types.ts", import.meta.url),
+  "utf8",
+);
 const archive = await readFile(
   new URL("../../frontend/src/archive.ts", import.meta.url),
   "utf8",
@@ -73,7 +77,7 @@ const buildScript = await readFile(
 
 test("frontend subscribes to the revisioned snapshot protocol", () => {
   assert.match(api, /type: "tasks\/subscribe"/);
-  assert.match(source, /snapshot\.revision/);
+  assert.match(types, /revision: number/);
 });
 
 test("frontend bundles own their runtime and stable production elements", () => {
@@ -89,15 +93,16 @@ test("frontend bundles own their runtime and stable production elements", () => 
 });
 
 test("frontend dialog is owned and accepts rendered content", () => {
-  assert.match(dialog, /<dialog/);
-  assert.match(dialog, /dialog\.showModal\(\)/);
-  assert.match(dialog, /dialog\.content = content/);
-  assert.doesNotMatch(dialog, /ha-dialog|show-dialog/);
+  assert.match(dialog, /<ha-adaptive-dialog/);
+  assert.match(dialog, /\.open=\$\{this\.open\}/);
+  assert.match(dialog, /\$\{this\.content\}/);
+  assert.doesNotMatch(dialog, /show-dialog/);
 });
 
-test("frontend expandable uses native disclosure semantics", () => {
-  assert.match(expandable, /<details/);
-  assert.match(expandable, /<summary>/);
+test("frontend expandable exposes animated disclosure semantics", () => {
+  assert.match(expandable, /aria-expanded=/);
+  assert.match(expandable, /grid-template-rows: 0fr/);
+  assert.match(expandable, /grid-template-rows: 1fr/);
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 
@@ -156,9 +161,17 @@ test("frontend editor saves task details and planning in one transaction", () =>
   assert.match(taskForm, /this\.scheduleDirty \? schedule : undefined/);
 });
 
+test("frontend editor describes the configured recurrence", () => {
+  assert.match(taskForm, /private scheduleText\(\): string/);
+  assert.match(taskForm, /"schedule\.weekly_one"/);
+  assert.match(taskForm, /"schedule\.monthly_one"/);
+  assert.match(taskForm, /"schedule\.yearly_one"/);
+  assert.match(taskForm, /<p class="hint">\$\{this\.scheduleText\(\)\}<\/p>/);
+});
+
 test("frontend creates tasks through the shared editor with complete defaults", () => {
   assert.match(taskForm, /existingTask\?: Task/);
-  assert.match(taskForm, /existingTask\s*\?\s*`\$\{t\("task\.edit"\)\}/);
+  assert.match(taskForm, /heading: existingTask \? t\("task\.edit"\)/);
   assert.match(taskForm, /: t\("task\.new"\)/);
   assert.match(taskForm, /const isNew = !task\.id/);
   assert.match(taskForm, /this\.scheduleDirty = isNew/);
@@ -174,7 +187,7 @@ test("frontend deletes tasks only after its owned confirmation", () => {
   assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.id\)/);
   assert.match(
     taskTable,
-    /\{ label: t\("common\.delete"\), value: "delete", destructive: true \}/,
+    /label: t\("common\.delete"\)[\s\S]*?value: "delete"[\s\S]*?destructive: true/,
   );
 });
 
@@ -483,14 +496,9 @@ test("frontend completion requires confirmation and sends trimmed notes", () => 
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
 });
 
-test("frontend viewer renders complete trigger rules and responsive details", () => {
-  assert.match(taskViewer, /schedule\.type === "sensor"/);
-  assert.match(taskViewer, /schedule\.type === "sliding"/);
-  assert.match(taskViewer, /unit === "weekly"/);
-  assert.match(taskViewer, /unit === "monthly"/);
-  assert.match(taskViewer, /unit === "yearly"/);
-  assert.match(taskViewer, /schedule\.weekdays/);
-  assert.match(taskViewer, /schedule\.month/);
+test("frontend viewer renders responsive details without planning", () => {
+  assert.match(taskViewer, /private renderMetadata\(\)/);
+  assert.doesNotMatch(taskViewer, /schedule\.type ===/);
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 

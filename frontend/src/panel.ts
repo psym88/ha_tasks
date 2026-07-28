@@ -1,4 +1,4 @@
-import { css, html, nothing } from "lit";
+import { css, html } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";

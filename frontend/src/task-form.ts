@@ -711,6 +711,95 @@ class TasksTaskForm extends LocalizedLitElement {
     }).format(new Date(value));
   }
 
+  private scheduleText(): string {
+    if (this.scheduleType === "sensor") {
+      const name =
+        this.hass?.states?.[this.problemSensor]?.attributes?.friendly_name ||
+        this.problemSensor;
+      return name
+        ? `${t("schedule.problem_sensor_description")} (${name})`
+        : t("schedule.problem_sensor_description");
+    }
+    const interval = Math.max(1, Number(this.scheduleInterval) || 1);
+    const periodKey: Record<ScheduleUnit, string> = {
+      daily: "day",
+      weekly: "week",
+      monthly: "month",
+      yearly: "year",
+    };
+    const singular = t(`schedule.period_${periodKey[this.scheduleUnit]}`);
+    const plural = t(`schedule.period_${periodKey[this.scheduleUnit]}s`);
+    if (this.scheduleType === "sliding") {
+      return t(
+        interval === 1
+          ? "schedule.after_completion_one"
+          : "schedule.after_completion_many",
+        {
+          schedule_interval: interval,
+          period: interval === 1 ? singular : plural,
+        },
+      );
+    }
+    if (this.scheduleUnit === "weekly") {
+      const names = Array.from({ length: 7 }, (_, index) =>
+        new Intl.DateTimeFormat(this.hass?.locale?.language, {
+          weekday: "long",
+          timeZone: "UTC",
+        }).format(new Date(Date.UTC(2024, 0, index + 1))),
+      );
+      const weekdays = this.scheduleWeekdays
+        .map((day) => names[day])
+        .filter(Boolean);
+      const joined =
+        weekdays.length > 1
+          ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
+          : weekdays[0] || "";
+      const description = t(
+        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
+        {
+          schedule_interval: interval,
+          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
+        },
+      );
+      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+    }
+    if (this.scheduleUnit === "monthly") {
+      const day =
+        this.scheduleDay === "last"
+          ? t("schedule.on_last_day")
+          : t("schedule.on_day_number", { day: Number(this.scheduleDay || 1) });
+      const description = t(
+        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
+        { schedule_interval: interval, day },
+      );
+      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+    }
+    if (this.scheduleUnit === "yearly") {
+      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
+        month: "long",
+      }).format(new Date(2024, this.scheduleMonth - 1, 1));
+      const day =
+        this.scheduleDay === "last"
+          ? t("schedule.on_last_day_of_month", { month })
+          : t("schedule.on_day_of_month", {
+              day: Number(this.scheduleDay || 1),
+              month,
+            });
+      const description = t(
+        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
+        { schedule_interval: interval, day },
+      );
+      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+    }
+    return `${t(
+      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
+      {
+        schedule_interval: interval,
+        period: interval === 1 ? singular : plural,
+      },
+    )} ${t("app.at_time", { time: this.scheduleTime })}`;
+  }
+
   async save(): Promise<boolean> {
     const name = this.name.trim();
     const schedule = this.scheduleDetails(true);
@@ -933,7 +1022,7 @@ class TasksTaskForm extends LocalizedLitElement {
               })}
           ></${comboboxFieldTag}>
           <p class="hint">
-            ${t("app.sensor_hint")}
+            ${t("schedule.problem_sensor_description")}
           </p>
         </div>
       `;
@@ -975,13 +1064,7 @@ class TasksTaskForm extends LocalizedLitElement {
           ></${selectFieldTag}>
         </div>
         ${this.renderFixedOptions()}
-        ${this.scheduleType === "sliding"
-          ? html`
-              <p class="hint">
-                ${t("app.sliding_hint")}
-              </p>
-            `
-          : nothing}
+        <p class="hint">${this.scheduleText()}</p>
         ${this.scheduleError
           ? html`<p class="error" role="alert">${this.scheduleError}</p>`
           : nothing}
