@@ -255,6 +255,7 @@ class TasksPanel extends LocalizedLitElement {
                   <${taskTableTag}
                     .hass=${this.hass}
                     .tasks=${snapshot.tasks}
+                    .now=${snapshot.now}
                     @tasks-task-open=${(event: CustomEvent<Task>) =>
                       this.openTask(event.detail)}
                     @tasks-task-action=${(

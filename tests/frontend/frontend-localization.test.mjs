@@ -150,7 +150,7 @@ test("frontend translation values have no surrounding whitespace", () => {
 test("frontend panel and card follow Home Assistant language changes", () => {
   assert.match(source, /setLanguage\(this\.language\)/);
   assert.match(source, /this\.hass\?\.locale\?\.language/);
-  assert.match(source, /Intl\.RelativeTimeFormat/);
+  assert.match(source, /<ha-relative-time/);
   assert.match(localize, /for \(const listener of listeners\)/);
   assert.match(localizedElement, /subscribeLanguage\(\(\) => this\.requestUpdate\(\)\)/);
 });

@@ -134,6 +134,7 @@ export interface HomeAssistant {
       entity_id: string;
       attributes?: {
         friendly_name?: string;
+        user_id?: string;
       };
     }
   >;

@@ -24,13 +24,16 @@ import {
 import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
-type FilterKey =
+type TaskFilterKey =
   | "assignee"
   | "labels"
   | "notifications"
   | "trigger"
-  | "status";
+  | "status"
+  | "due";
+type FilterKey = TaskFilterKey;
 type Filters = Record<FilterKey, string[]>;
+export type TaskConfiguredFilters = Partial<Filters>;
 type BulkAction =
   | ""
   | "complete"
@@ -42,7 +45,7 @@ type BulkAction =
   | "add-notification"
   | "remove-notification"
   | "delete";
-type ColumnKey =
+export type TaskColumnKey =
   | "due"
   | "assignee"
   | "nfc"
@@ -51,24 +54,38 @@ type ColumnKey =
   | "notifications"
   | "trigger"
   | "status";
+type ColumnKey = TaskColumnKey;
 type ColumnVisibility = Record<ColumnKey, boolean>;
 
-interface FilterOption {
-  value: string;
+export interface TaskTableOption<T extends string = string> {
+  value: T;
   label: string;
 }
 
+type FilterOption = TaskTableOption;
+
 const localStorageKey = "tasks-table-state-v2";
 const sessionStorageKey = "tasks-table-session-v1";
-const columnLabels: Record<ColumnKey, string> = {
-  due: "task.due",
-  assignee: "table.assignee",
-  nfc: "task.nfc_tag_id",
-  files: "task.files",
+export const taskColumnOptions: TaskTableOption<TaskColumnKey>[] = [
+  { value: "due", label: "task.due" },
+  { value: "assignee", label: "table.assignee" },
+  { value: "nfc", label: "task.nfc_tag_id" },
+  { value: "files", label: "task.files" },
+  { value: "labels", label: "task.labels" },
+  { value: "notifications", label: "table.notifications" },
+  { value: "trigger", label: "table.recurrence" },
+  { value: "status", label: "app.status" },
+];
+const columnLabels = Object.fromEntries(
+  taskColumnOptions.map((option) => [option.value, option.label]),
+) as Record<ColumnKey, string>;
+const filterLabels: Record<FilterKey, string> = {
+  assignee: "task.assignment",
   labels: "task.labels",
   notifications: "table.notifications",
   trigger: "table.recurrence",
   status: "app.status",
+  due: "task.due",
 };
 const defaultColumns: ColumnVisibility = {
   due: true,
@@ -86,7 +103,34 @@ const emptyFilters = (): Filters => ({
   notifications: [],
   trigger: [],
   status: [],
+  due: [],
 });
+const filterKeys = Object.keys(emptyFilters()) as FilterKey[];
+
+export const taskTriggerFilterOptions = [
+  { value: "fixed" as const, label: "task.fixed" },
+  { value: "sliding" as const, label: "task.sliding" },
+  { value: "sensor" as const, label: "task.problem_sensor" },
+];
+export type TaskTriggerFilterValue =
+  (typeof taskTriggerFilterOptions)[number]["value"];
+
+export const taskStatusFilterOptions = [
+  { value: "active" as const, label: "app.active" },
+  { value: "paused" as const, label: "app.paused" },
+];
+export type TaskStatusFilterValue =
+  (typeof taskStatusFilterOptions)[number]["value"];
+
+export const taskDueFilterOptions = [
+  { value: "overdue", label: "table.due_overdue" },
+  { value: "today", label: "table.due_today" },
+  { value: "tomorrow", label: "table.due_tomorrow" },
+  { value: "next_7_days", label: "table.due_next_7_days" },
+  { value: "next_30_days", label: "table.due_next_30_days" },
+] as const satisfies readonly TaskTableOption[];
+export type TaskDueFilterValue =
+  (typeof taskDueFilterOptions)[number]["value"];
 
 const dateKey = (value: string | Date, timeZone?: string): string => {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -98,6 +142,18 @@ const dateKey = (value: string | Date, timeZone?: string): string => {
   const part = (type: string): string =>
     parts.find((item) => item.type === type)?.value || "";
   return `${part("year")}-${part("month")}-${part("day")}`;
+};
+
+const calendarDay = (
+  value: string | Date,
+  timeZone?: string,
+): number => {
+  const [year, month, day] = dateKey(value, timeZone)
+    .split("-")
+    .map(Number);
+  return Math.floor(
+    Date.UTC(year, month - 1, day) / 86_400_000,
+  );
 };
 
 const storedObject = (
@@ -167,6 +223,18 @@ class TasksTaskTable extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     tasks: { attribute: false },
+    compact: { type: Boolean, reflect: true },
+    showBulkSelection: { attribute: false },
+    showIcon: { attribute: false },
+    showAddTask: { attribute: false },
+    showHeader: { attribute: false },
+    showFilters: { attribute: false },
+    configuredFilters: { attribute: false },
+    showColumns: { attribute: false },
+    configuredColumns: { attribute: false },
+    now: { attribute: false },
+    showSearch: { attribute: false },
+    showActionMenu: { attribute: false },
     search: { state: true },
     filters: { state: true },
     openFilterGroups: { state: true },
@@ -377,15 +445,29 @@ class TasksTaskTable extends LocalizedLitElement {
       position: relative;
     }
 
-    summary {
-      min-height: 40px;
+    summary,
+    .toolbar-button {
+      height: 40px;
       box-sizing: border-box;
       padding: 9px 14px;
       color: var(--primary-text-color);
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
       border-radius: 8px;
+      font: inherit;
       cursor: pointer;
+    }
+
+    .toolbar-button {
+      appearance: none;
+      line-height: normal;
+    }
+
+    .toolbar-button.full-width {
+      width: 100%;
+    }
+
+    summary {
       list-style: none;
     }
 
@@ -764,10 +846,75 @@ class TasksTaskTable extends LocalizedLitElement {
         display: block;
       }
     }
+
+    :host([compact]) {
+      margin-top: 0;
+    }
+
+    :host([compact])
+      :is(
+        .due-column,
+        .assignee-column,
+        .files-column,
+        .nfc-column,
+        .labels-column,
+        .notifications-column,
+        .trigger-column,
+        .status-column
+      ) {
+      display: none;
+    }
+
+    :host([compact]) .toolbar {
+      flex-wrap: wrap;
+    }
+
+    :host([compact]) .search {
+      flex: 1;
+    }
+
+    :host([compact]) :is(.toolbar, .selection-toolbar) > details {
+      position: static;
+    }
+
+    :host([compact]) .toolbar .popover-panel {
+      top: calc(100% + 6px);
+      right: 0;
+      left: 0;
+      width: auto;
+      max-width: none;
+      max-height: calc(100dvh - 96px);
+      overflow: auto;
+    }
+
+    :host([compact]) .bulk-bar {
+      width: 100%;
+    }
+
+    :host([compact]) :is(th, td) {
+      padding-right: 10px;
+      padding-left: 10px;
+    }
+
+    :host([compact]) .mobile-details {
+      display: block;
+    }
   `;
 
   declare hass?: HomeAssistant;
   declare tasks: Task[];
+  declare compact: boolean;
+  declare showBulkSelection: boolean;
+  declare showIcon: boolean;
+  declare showAddTask: boolean;
+  declare showHeader: boolean;
+  declare showFilters: boolean;
+  declare configuredFilters?: TaskConfiguredFilters;
+  declare showColumns: boolean;
+  declare configuredColumns?: ColumnKey[];
+  declare now?: string;
+  declare showSearch: boolean;
+  declare showActionMenu: boolean;
   declare search: string;
   declare filters: Filters;
   declare openFilterGroups: FilterKey[];
@@ -799,6 +946,18 @@ class TasksTaskTable extends LocalizedLitElement {
     const local = storedObject("localStorage", localStorageKey);
     const session = storedObject("sessionStorage", sessionStorageKey);
     this.tasks = [];
+    this.compact = false;
+    this.showBulkSelection = true;
+    this.showIcon = true;
+    this.showAddTask = false;
+    this.showHeader = true;
+    this.showFilters = true;
+    this.configuredFilters = undefined;
+    this.showColumns = true;
+    this.configuredColumns = undefined;
+    this.now = undefined;
+    this.showSearch = true;
+    this.showActionMenu = true;
     this.search = typeof session.search === "string" ? session.search : "";
     const storedFilters =
       session.filters &&
@@ -852,6 +1011,18 @@ class TasksTaskTable extends LocalizedLitElement {
   disconnectedCallback(): void {
     document.removeEventListener("click", this.closePanels);
     super.disconnectedCallback();
+  }
+
+  protected willUpdate(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("configuredColumns") && this.configuredColumns) {
+      const visible = new Set(this.configuredColumns);
+      this.columns = Object.fromEntries(
+        (Object.keys(columnLabels) as ColumnKey[]).map((key) => [
+          key,
+          visible.has(key),
+        ]),
+      ) as ColumnVisibility;
+    }
   }
 
   protected updated(): void {
@@ -970,6 +1141,22 @@ class TasksTaskTable extends LocalizedLitElement {
   }
 
   private filterValues(task: Task, key: FilterKey): string[] {
+    if (key === "due") {
+      if (!task.due) {
+        return [];
+      }
+      const timeZone = this.hass?.config?.time_zone;
+      const offset =
+        calendarDay(task.due, timeZone) -
+        calendarDay(this.now || new Date(), timeZone);
+      return [
+        ...(offset < 0 ? ["overdue"] : []),
+        ...(offset === 0 ? ["today"] : []),
+        ...(offset === 1 ? ["tomorrow"] : []),
+        ...(offset >= 0 && offset < 7 ? ["next_7_days"] : []),
+        ...(offset >= 0 && offset < 30 ? ["next_30_days"] : []),
+      ];
+    }
     if (key === "assignee") {
       const user = this.users.find((item) => item.id === task.assignee_id);
       return [user?.id || "__none__"];
@@ -1015,16 +1202,24 @@ class TasksTaskTable extends LocalizedLitElement {
           );
     }
     if (key === "status") {
-      return value === "paused" ? t("app.paused") : t("app.active");
+      const option = taskStatusFilterOptions.find(
+        (item) => item.value === value,
+      );
+      return option ? t(option.label) : value;
     }
-    return value === "sensor"
-      ? t("task.problem_sensor")
-      : value === "fixed"
-        ? t("task.fixed")
-        : t("task.sliding");
+    const option = taskTriggerFilterOptions.find(
+      (item) => item.value === value,
+    );
+    return option ? t(option.label) : value;
   }
 
   private filterOptions(key: FilterKey): FilterOption[] {
+    if (key === "due") {
+      return taskDueFilterOptions.map((option) => ({
+        value: option.value,
+        label: t(option.label),
+      }));
+    }
     const values = new Set(
       this.tasks.flatMap((task) => this.filterValues(task, key)),
     );
@@ -1038,9 +1233,15 @@ class TasksTaskTable extends LocalizedLitElement {
       );
   }
 
-  private matchesFilters(task: Task): boolean {
-    return (Object.keys(this.filters) as FilterKey[]).every((key) => {
-      const selected = this.filters[key];
+  private activeFilters(): Filters {
+    return this.configuredFilters
+      ? { ...emptyFilters(), ...this.configuredFilters }
+      : this.filters;
+  }
+
+  private matchesFilters(task: Task, filters: Filters): boolean {
+    return filterKeys.every((key) => {
+      const selected = filters[key];
       return (
         !selected.length ||
         this.filterValues(task, key).some((value) =>
@@ -1101,13 +1302,16 @@ class TasksTaskTable extends LocalizedLitElement {
   }
 
   private visibleTasks(): Task[] {
-    const query = this.search.trim().toLocaleLowerCase(
-      this.hass?.locale?.language,
-    );
+    const query = this.showSearch
+      ? this.search.trim().toLocaleLowerCase(
+          this.hass?.locale?.language,
+        )
+      : "";
+    const filters = this.activeFilters();
     return this.tasks
       .filter(
         (task) =>
-          this.matchesFilters(task) &&
+          this.matchesFilters(task, filters) &&
           (!query ||
             [
               task.name,
@@ -1151,7 +1355,14 @@ class TasksTaskTable extends LocalizedLitElement {
   }
 
   private resetColumns(): void {
-    this.columns = { ...defaultColumns };
+    this.columns = this.configuredColumns
+      ? Object.fromEntries(
+          (Object.keys(columnLabels) as ColumnKey[]).map((key) => [
+            key,
+            this.configuredColumns!.includes(key),
+          ]),
+        ) as ColumnVisibility
+      : { ...defaultColumns };
     this.storeLocalView();
   }
 
@@ -1222,11 +1433,9 @@ class TasksTaskTable extends LocalizedLitElement {
   }
 
   private mobileDetails(task: Task) {
-    const keys = (Object.keys(this.columns) as ColumnKey[])
-      .filter(
-        (key) =>
-          this.columns[key] && this.columnText(task, key) !== "—",
-      );
+    const keys = this.visibleColumnKeys().filter(
+      (key) => this.columnText(task, key) !== "—",
+    );
     return keys.map(
       (key, index) => html`
         ${index ? html`<span aria-hidden="true"> · </span>` : nothing}
@@ -1235,8 +1444,21 @@ class TasksTaskTable extends LocalizedLitElement {
     );
   }
 
+  private visibleColumnKeys(): ColumnKey[] {
+    return (
+      this.configuredColumns ??
+      (Object.keys(this.columns) as ColumnKey[])
+    ).filter((key) => this.columns[key]);
+  }
+
   private visibleColumnCount(): number {
-    return Object.values(this.columns).filter(Boolean).length + 4;
+    return (
+      this.visibleColumnKeys().length +
+      1 +
+      Number(this.showIcon) +
+      Number(this.showBulkSelection) +
+      Number(this.showActionMenu)
+    );
   }
 
   private selectedTasks(): Task[] {
@@ -1617,10 +1839,12 @@ class TasksTaskTable extends LocalizedLitElement {
   }
 
   private selectedFilterCount(): number {
-    return Object.values(this.filters).reduce(
-      (count, values) => count + values.length,
-      0,
-    );
+    return this.showFilters
+      ? filterKeys.reduce(
+          (count, key) => count + this.filters[key].length,
+          0,
+        )
+      : 0;
   }
 
   private filterGroup(
@@ -1720,125 +1944,206 @@ class TasksTaskTable extends LocalizedLitElement {
   protected render() {
     const tasks = this.visibleTasks();
     const filterCount = this.selectedFilterCount();
-    const visibleColumns = (Object.keys(this.columns) as ColumnKey[]).filter(
-      (key) => this.columns[key],
+    const visibleColumns = this.visibleColumnKeys();
+    const selectedTasks = this.showBulkSelection
+      ? this.selectedTasks()
+      : [];
+    const selectedIds = new Set(
+      this.showBulkSelection ? this.selectedIds : [],
     );
-    const selectedTasks = this.selectedTasks();
-    const selectedIds = new Set(this.selectedIds);
     const allVisibleSelected =
       tasks.length > 0 &&
       tasks.every((task) => selectedIds.has(task.id));
     const someVisibleSelected = tasks.some((task) =>
       selectedIds.has(task.id),
     );
+    const showToolbar =
+      this.showSearch ||
+      this.showAddTask ||
+      this.showFilters ||
+      this.showColumns ||
+      selectedTasks.length > 0;
+    const onlyAddTask =
+      this.showAddTask &&
+      !this.showSearch &&
+      !this.showFilters &&
+      !this.showColumns &&
+      selectedTasks.length === 0;
     return staticHtml`
-      <div class="toolbar">
-        <div class="selection-toolbar">
-          <input
-            class="search"
-            type="search"
-            aria-label=${t("table.search")}
-            placeholder=${t("table.search")}
-            .value=${this.search}
-            @input=${(event: Event) => {
-              this.search = (event.currentTarget as HTMLInputElement).value;
-              this.retainVisibleSelection();
-              this.storeSessionView();
-            }}
-          >
-          ${selectedTasks.length
-            ? this.renderBulkMenu(selectedTasks)
-            : nothing}
-        </div>
-        <details>
-          <summary>${t("table.filters")}${filterCount ? ` (${filterCount})` : ""}</summary>
-          <div class="popover-panel filter-panel">
-            <div class="filter-grid">
-              ${this.filterGroup(t("task.assignment"), "assignee")}
-              ${this.filterGroup(t("task.labels"), "labels")}
-              ${this.filterGroup(t("table.notifications"), "notifications")}
-              ${this.filterGroup(t("table.recurrence"), "trigger")}
-              ${this.filterGroup(t("app.status"), "status")}
-            </div>
-            <div class="filter-footer">
-              ${this.registryError
-                ? html`<p class="registry-error">${this.registryError}</p>`
+      ${showToolbar
+        ? html`
+            <div class="toolbar">
+              ${this.showSearch ||
+              this.showAddTask ||
+              selectedTasks.length
+                ? html`
+                    <div class="selection-toolbar">
+                      ${this.showSearch
+                        ? html`
+                            <input
+                              class="search"
+                              type="search"
+                              aria-label=${t("table.search")}
+                              placeholder=${t("table.search")}
+                              .value=${this.search}
+                              @input=${(event: Event) => {
+                                this.search = (
+                                  event.currentTarget as HTMLInputElement
+                                ).value;
+                                this.retainVisibleSelection();
+                                this.storeSessionView();
+                              }}
+                            >
+                          `
+                        : nothing}
+                      ${this.showAddTask
+                        ? html`
+                            <button
+                              class=${onlyAddTask
+                                ? "toolbar-button full-width"
+                                : "toolbar-button"}
+                              type="button"
+                              @click=${() =>
+                                this.dispatchEvent(
+                                  new CustomEvent("tasks-task-add", {
+                                    bubbles: true,
+                                    composed: true,
+                                  }),
+                                )}
+                            >
+                              ${t("card.add_task")}
+                            </button>
+                          `
+                        : nothing}
+                      ${selectedTasks.length
+                        ? this.renderBulkMenu(selectedTasks)
+                        : nothing}
+                    </div>
+                  `
                 : nothing}
-              <ha-button
-                appearance="plain"
-                variant="neutral"
-                @click=${() => {
-                  this.filters = emptyFilters();
-                  this.storeSessionView();
-                }}
-              >
-                ${t("table.reset_filters")}
-              </ha-button>
+              ${this.showFilters
+                ? html`
+                    <details>
+                      <summary>
+                        ${t("table.filters")}${filterCount
+                          ? ` (${filterCount})`
+                          : ""}
+                      </summary>
+                      <div class="popover-panel filter-panel">
+                        <div class="filter-grid">
+                          ${filterKeys.map((key) =>
+                            this.filterGroup(t(filterLabels[key]), key))}
+                        </div>
+                        <div class="filter-footer">
+                          ${this.registryError
+                            ? html`<p class="registry-error">
+                                ${this.registryError}
+                              </p>`
+                            : nothing}
+                          <ha-button
+                            appearance="plain"
+                            variant="neutral"
+                            @click=${() => {
+                              this.filters = emptyFilters();
+                              this.storeSessionView();
+                            }}
+                          >
+                            ${t("table.reset_filters")}
+                          </ha-button>
+                        </div>
+                      </div>
+                    </details>
+                  `
+                : nothing}
+              ${this.showColumns
+                ? html`
+                    <details>
+                      <summary>${t("table.columns")}</summary>
+                      <div class="popover-panel column-panel">
+                        <div class="column-options">
+                          ${(Object.keys(columnLabels) as ColumnKey[]).map(
+                            (key) => html`
+                              <button
+                                class=${this.columns[key]
+                                  ? "option-row active"
+                                  : "option-row"}
+                                type="button"
+                                aria-pressed=${this.columns[key]}
+                                @click=${() =>
+                                  this.toggleColumn(
+                                    key,
+                                    !this.columns[key],
+                                  )}
+                              >
+                                <span>${t(columnLabels[key])}</span>
+                                ${this.columns[key]
+                                  ? html`<ha-icon
+                                      icon="mdi:check"
+                                    ></ha-icon>`
+                                  : nothing}
+                              </button>
+                            `,
+                          )}
+                        </div>
+                        <div class="filter-footer">
+                          <ha-button
+                            appearance="plain"
+                            variant="neutral"
+                            @click=${this.resetColumns}
+                          >
+                            ${t("table.reset_columns")}
+                          </ha-button>
+                        </div>
+                      </div>
+                    </details>
+                  `
+                : nothing}
             </div>
-          </div>
-        </details>
-        <details>
-          <summary>${t("table.columns")}</summary>
-          <div class="popover-panel column-panel">
-            <div class="column-options">
-              ${(Object.keys(columnLabels) as ColumnKey[]).map(
-                (key) => html`
-                  <button
-                    class=${this.columns[key]
-                      ? "option-row active"
-                      : "option-row"}
-                    type="button"
-                    aria-pressed=${this.columns[key]}
-                    @click=${() =>
-                      this.toggleColumn(key, !this.columns[key])}
-                  >
-                    <span>${t(columnLabels[key])}</span>
-                    ${this.columns[key]
-                      ? html`<ha-icon icon="mdi:check"></ha-icon>`
-                      : nothing}
-                  </button>
-                `,
-              )}
-            </div>
-            <div class="filter-footer">
-              <ha-button
-                appearance="plain"
-                variant="neutral"
-                @click=${this.resetColumns}
-              >
-                ${t("table.reset_columns")}
-              </ha-button>
-            </div>
-          </div>
-        </details>
-      </div>
+          `
+        : nothing}
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th class="selection">
-                <ha-checkbox
-                  aria-label=${t("app.select_visible")}
-                  .checked=${allVisibleSelected}
-                  .indeterminate=${someVisibleSelected &&
-                  !allVisibleSelected}
-                  @change=${(event: Event) =>
-                    this.toggleVisible(
-                      tasks,
-                      (
-                        event.currentTarget as HTMLElement & {
-                          checked: boolean;
-                        }
-                      ).checked,
-                    )}
-                ></ha-checkbox>
-              </th>
-              <th class="icon" aria-hidden="true"></th>
-              <th>${t("table.task")}</th>
-              ${visibleColumns.map((key) => this.columnHeader(key))}
-              <th class="actions" aria-label=${t("task.actions")}></th>
-            </tr>
-          </thead>
+          ${this.showHeader
+            ? html`
+                <thead>
+                  <tr>
+                    ${this.showBulkSelection
+                      ? html`
+                          <th class="selection">
+                            <ha-checkbox
+                              aria-label=${t("app.select_visible")}
+                              .checked=${allVisibleSelected}
+                              .indeterminate=${someVisibleSelected &&
+                              !allVisibleSelected}
+                              @change=${(event: Event) =>
+                                this.toggleVisible(
+                                  tasks,
+                                  (
+                                    event.currentTarget as HTMLElement & {
+                                      checked: boolean;
+                                    }
+                                  ).checked,
+                                )}
+                            ></ha-checkbox>
+                          </th>
+                        `
+                      : nothing}
+                    ${this.showIcon
+                      ? html`<th class="icon" aria-hidden="true"></th>`
+                      : nothing}
+                    <th>${t("table.task")}</th>
+                    ${visibleColumns.map((key) =>
+                      this.columnHeader(key))}
+                    ${this.showActionMenu
+                      ? html`<th
+                          class="actions"
+                          aria-label=${t("task.actions")}
+                        ></th>`
+                      : nothing}
+                  </tr>
+                </thead>
+              `
+            : nothing}
           <tbody>
             ${tasks.length
               ? tasks.map(
@@ -1848,33 +2153,43 @@ class TasksTaskTable extends LocalizedLitElement {
                       aria-selected=${selectedIds.has(task.id)}
                       @click=${() => this.open(task)}
                     >
-                      <td
-                        class="selection"
-                        @click=${(event: Event) => event.stopPropagation()}
-                      >
-                        <ha-checkbox
-                          aria-label=${t("app.select_task", {
-                            name: task.name,
-                          })}
-                          .checked=${selectedIds.has(task.id)}
-                          @change=${(event: Event) =>
-                            this.toggleTask(
-                              task.id,
-                              (
-                                event.currentTarget as HTMLElement & {
-                                  checked: boolean;
-                                }
-                              ).checked,
-                            )}
-                        ></ha-checkbox>
-                      </td>
-                      <td class="icon">
-                        <ha-icon
-                          .icon=${task.active === false
-                            ? "mdi:pause-circle-outline"
-                            : task.icon || "mdi:clipboard-check-outline"}
-                        ></ha-icon>
-                      </td>
+                      ${this.showBulkSelection
+                        ? html`
+                            <td
+                              class="selection"
+                              @click=${(event: Event) =>
+                                event.stopPropagation()}
+                            >
+                              <ha-checkbox
+                                aria-label=${t("app.select_task", {
+                                  name: task.name,
+                                })}
+                                .checked=${selectedIds.has(task.id)}
+                                @change=${(event: Event) =>
+                                  this.toggleTask(
+                                    task.id,
+                                    (
+                                      event.currentTarget as HTMLElement & {
+                                        checked: boolean;
+                                      }
+                                    ).checked,
+                                  )}
+                              ></ha-checkbox>
+                            </td>
+                          `
+                        : nothing}
+                      ${this.showIcon
+                        ? html`
+                            <td class="icon">
+                              <ha-icon
+                                .icon=${task.active === false
+                                  ? "mdi:pause-circle-outline"
+                                  : task.icon ||
+                                    "mdi:clipboard-check-outline"}
+                              ></ha-icon>
+                            </td>
+                          `
+                        : nothing}
                       <td class="task-name">
                         ${task.name}
                         <span class="mobile-details">
@@ -1883,26 +2198,34 @@ class TasksTaskTable extends LocalizedLitElement {
                       </td>
                       ${visibleColumns.map((key) =>
                         this.columnCell(task, key))}
-                      <td
-                        class="actions"
-                        @click=${(event: Event) => event.stopPropagation()}
-                      >
-                        <${actionMenuTag}
-                          label=${t("app.actions_for", {
-                            name: task.name,
-                          })}
-                          .items=${taskActions(task)}
-                          @tasks-action=${(event: CustomEvent<string>) =>
-                            this.action(task, event.detail)}
-                        ></${actionMenuTag}>
-                      </td>
+                      ${this.showActionMenu
+                        ? staticHtml`
+                            <td
+                              class="actions"
+                              @click=${(event: Event) =>
+                                event.stopPropagation()}
+                            >
+                              <${actionMenuTag}
+                                label=${t("app.actions_for", {
+                                  name: task.name,
+                                })}
+                                .items=${taskActions(task)}
+                                @tasks-action=${(
+                                  event: CustomEvent<string>,
+                                ) => this.action(task, event.detail)}
+                              ></${actionMenuTag}>
+                            </td>
+                          `
+                        : nothing}
                     </tr>
                   `,
                 )
               : html`
                   <tr>
                     <td class="empty" colspan=${this.visibleColumnCount()}>
-                      ${this.search ? t("table.empty") : t("app.no_tasks")}
+                      ${this.showSearch && this.search
+                        ? t("table.empty")
+                        : t("app.no_tasks")}
                     </td>
                   </tr>
                 `}

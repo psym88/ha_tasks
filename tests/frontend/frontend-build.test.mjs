@@ -251,7 +251,10 @@ test("frontend task table resolves registry names and excludes deleted reference
     taskTable,
     /this\.devices\s*\.filter\(\(device\) => ids\.has\(device\.id\)\)/,
   );
-  assert.match(taskTable, /assignee: "table\.assignee"/);
+  assert.match(
+    taskTable,
+    /\{ value: "assignee", label: "table\.assignee" \}/,
+  );
   assert.match(taskTable, /this\.columnHeader\(key\)/);
 });
 
@@ -261,14 +264,20 @@ test("frontend task filters combine dimensions and values without grouping", () 
     "labels",
     "notifications",
     "trigger",
+    "due",
   ]) {
     assert.match(taskTable, new RegExp(`"${dimension}"`));
   }
-  assert.match(taskTable, /private matchesFilters\(task: Task\)/);
-  assert.match(taskTable, /Object\.keys\(this\.filters\).*\.every/s);
+  assert.match(
+    taskTable,
+    /private matchesFilters\(task: Task, filters: Filters\)/,
+  );
+  assert.match(taskTable, /return filterKeys\.every/);
   assert.match(taskTable, /this\.filterValues\(task, key\)\.some/);
   assert.match(taskTable, /selected\.includes\(value\)/);
   assert.match(taskTable, /this\.filters = emptyFilters\(\)/);
+  assert.match(taskTable, /offset >= 0 && offset < 7/);
+  assert.match(taskTable, /offset >= 0 && offset < 30/);
   assert.doesNotMatch(taskTable, /grouping|group_by|groupColumn/i);
 });
 
@@ -277,7 +286,10 @@ test("frontend table owns optional column visibility without grouping", () => {
   assert.match(taskTable, /labels: false/);
   assert.match(taskTable, /notifications: false/);
   assert.match(taskTable, /this\.toggleColumn/);
-  assert.match(taskTable, /visibleColumns\.map\(\(key\) => this\.columnHeader\(key\)\)/);
+  assert.match(
+    taskTable,
+    /visibleColumns\.map\(\(key\) =>\s*this\.columnHeader\(key\)\)/,
+  );
   assert.match(taskTable, /visibleColumns\.map\(\(key\) =>\s*this\.columnCell\(task, key\)\)/);
 });
 
@@ -328,46 +340,135 @@ test("frontend bulk actions cover existing assignment and notification behavior"
   assert.match(taskTable, /openTasksDialog/);
 });
 
-test("frontend dashboard card owns its view and editor", () => {
+test("frontend dashboard card owns its shared table view", () => {
   assert.match(cardEntry, /import "\.\/dashboard-card"/);
   assert.doesNotMatch(source, /dashboard-card/);
   assert.match(
     dashboardCard,
     /class TasksDashboardCard extends LocalizedLitElement/,
   );
-  assert.match(
-    dashboardCard,
-    /class TasksDashboardCardEditor extends LocalizedLitElement/,
-  );
-  assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
-  assert.match(dashboardCard, /secondary_info:/);
-  assert.match(dashboardCard, /due_days:/);
-  assert.match(dashboardCard, /assignee_filter:/);
-  assert.doesNotMatch(
-    dashboardCard,
-    /<ha-(?:card|list|icon|form|selector)/,
-  );
+  assert.match(dashboardCard, /taskTableElementName/);
+  assert.match(dashboardCard, /<\$\{taskTableTag\}/);
+  assert.match(dashboardCard, /\n        compact\n/);
+  assert.doesNotMatch(dashboardCard, /secondary_info:|due_days:|assignee_filter:/);
 });
 
 test("frontend dashboard card uses live snapshots and owned task actions", () => {
   assert.match(dashboardCard, /subscribeTasks\(hass/);
-  assert.match(dashboardCard, /task\.active !== false/);
-  assert.match(dashboardCard, /currentUserFilter/);
-  assert.match(dashboardCard, /dateKey\(task\.due/);
   assert.match(dashboardCard, /openTaskViewer/);
   assert.match(dashboardCard, /openTaskEditor/);
-  assert.match(dashboardCard, /taskActions\(task\)/);
+  assert.match(dashboardCard, /@tasks-task-open=/);
+  assert.match(dashboardCard, /@tasks-task-action=/);
+  assert.match(taskTable, /compact: \{ type: Boolean, reflect: true \}/);
+  assert.match(taskTable, /:host\(\[compact\]\) \.mobile-details/);
 });
 
 test("frontend dashboard card follows the Lovelace custom-card contract", () => {
   assert.match(dashboardCard, /stableCardTag = "tasks-card"/);
-  assert.match(dashboardCard, /editorElementName = "tasks-card-editor"/);
   assert.match(dashboardCard, /customElements\.define\(stableCardTag/);
-  assert.match(dashboardCard, /customElements\.define\(editorElementName/);
   assert.match(dashboardCard, /card\.type === stableCardTag/);
-  assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
   assert.match(dashboardCard, /const \{ type: _type, \.\.\.config \}/);
   assert.doesNotMatch(dashboardCard, /__haTasksCardRuntime|runtimeChangedEvent/);
+  assert.match(dashboardCard, /show_bulk_selection: false/);
+  assert.match(dashboardCard, /show_action_menu: false/);
+  assert.match(dashboardCard, /show_header: false/);
+  assert.match(
+    dashboardCard,
+    /const defaultColumns: TaskColumnKey\[\] = \["due", "assignee"\]/,
+  );
+});
+
+test("frontend dashboard card uses the official built-in config form", () => {
+  assert.match(dashboardCard, /static getConfigForm\(\)/);
+  assert.doesNotMatch(dashboardCard, /getConfigElement\(\)/);
+  assert.equal(
+    (dashboardCard.match(/type: "expandable"/g) || []).length,
+    9,
+  );
+  assert.match(dashboardCard, /title: t\("card\.options"\)/);
+  assert.match(dashboardCard, /title: t\("card\.filter"\)/);
+  assert.match(
+    dashboardCard,
+    /name: "columns"[\s\S]*?multiple: true,[\s\S]*?reorder: true/,
+  );
+  assert.match(dashboardCard, /title: t\("card\.content"\)/);
+  for (const group of [
+    "task.assignment",
+    "task.labels",
+    "table.notifications",
+    "table.recurrence",
+    "app.status",
+  ]) {
+    assert.match(dashboardCard, new RegExp(`title: t\\("${group}"\\)`));
+  }
+  for (const option of [
+    "show_bulk_selection",
+    "show_search",
+    "show_action_menu",
+    "show_icon",
+    "show_add_task",
+    "show_header",
+    "filter_assignees",
+    "filter_current_user",
+    "filter_unassigned",
+    "filter_labels",
+    "filter_no_labels",
+    "filter_notifications",
+    "filter_persistent",
+    "filter_no_notifications",
+    "filter_triggers",
+    "filter_statuses",
+    "filter_due",
+    "columns",
+  ]) {
+    assert.match(dashboardCard, new RegExp(`name: "${option}"`));
+  }
+  assert.doesNotMatch(dashboardCard, /name: "show_filters"/);
+  assert.doesNotMatch(dashboardCard, /name: "show_columns"/);
+  assert.match(dashboardCard, /filter: \[\{ domain: "person" \}\]/);
+  assert.match(dashboardCard, /selector: \{ label: \{ multiple: true \} \}/);
+  assert.match(
+    dashboardCard,
+    /filter: \[\{ integration: "mobile_app" \}\]/,
+  );
+  assert.match(dashboardCard, /computeLabel:/);
+  assert.match(
+    dashboardCard,
+    /private configuredFilters\(\): TaskConfiguredFilters/,
+  );
+  assert.doesNotMatch(dashboardCard, /calendarDayInTimeZone|dueOffset/);
+  assert.doesNotMatch(dashboardCard, /snapshot\.tasks\.filter/);
+  assert.match(dashboardCard, /\.tasks=\$\{this\.snapshot\.tasks\}/);
+  assert.match(taskTable, /offset >= 0 && offset < 7/);
+  assert.match(taskTable, /offset >= 0 && offset < 30/);
+  assert.match(dashboardCard, /assigneeIds\.add\(this\.hass\.user\.id\)/);
+  assert.match(dashboardCard, /\.showIcon=\$\{this\.config\.show_icon\}/);
+  assert.match(
+    dashboardCard,
+    /\.showAddTask=\$\{this\.config\.show_add_task\}/,
+  );
+  assert.match(
+    dashboardCard,
+    /\.showHeader=\$\{this\.config\.show_header\}/,
+  );
+  assert.match(dashboardCard, /@tasks-task-add=/);
+  assert.match(dashboardCard, /\.showFilters=\$\{false\}/);
+  assert.match(dashboardCard, /\.showColumns=\$\{false\}/);
+  assert.match(
+    dashboardCard,
+    /\.configuredFilters=\$\{this\.configuredFilters\(\)\}/,
+  );
+  assert.match(
+    taskTable,
+    /this\.configuredFilters[\s\S]*\{ \.\.\.emptyFilters\(\), \.\.\.this\.configuredFilters \}/,
+  );
+  assert.match(dashboardCard, /\.configuredColumns=\$\{this\.config\.columns\}/);
+  assert.match(
+    taskTable,
+    /private visibleColumnKeys\(\): ColumnKey\[\]/,
+  );
+  assert.match(taskTable, /const keys = this\.visibleColumnKeys\(\)\.filter/);
+  assert.match(taskTable, /const visibleColumns = this\.visibleColumnKeys\(\)/);
 });
 
 test("frontend panel streams archive export and import through the owned backup UI", () => {

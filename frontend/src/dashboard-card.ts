@@ -1,37 +1,46 @@
-import { css, html, nothing } from "lit";
+import { css, html } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
-import {
-  deleteTask,
-  loadAssignmentOptions,
-  setTaskActive,
-  subscribeTasks,
-} from "./api";
+import { deleteTask, setTaskActive, subscribeTasks } from "./api";
 import { errorText, ready, setLanguage, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
 import { openTaskEditor } from "./task-form";
-import { taskActions } from "./task-table";
+import {
+  taskColumnOptions,
+  taskDueFilterOptions,
+  taskStatusFilterOptions,
+  taskTableElementName,
+  taskTriggerFilterOptions,
+  type TaskColumnKey,
+  type TaskConfiguredFilters,
+  type TaskDueFilterValue,
+  type TaskStatusFilterValue,
+  type TaskTriggerFilterValue,
+} from "./task-table";
 import { openTaskViewer } from "./task-viewer";
-import type {
-  HomeAssistant,
-  Task,
-  TasksLabel,
-  TasksSnapshot,
-  TasksTag,
-  TasksUser,
-} from "./types";
-import { actionMenuElementName } from "./ui/action-menu";
+import type { HomeAssistant, Task, TasksSnapshot } from "./types";
 import { openTasksDialog } from "./ui/dialog";
-
-type SecondaryInfo = "due" | "assignee" | "nfc_tag" | "labels";
 
 interface CardConfig {
   type: string;
+  show_bulk_selection: boolean;
+  show_search: boolean;
   show_action_menu: boolean;
+  show_icon: boolean;
   show_add_task: boolean;
-  secondary_info: SecondaryInfo[];
-  due_days: number | null;
-  assignee_filter: string;
+  show_header: boolean;
+  filter_assignees: string[];
+  filter_current_user: boolean;
+  filter_unassigned: boolean;
+  filter_labels: string[];
+  filter_no_labels: boolean;
+  filter_notifications: string[];
+  filter_persistent: boolean;
+  filter_no_notifications: boolean;
+  filter_triggers: TaskTriggerFilterValue[];
+  filter_statuses: TaskStatusFilterValue[];
+  filter_due: TaskDueFilterValue[];
+  columns: TaskColumnKey[];
 }
 
 declare global {
@@ -45,23 +54,28 @@ declare global {
 }
 
 const stableCardTag = "tasks-card";
-const editorElementName = "tasks-card-editor";
-const secondaryOptions: Array<{
-  value: SecondaryInfo;
-  label: string;
-}> = [
-  { value: "due", label: "task.due" },
-  { value: "assignee", label: "task.user" },
-  { value: "nfc_tag", label: "task.nfc_tag_id" },
-  { value: "labels", label: "task.labels" },
-];
+const taskTableTag = unsafeStatic(taskTableElementName);
+const defaultColumns: TaskColumnKey[] = ["due", "assignee"];
 const defaultConfig = (): CardConfig => ({
   type: `custom:${stableCardTag}`,
+  show_bulk_selection: false,
+  show_search: true,
   show_action_menu: false,
-  show_add_task: false,
-  secondary_info: secondaryOptions.map((option) => option.value),
-  due_days: 0,
-  assignee_filter: "all",
+  show_icon: true,
+  show_add_task: true,
+  show_header: false,
+  filter_assignees: [],
+  filter_current_user: false,
+  filter_unassigned: false,
+  filter_labels: [],
+  filter_no_labels: false,
+  filter_notifications: [],
+  filter_persistent: false,
+  filter_no_notifications: false,
+  filter_triggers: [],
+  filter_statuses: [],
+  filter_due: [],
+  columns: [...defaultColumns],
 });
 
 const stubConfig = (): Partial<CardConfig> => {
@@ -69,270 +83,71 @@ const stubConfig = (): Partial<CardConfig> => {
   return config;
 };
 
-const normalizeConfig = (
-  value: Partial<CardConfig> = {},
-): CardConfig => {
-  const dueDays = Number(value.due_days);
-  return {
-    ...defaultConfig(),
-    ...value,
-    type: value.type || `custom:${stableCardTag}`,
-    show_action_menu: value.show_action_menu === true,
-    show_add_task: value.show_add_task === true,
-    secondary_info: Array.isArray(value.secondary_info)
-      ? value.secondary_info.filter(
-          (item, index, values): item is SecondaryInfo =>
-            secondaryOptions.some((option) => option.value === item) &&
-            values.indexOf(item) === index,
-        )
-      : secondaryOptions.map((option) => option.value),
-    due_days:
-      value.due_days === null
-        ? null
-        : Number.isInteger(dueDays) && dueDays >= 0
-          ? dueDays
-          : 0,
-    assignee_filter:
-      typeof value.assignee_filter === "string" &&
-      value.assignee_filter.trim()
-        ? value.assignee_filter.trim()
-        : "all",
-  };
-};
+const configuredValues = <T extends string>(
+  value: unknown,
+  options: readonly { value: T }[],
+  fallback: T[],
+): T[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (item, index, values): item is T =>
+          typeof item === "string" &&
+          options.some((option) => option.value === item) &&
+          values.indexOf(item) === index,
+      )
+    : [...fallback];
 
-const dateKey = (value: string, timeZone?: string): string => {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone,
-  }).formatToParts(new Date(value));
-  const part = (type: string): string =>
-    parts.find((item) => item.type === type)?.value || "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-};
+const stringValues = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (item, index, values): item is string =>
+          typeof item === "string" && values.indexOf(item) === index,
+      )
+    : [];
 
-const addDays = (value: string, days: number): string => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + days))
-    .toISOString()
-    .slice(0, 10);
-};
-
-class TasksDashboardCardEditor extends LocalizedLitElement {
-  static properties = {
-    hass: { attribute: false },
-    config: { state: true },
-  };
-
-  static styles = css`
-    :host {
-      display: grid;
-      gap: 18px;
-      padding: 8px 0;
-      color: var(--primary-text-color);
-      font-family: var(--ha-font-family-body, sans-serif);
-    }
-
-    fieldset {
-      display: grid;
-      gap: 8px;
-      margin: 0;
-      padding: 0;
-      border: 0;
-    }
-
-    legend {
-      margin-bottom: 4px;
-      font-weight: 600;
-    }
-
-    label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 36px;
-    }
-
-    label.field {
-      display: grid;
-      gap: 5px;
-    }
-
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      accent-color: var(--primary-color);
-    }
-
-    input[type="number"],
-    select {
-      min-height: 40px;
-      box-sizing: border-box;
-      padding: 7px 10px;
-      color: var(--primary-text-color);
-      background: var(--card-background-color);
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
-      font: inherit;
-    }
-  `;
-
-  declare hass?: HomeAssistant;
-  declare config: CardConfig;
-  private language?: string;
-
-  constructor() {
-    super();
-    this.config = defaultConfig();
-  }
-
-  setConfig(config: Partial<CardConfig>): void {
-    this.config = normalizeConfig(config);
-  }
-
-  protected updated(): void {
-    if (this.hass?.locale?.language !== this.language) {
-      this.language = this.hass?.locale?.language;
-      void setLanguage(this.language).then(() => this.requestUpdate());
-    }
-  }
-
-  private change(changes: Partial<CardConfig>): void {
-    this.config = { ...this.config, ...changes };
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        bubbles: true,
-        composed: true,
-        detail: { config: this.config },
-      }),
-    );
-  }
-
-  protected render() {
-    const customAssignee = !["all", "current_user"].includes(
-      this.config.assignee_filter,
-    );
-    return html`
-      <fieldset>
-        <legend>${t("card.options")}</legend>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${this.config.show_action_menu}
-            @change=${(event: Event) =>
-              this.change({
-                show_action_menu: (
-                  event.currentTarget as HTMLInputElement
-                ).checked,
-              })}
-          >
-          ${t("card.show_action_menu")}
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${this.config.show_add_task}
-            @change=${(event: Event) =>
-              this.change({
-                show_add_task: (
-                  event.currentTarget as HTMLInputElement
-                ).checked,
-              })}
-          >
-          ${t("card.show_add_task")}
-        </label>
-      </fieldset>
-      <fieldset>
-        <legend>${t("card.state_content")}</legend>
-        ${secondaryOptions.map(
-          (option) => html`
-            <label>
-              <input
-                type="checkbox"
-                .checked=${this.config.secondary_info.includes(
-                  option.value,
-                )}
-                @change=${(event: Event) => {
-                  const checked = (
-                    event.currentTarget as HTMLInputElement
-                  ).checked;
-                  this.change({
-                    secondary_info: checked
-                      ? [
-                          ...this.config.secondary_info,
-                          option.value,
-                        ]
-                      : this.config.secondary_info.filter(
-                          (value) => value !== option.value,
-                        ),
-                  });
-                }}
-              >
-              ${t(option.label)}
-            </label>
-          `,
-        )}
-      </fieldset>
-      <fieldset>
-        <legend>${t("card.filter")}</legend>
-        <label class="field">
-          <span>${t("card.due_days")}</span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            .value=${this.config.due_days === null
-              ? ""
-              : String(this.config.due_days)}
-            @change=${(event: Event) => {
-              const value = (
-                event.currentTarget as HTMLInputElement
-              ).value;
-              this.change({
-                due_days: value === "" ? null : Math.max(0, Number(value)),
-              });
-            }}
-          >
-        </label>
-        <label class="field">
-          <span>${t("task.user")}</span>
-          <select
-            .value=${this.config.assignee_filter}
-            @change=${(event: Event) =>
-              this.change({
-                assignee_filter: (
-                  event.currentTarget as HTMLSelectElement
-                ).value,
-              })}
-          >
-            <option value="all">${t("card.all_users")}</option>
-            <option value="current_user">${t("card.current_user")}</option>
-            ${customAssignee
-              ? html`
-                  <option value=${this.config.assignee_filter}>
-                    ${this.config.assignee_filter}
-                  </option>
-                `
-              : nothing}
-          </select>
-        </label>
-      </fieldset>
-    `;
-  }
-}
-
-const actionMenuTag = unsafeStatic(actionMenuElementName);
+const normalizeConfig = (config: Partial<CardConfig>): CardConfig => ({
+  type: config.type || `custom:${stableCardTag}`,
+  show_bulk_selection: config.show_bulk_selection === true,
+  show_search: config.show_search !== false,
+  show_action_menu: config.show_action_menu === true,
+  show_icon: config.show_icon !== false,
+  show_add_task: config.show_add_task !== false,
+  show_header: config.show_header === true,
+  filter_assignees: stringValues(config.filter_assignees),
+  filter_current_user: config.filter_current_user === true,
+  filter_unassigned: config.filter_unassigned === true,
+  filter_labels: stringValues(config.filter_labels),
+  filter_no_labels: config.filter_no_labels === true,
+  filter_notifications: stringValues(config.filter_notifications),
+  filter_persistent: config.filter_persistent === true,
+  filter_no_notifications: config.filter_no_notifications === true,
+  filter_triggers: configuredValues(
+    config.filter_triggers,
+    taskTriggerFilterOptions,
+    [],
+  ),
+  filter_statuses: configuredValues(
+    config.filter_statuses,
+    taskStatusFilterOptions,
+    [],
+  ),
+  filter_due: configuredValues(
+    config.filter_due,
+    taskDueFilterOptions,
+    [],
+  ),
+  columns: configuredValues(
+    config.columns,
+    taskColumnOptions,
+    defaultColumns,
+  ),
+});
 
 class TasksDashboardCard extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     config: { state: true },
     snapshot: { state: true },
-    users: { state: true },
-    tags: { state: true },
-    labels: { state: true },
     error: { state: true },
   };
 
@@ -343,129 +158,20 @@ class TasksDashboardCard extends LocalizedLitElement {
       font-family: var(--ha-font-family-body, sans-serif);
     }
 
-    .card {
-      overflow: hidden;
-      background: var(--ha-card-background, var(--card-background-color));
-      border: var(--ha-card-border-width) solid
-        var(--ha-card-border-color, var(--divider-color));
-      border-radius: var(--ha-card-border-radius);
-      box-shadow: var(--ha-card-box-shadow);
-    }
-
-    ul {
+    .message {
       margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    li {
-      display: flex;
-      align-items: center;
-      min-height: 56px;
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    li:last-child {
-      border-bottom: 0;
-    }
-
-    .row,
-    .add {
-      display: grid;
-      min-width: 0;
-      flex: 1;
-      grid-template-columns: 14px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      align-self: stretch;
-      padding: 8px 16px;
-      color: inherit;
-      background: transparent;
-      border: 0;
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .row:hover,
-    .add:hover {
-      background: color-mix(
-        in srgb,
-        var(--primary-text-color) 4%,
-        transparent
-      );
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      background: var(--success-color);
-      border-radius: 50%;
-    }
-
-    .today .dot {
-      background: var(--warning-color);
-    }
-
-    .overdue .dot {
-      background: var(--error-color);
-    }
-
-    .copy {
-      min-width: 0;
-    }
-
-    .name {
-      display: block;
-      overflow: hidden;
-      font-weight: 500;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .meta {
-      display: block;
-      margin-top: 2px;
-      overflow: hidden;
+      padding: var(--ha-space-4);
       color: var(--secondary-text-color);
-      font-size: 13px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .menu {
-      flex: 0 0 48px;
-      text-align: center;
-    }
-
-    .empty,
-    .error {
-      padding: 20px 16px;
-      color: var(--secondary-text-color);
-      text-align: center;
     }
 
     .error {
       color: var(--error-color);
-    }
-
-    .add {
-      grid-template-columns: 14px minmax(0, 1fr);
-      color: var(--primary-color);
-    }
-
-    .plus {
-      font-size: 22px;
-      line-height: 1;
     }
   `;
 
   declare hass?: HomeAssistant;
   declare config: CardConfig;
   declare snapshot?: TasksSnapshot;
-  declare users: TasksUser[];
-  declare tags: TasksTag[];
-  declare labels: TasksLabel[];
   declare error: string;
 
   private connection?: HomeAssistant["connection"];
@@ -476,16 +182,226 @@ class TasksDashboardCard extends LocalizedLitElement {
     return stubConfig();
   }
 
-  static getConfigElement(): HTMLElement {
-    return document.createElement(editorElementName);
+  static getConfigForm() {
+    return {
+      schema: [
+        {
+          type: "expandable",
+          name: "",
+          title: t("card.options"),
+          flatten: true,
+          schema: [
+            {
+              name: "show_bulk_selection",
+              selector: { boolean: {} },
+            },
+            {
+              name: "show_search",
+              selector: { boolean: {} },
+            },
+            {
+              name: "show_action_menu",
+              selector: { boolean: {} },
+            },
+            {
+              name: "show_icon",
+              selector: { boolean: {} },
+            },
+            {
+              name: "show_add_task",
+              selector: { boolean: {} },
+            },
+            {
+              name: "show_header",
+              selector: { boolean: {} },
+            },
+          ],
+        },
+        {
+          type: "expandable",
+          name: "",
+          title: t("card.filter"),
+          flatten: true,
+          schema: [
+            {
+              type: "expandable",
+              name: "",
+              title: t("task.assignment"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_assignees",
+                  selector: {
+                    entity: {
+                      multiple: true,
+                      filter: [{ domain: "person" }],
+                    },
+                  },
+                },
+                {
+                  name: "filter_unassigned",
+                  selector: { boolean: {} },
+                },
+                {
+                  name: "filter_current_user",
+                  selector: { boolean: {} },
+                },
+              ],
+            },
+            {
+              type: "expandable",
+              name: "",
+              title: t("task.labels"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_labels",
+                  selector: { label: { multiple: true } },
+                },
+                {
+                  name: "filter_no_labels",
+                  selector: { boolean: {} },
+                },
+              ],
+            },
+            {
+              type: "expandable",
+              name: "",
+              title: t("table.notifications"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_notifications",
+                  selector: {
+                    device: {
+                      multiple: true,
+                      filter: [{ integration: "mobile_app" }],
+                    },
+                  },
+                },
+                {
+                  name: "filter_persistent",
+                  selector: { boolean: {} },
+                },
+                {
+                  name: "filter_no_notifications",
+                  selector: { boolean: {} },
+                },
+              ],
+            },
+            {
+              type: "expandable",
+              name: "",
+              title: t("table.recurrence"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_triggers",
+                  selector: {
+                    select: {
+                      multiple: true,
+                      options: taskTriggerFilterOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.label),
+                      })),
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              type: "expandable",
+              name: "",
+              title: t("app.status"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_statuses",
+                  selector: {
+                    select: {
+                      multiple: true,
+                      options: taskStatusFilterOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.label),
+                      })),
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              type: "expandable",
+              name: "",
+              title: t("task.due"),
+              flatten: true,
+              schema: [
+                {
+                  name: "filter_due",
+                  selector: {
+                    select: {
+                      multiple: true,
+                      options: taskDueFilterOptions.map((option) => ({
+                        value: option.value,
+                        label: t(option.label),
+                      })),
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "expandable",
+          name: "",
+          title: t("card.content"),
+          flatten: true,
+          schema: [
+            {
+              name: "columns",
+              selector: {
+                select: {
+                  multiple: true,
+                  reorder: true,
+                  options: taskColumnOptions.map((option) => ({
+                    value: option.value,
+                    label: t(option.label),
+                  })),
+                },
+              },
+            },
+          ],
+        },
+      ],
+      computeLabel: (schema: { name: string }): string | undefined => {
+        const labels: Record<string, string> = {
+          show_bulk_selection: "card.multi_selection",
+          show_search: "card.search",
+          show_action_menu: "card.action_menu",
+          show_icon: "task.icon",
+          show_add_task: "card.add_task",
+          show_header: "card.table_header",
+          filter_assignees: "task.user",
+          filter_current_user: "card.current_user",
+          filter_unassigned: "task.unassigned",
+          filter_labels: "task.labels",
+          filter_no_labels: "task.no_labels",
+          filter_notifications: "table.notifications",
+          filter_persistent: "task.notification_persistent",
+          filter_no_notifications: "app.no_notifications",
+          filter_triggers: "table.recurrence",
+          filter_statuses: "app.status",
+          filter_due: "card.due_periods",
+          columns: "card.visible_columns",
+        };
+        return labels[schema.name] ? t(labels[schema.name]) : undefined;
+      },
+    };
   }
 
   constructor() {
     super();
     this.config = defaultConfig();
-    this.users = [];
-    this.tags = [];
-    this.labels = [];
     this.error = "";
   }
 
@@ -497,7 +413,10 @@ class TasksDashboardCard extends LocalizedLitElement {
   }
 
   getCardSize(): number {
-    return Math.max(1, Math.min(8, this.visibleTasks().length));
+    return Math.max(
+      2,
+      Math.min(8, this.snapshot?.tasks.length || 2),
+    );
   }
 
   protected updated(): void {
@@ -530,7 +449,6 @@ class TasksDashboardCard extends LocalizedLitElement {
     const connection = hass.connection;
     this.connection = connection;
     this.error = "";
-    const assignments = loadAssignmentOptions(hass);
     try {
       const unsubscribe = await subscribeTasks(hass, (snapshot) => {
         this.snapshot = snapshot;
@@ -545,153 +463,11 @@ class TasksDashboardCard extends LocalizedLitElement {
         this.error = errorText(error);
       }
     }
-    try {
-      const options = await assignments;
-      if (this.connection === connection) {
-        this.users = options.users;
-        this.tags = options.tags;
-        this.labels = options.labels;
-      }
-    } catch {
-      // Tasks remain usable when registry metadata is unavailable.
-    }
   }
 
-  private timeZone(): string | undefined {
-    return this.hass?.config?.time_zone;
-  }
-
-  private visibleTasks(): Task[] {
-    if (!this.snapshot) {
-      return [];
-    }
-    const today = dateKey(this.snapshot.now, this.timeZone());
-    const limit =
-      this.config.due_days === null
-        ? undefined
-        : addDays(today, this.config.due_days);
-    const currentUserFilter =
-      this.config.assignee_filter === "current_user";
-    const currentUser = this.hass?.user?.id;
-    const namedUsers = !["all", "current_user"].includes(
-      this.config.assignee_filter,
-    )
-      ? new Set(
-          this.users
-            .filter(
-              (user) =>
-                user.name.localeCompare(
-                  this.config.assignee_filter,
-                  undefined,
-                  { sensitivity: "accent" },
-                ) === 0,
-            )
-            .map((user) => user.id),
-        )
-      : undefined;
-    return this.snapshot.tasks
-      .filter(
-        (task) =>
-          task.active !== false &&
-          (!limit ||
-            (!!task.due &&
-              dateKey(task.due, this.timeZone()) <= limit)) &&
-          (!currentUserFilter ||
-            (!!currentUser && task.assignee_id === currentUser)) &&
-          (!namedUsers || namedUsers.has(task.assignee_id || "")),
-      )
-      .sort((left, right) => {
-        if (!!left.due !== !!right.due) {
-          return left.due ? -1 : 1;
-        }
-        return (
-          Date.parse(left.due || "") -
-            Date.parse(right.due || "") ||
-          left.name.localeCompare(
-            right.name,
-            this.hass?.locale?.language,
-          )
-        );
-      });
-  }
-
-  private due(task: Task): string {
-    if (!task.due || !this.snapshot) {
-      return "";
-    }
-    const dueKey = dateKey(task.due, this.timeZone());
-    const todayKey = dateKey(this.snapshot.now, this.timeZone());
-    const difference =
-      (Date.parse(`${dueKey}T00:00:00Z`) -
-        Date.parse(`${todayKey}T00:00:00Z`)) /
-      86_400_000;
-    const relative =
-      difference >= -1 && difference <= 2
-        ? new Intl.RelativeTimeFormat(this.hass?.locale?.language, {
-            numeric: "auto",
-          }).format(difference, "day")
-        : new Intl.DateTimeFormat(this.hass?.locale?.language, {
-            dateStyle: "medium",
-            timeZone: this.timeZone(),
-          }).format(new Date(task.due));
-    return difference >= 0 && difference <= 2
-      ? `${relative} · ${new Intl.DateTimeFormat(
-          this.hass?.locale?.language,
-          {
-            timeStyle: "short",
-            timeZone: this.timeZone(),
-          },
-        ).format(new Date(task.due))}`
-      : relative;
-  }
-
-  private dueStatus(task: Task): string {
-    if (!task.due || !this.snapshot) {
-      return "";
-    }
-    const due = dateKey(task.due, this.timeZone());
-    const today = dateKey(this.snapshot.now, this.timeZone());
-    return due < today ? "overdue" : due === today ? "today" : "future";
-  }
-
-  private metadata(task: Task): string {
-    const values: Record<SecondaryInfo, string> = {
-      due: this.due(task),
-      assignee:
-        this.users.find((user) => user.id === task.assignee_id)?.name || "",
-      nfc_tag:
-        this.tags.find((tag) => tag.id === task.nfc_tag_id)?.name || "",
-      labels: this.labels
-        .filter((label) => task.label_ids?.includes(label.label_id))
-        .map((label) => label.name)
-        .join(", "),
-    };
-    return this.config.secondary_info
-      .map((key) => values[key])
-      .filter(Boolean)
-      .join(" · ");
-  }
-
-  private open(task: Task): void {
+  private openTask(task: Task): void {
     if (this.hass) {
       void openTaskViewer(this.hass, task);
-    }
-  }
-
-  private action(task: Task, action: string): void {
-    if (!this.hass) {
-      return;
-    }
-    if (action === "edit") {
-      void openTaskEditor(this.hass, task);
-    } else if (action === "active") {
-      void setTaskActive(
-        this.hass,
-        task.id,
-        task.active === false,
-      );
-    } else if (action === "delete") {
-      void this.confirmDelete(task);
     }
   }
 
@@ -716,73 +492,92 @@ class TasksDashboardCard extends LocalizedLitElement {
     });
   }
 
+  private handleTaskAction(action: string, task: Task): void {
+    if (!this.hass) {
+      return;
+    }
+    if (action === "edit") {
+      void openTaskEditor(this.hass, task);
+    } else if (action === "active") {
+      void setTaskActive(
+        this.hass,
+        task.id,
+        task.active === false,
+      );
+    } else if (action === "delete") {
+      void this.confirmDelete(task);
+    }
+  }
+
+  private configuredFilters(): TaskConfiguredFilters {
+    const assigneeIds = new Set(
+      this.config.filter_assignees
+        .map(
+          (entityId) =>
+            this.hass?.states?.[entityId]?.attributes?.user_id,
+        )
+        .filter((userId): userId is string => Boolean(userId)),
+    );
+    if (this.config.filter_current_user && this.hass?.user?.id) {
+      assigneeIds.add(this.hass.user.id);
+    }
+    return {
+      assignee: [
+        ...assigneeIds,
+        ...(this.config.filter_unassigned ? ["__none__"] : []),
+      ],
+      labels: [
+        ...this.config.filter_labels,
+        ...(this.config.filter_no_labels ? ["__none__"] : []),
+      ],
+      notifications: [
+        ...this.config.filter_notifications,
+        ...(this.config.filter_persistent ? ["panel"] : []),
+        ...(this.config.filter_no_notifications ? ["__none__"] : []),
+      ],
+      trigger: this.config.filter_triggers,
+      status: this.config.filter_statuses,
+      due: this.config.filter_due,
+    };
+  }
+
   protected render() {
-    const tasks = this.visibleTasks();
     if (this.error) {
-      return html`<article class="card error">${this.error}</article>`;
+      return html`<p class="message error">${this.error}</p>`;
+    }
+    if (!this.snapshot) {
+      return html`<p class="message">${t("common.loading")}</p>`;
     }
     return staticHtml`
-      <article class="card">
-        <ul aria-label=${t("app.title")}>
-          ${tasks.length
-            ? tasks.map((task) => staticHtml`
-                <li class=${this.dueStatus(task)}>
-                  <button
-                    class="row"
-                    type="button"
-                    @click=${() => this.open(task)}
-                  >
-                    <span class="dot" aria-hidden="true"></span>
-                    <span class="copy">
-                      <span class="name">${task.name}</span>
-                      ${this.metadata(task)
-                        ? html`<span class="meta">${this.metadata(task)}</span>`
-                        : nothing}
-                    </span>
-                  </button>
-                  ${this.config.show_action_menu
-                    ? staticHtml`
-                        <span class="menu">
-                          <${actionMenuTag}
-                            label=${t("app.actions_for", {
-                              name: task.name,
-                            })}
-                            .items=${taskActions(task)}
-                            @tasks-action=${(event: CustomEvent<string>) =>
-                              this.action(task, event.detail)}
-                          ></${actionMenuTag}>
-                        </span>
-                      `
-                    : nothing}
-                </li>
-              `)
-            : html`<li class="empty">${t("card.empty")}</li>`}
-          ${this.config.show_add_task
-            ? html`
-                <li>
-                  <button
-                    class="add"
-                    type="button"
-                    @click=${() =>
-                      this.hass && void openTaskEditor(this.hass)}
-                  >
-                    <span class="plus" aria-hidden="true">+</span>
-                    <span>${t("common.add_task")}</span>
-                  </button>
-                </li>
-              `
-            : nothing}
-        </ul>
-      </article>
+      <${taskTableTag}
+        compact
+        .hass=${this.hass}
+        .tasks=${this.snapshot.tasks}
+        .now=${this.snapshot.now}
+        .configuredFilters=${this.configuredFilters()}
+        .showBulkSelection=${this.config.show_bulk_selection}
+        .showIcon=${this.config.show_icon}
+        .showAddTask=${this.config.show_add_task}
+        .showHeader=${this.config.show_header}
+        .showFilters=${false}
+        .showColumns=${false}
+        .configuredColumns=${this.config.columns}
+        .showSearch=${this.config.show_search}
+        .showActionMenu=${this.config.show_action_menu}
+        @tasks-task-open=${(event: CustomEvent<Task>) =>
+          this.openTask(event.detail)}
+        @tasks-task-add=${() =>
+          this.hass && void openTaskEditor(this.hass)}
+        @tasks-task-action=${(
+          event: CustomEvent<{ action: string; task: Task }>,
+        ) => this.handleTaskAction(event.detail.action, event.detail.task)}
+      ></${taskTableTag}>
     `;
   }
 }
 
 if (!customElements.get(stableCardTag)) {
   customElements.define(stableCardTag, TasksDashboardCard);
-}
-if (!customElements.get(editorElementName)) {
-  customElements.define(editorElementName, TasksDashboardCardEditor);
 }
 
 window.customCards ||= [];
