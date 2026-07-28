@@ -88,6 +88,18 @@ const emptyFilters = (): Filters => ({
   status: [],
 });
 
+const dateKey = (value: string | Date, timeZone?: string): string => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone,
+  }).formatToParts(new Date(value));
+  const part = (type: string): string =>
+    parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+
 const storedObject = (
   storageName: "localStorage" | "sessionStorage",
   key: string,
@@ -632,6 +644,14 @@ class TasksTaskTable extends LocalizedLitElement {
       color: var(--secondary-text-color);
     }
 
+    .due-today .icon ha-icon {
+      color: var(--warning-color);
+    }
+
+    .due-overdue .icon ha-icon {
+      color: var(--error-color);
+    }
+
     .status {
       display: inline-flex;
       align-items: center;
@@ -1048,6 +1068,20 @@ class TasksTaskTable extends LocalizedLitElement {
       timeStyle: "short",
       timeZone: this.hass?.config?.time_zone,
     }).format(value);
+  }
+
+  private dueStatus(task: Task): "" | "due-today" | "due-overdue" {
+    if (task.active === false || this.dueValue(task) === undefined) {
+      return "";
+    }
+    const timeZone = this.hass?.config?.time_zone;
+    const due = dateKey(task.due!, timeZone);
+    const today = dateKey(new Date(), timeZone);
+    return due < today ? "due-overdue" : due === today ? "due-today" : "";
+  }
+
+  private rowClass(task: Task): string {
+    return task.active === false ? "inactive" : this.dueStatus(task);
   }
 
   private compareDue(left: Task, right: Task): number {
@@ -1810,7 +1844,7 @@ class TasksTaskTable extends LocalizedLitElement {
               ? tasks.map(
                   (task) => staticHtml`
                     <tr
-                      class=${task.active === false ? "inactive" : ""}
+                      class=${this.rowClass(task)}
                       aria-selected=${selectedIds.has(task.id)}
                       @click=${() => this.open(task)}
                     >

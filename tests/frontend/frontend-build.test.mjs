@@ -225,6 +225,17 @@ test("frontend task table keeps missing and paused due values sorted last", () =
   assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
 
+test("frontend task table colors today's and overdue due information", () => {
+  assert.match(taskTable, /private dueStatus\(task: Task\)/);
+  assert.match(taskTable, /due < today \? "due-overdue"/);
+  assert.match(taskTable, /due === today \? "due-today"/);
+  assert.match(taskTable, /\.due-today \.icon ha-icon/);
+  assert.match(taskTable, /color: var\(--warning-color\)/);
+  assert.match(taskTable, /\.due-overdue \.icon ha-icon/);
+  assert.match(taskTable, /color: var\(--error-color\)/);
+  assert.doesNotMatch(taskTable, /\.due-(?:today|overdue)[^{]*\.due-column/);
+});
+
 test("frontend task table resolves registry names and excludes deleted references", () => {
   assert.match(taskTable, /loadAssignmentOptions/);
   assert.match(taskTable, /loadNotificationDevices/);
