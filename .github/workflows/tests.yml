@@ -58,7 +58,7 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build and type-check V2 frontend
+      - name: Build and type-check frontend
         run: |
           pnpm typecheck:frontend
           pnpm build:frontend
