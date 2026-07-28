@@ -545,7 +545,7 @@ async function openTaskEditor(page, { taskName = null, expandedBox = null } = {}
       : null;
     if (name && !task) throw new Error(`Screenshot task not found: ${name}`);
     if (task) panel.handleTaskAction("edit", task);
-    else panel.shadowRoot.querySelector(".add").click();
+    else panel.shadowRoot.querySelector(".fab").click();
   }, taskName);
   await waitForDialogContent(page, "ha-tasks-task-form");
   await page.waitForFunction(() => {
