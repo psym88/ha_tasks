@@ -602,7 +602,9 @@ async function openDashboard(page) {
         return null;
       };
       const card = walk(document);
-      return card?.snapshot?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".row");
+      const table = card?.shadowRoot?.querySelector("ha-tasks-task-table");
+      return card?.snapshot?.tasks?.length >= 10
+        && table?.shadowRoot?.querySelector("tbody tr");
     }, null, { timeout: uiWaitTimeout });
   } catch (error) {
     const diagnostics = await page.evaluate(() => ({
@@ -652,7 +654,9 @@ async function openDashboard(page) {
       return null;
     };
     const card = walk(document);
-    return card?.snapshot?.tasks?.length >= 10 && card.shadowRoot?.querySelector(".row");
+    const table = card?.shadowRoot?.querySelector("ha-tasks-task-table");
+    return card?.snapshot?.tasks?.length >= 10
+      && table?.shadowRoot?.querySelector("tbody tr");
   }, null, { timeout: uiWaitTimeout });
   await page.evaluate((fixedNow) => {
     const walk = (root) => {

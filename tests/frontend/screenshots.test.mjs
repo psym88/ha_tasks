@@ -26,6 +26,8 @@ test("documentation screenshots target the production frontend elements", () => 
   assert.match(source, /ha-tasks-task-form/);
   assert.match(source, /ha-tasks-expandable/);
   assert.match(source, /card\?\.snapshot\?\.tasks\?\.length/);
+  assert.match(source, /querySelector\("ha-tasks-task-table"\)/);
+  assert.match(source, /querySelector\("tbody tr"\)/);
   assert.doesNotMatch(source, /tasks-popup-|ha-adaptive-dialog|\.task-row/);
 });
 
