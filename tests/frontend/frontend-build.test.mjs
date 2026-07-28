@@ -234,10 +234,20 @@ test("frontend task table owns search, fixed due sorting, and responsive rows", 
   assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
 });
 
-test("frontend task table keeps missing and paused due values sorted last", () => {
+test("frontend task table sorts untriggered sensor tasks before paused tasks", () => {
   assert.match(
     taskTable,
     /if \(task\.active === false \|\| !task\.due\)/,
+  );
+  assert.match(taskTable, /private sortGroup\(task: Task\)/);
+  assert.match(taskTable, /if \(task\.active === false\) \{\s*return 2;/);
+  assert.match(
+    taskTable,
+    /task\.schedule\.type === "sensor" && !task\.due \? 1 : 0/,
+  );
+  assert.match(
+    taskTable,
+    /this\.sortGroup\(left\) - this\.sortGroup\(right\)/,
   );
   assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
@@ -514,7 +524,8 @@ test("frontend planning uses the authoritative preview API for every recurrence"
   );
   assert.match(taskForm, /\.inputType=\$\{"time"\}/);
   assert.match(fields, /input\[type="time"\]/);
-  assert.match(fields, /max-inline-size: 100%/);
+  assert.match(fields, /min-inline-size: 0/);
+  assert.match(fields, /inline-size: -webkit-fill-available/);
 });
 
 test("frontend planning sends only fields used by the selected trigger", () => {

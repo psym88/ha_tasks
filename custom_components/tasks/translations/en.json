@@ -122,6 +122,7 @@
     "ui_table_notifications": "Notification targets",
     "ui_table_search": "Search",
     "ui_table_empty": "No matching tasks",
+    "ui_table_waiting": "Waiting",
     "ui_table_filters": "Filters",
     "ui_table_columns": "Columns",
     "ui_table_reset_filters": "Reset filters",

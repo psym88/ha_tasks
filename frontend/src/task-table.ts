@@ -729,6 +729,10 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     .icon ha-icon {
+      color: var(--primary-text-color);
+    }
+
+    .inactive .icon ha-icon {
       color: var(--secondary-text-color);
     }
 
@@ -1284,6 +1288,13 @@ class TasksTaskTable extends LocalizedLitElement {
   private due(task: Task): string {
     const value = this.dueValue(task);
     if (value === undefined) {
+      if (
+        task.active !== false &&
+        task.schedule.type === "sensor" &&
+        !task.due
+      ) {
+        return t("table.waiting");
+      }
       return "—";
     }
     return new Intl.DateTimeFormat(this.hass?.locale?.language, {
@@ -1307,7 +1318,18 @@ class TasksTaskTable extends LocalizedLitElement {
     return task.active === false ? "inactive" : this.dueStatus(task);
   }
 
+  private sortGroup(task: Task): number {
+    if (task.active === false) {
+      return 2;
+    }
+    return task.schedule.type === "sensor" && !task.due ? 1 : 0;
+  }
+
   private compareDue(left: Task, right: Task): number {
+    const groupDifference = this.sortGroup(left) - this.sortGroup(right);
+    if (groupDifference) {
+      return groupDifference;
+    }
     const leftDue = this.dueValue(left);
     const rightDue = this.dueValue(right);
     if (leftDue === undefined || rightDue === undefined) {

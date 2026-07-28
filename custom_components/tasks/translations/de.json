@@ -122,6 +122,7 @@
     "ui_table_notifications": "Benachrichtigungsziele",
     "ui_table_search": "Suche",
     "ui_table_empty": "Keine passenden Tasks",
+    "ui_table_waiting": "Wartend",
     "ui_table_filters": "Filter",
     "ui_table_columns": "Spalten",
     "ui_table_reset_filters": "Filter zurücksetzen",
