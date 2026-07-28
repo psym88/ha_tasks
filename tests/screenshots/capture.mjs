@@ -423,11 +423,6 @@ async function seedData(socket, token) {
         icon: "mdi:clipboard-check-outline",
         cards: [{
           type: "custom:tasks-card",
-          show_action_menu: true,
-          show_add_task: true,
-          secondary_info: ["due", "assignee", "nfc_tag", "labels"],
-          due_days: null,
-          assignee_ids: [],
         }],
       }],
     },

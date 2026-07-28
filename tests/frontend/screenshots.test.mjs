@@ -46,3 +46,16 @@ test("documentation screenshot seeding consumes the transactional save result", 
   assert.match(source, /const result = await socket\.call\(\{/);
   assert.match(source, /created\.push\(result\.task\)/);
 });
+
+test("documentation dashboard card uses its production defaults", () => {
+  const source = readFileSync(
+    new URL("../screenshots/capture.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /cards:\s*\[\{\s*type: "custom:tasks-card",\s*\}\]/);
+  assert.doesNotMatch(
+    source,
+    /show_action_menu|secondary_info|due_days|assignee_ids/,
+  );
+});
