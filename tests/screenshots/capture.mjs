@@ -388,11 +388,12 @@ async function seedData(socket, token) {
   const fileId = await uploadAttachment(token);
   const created = [];
   for (const definition of taskDefinitions) {
-    created.push(await socket.call({
+    const result = await socket.call({
       type: "tasks/task/save",
       ...definition,
       file_ids: definition.name === targetTaskName ? [fileId] : [],
-    }));
+    });
+    created.push(result.task);
   }
 
   const target = created.find((task) => task.name === targetTaskName);

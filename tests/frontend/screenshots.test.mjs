@@ -28,3 +28,13 @@ test("documentation screenshots target the production frontend elements", () => 
   assert.match(source, /card\?\.snapshot\?\.tasks\?\.length/);
   assert.doesNotMatch(source, /tasks-popup-|ha-adaptive-dialog|\.task-row/);
 });
+
+test("documentation screenshot seeding consumes the transactional save result", () => {
+  const source = readFileSync(
+    new URL("../screenshots/capture.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const result = await socket\.call\(\{/);
+  assert.match(source, /created\.push\(result\.task\)/);
+});
