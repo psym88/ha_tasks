@@ -4,8 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "build:frontend-v2": "node scripts/build-frontend-v2.mjs",
-    "typecheck:frontend-v2": "tsc -p frontend_v2/tsconfig.json",
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "typecheck:frontend": "tsc -p frontend/tsconfig.json",
     "test:frontend": "node --test \"tests/frontend/**/*.test.mjs\"",
     "screenshots": "node tests/screenshots/capture.mjs",
     "screenshots:compare": "node tests/screenshots/compare.mjs"

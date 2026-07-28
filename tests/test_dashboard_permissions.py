@@ -70,18 +70,13 @@ def test_dashboard_module_is_registered_and_removed_with_config_entry():
     assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
 
 
-def test_v2_assets_replace_the_legacy_panel_and_card_registrations():
+def test_frontend_uses_stable_panel_and_card_assets():
     source = (ROOT / "custom_components/tasks/__init__.py").read_text(
         encoding="utf-8"
     )
     assert 'webcomponent_name="tasks-panel"' in source
-    assert 'f"{base_url}/v2/{v2_panel_asset}"' in source
-    assert 'f"{base_url}/v2/{v2_card_asset}"' in source
-    assert 'f"{base_url}/panel.js"' not in source
-    assert 'f"{base_url}/dashboard-card.js"' not in source
-    assert "await hass.async_add_executor_job(" in source
-    assert "_v2_assets" in source
-    assert "V2_PANEL_URL" not in source
+    assert 'f"{base_url}/panel.js"' in source
+    assert 'f"{base_url}/card.js"' in source
 
 
 def test_nfc_listener_lifecycle_is_bound_to_config_entry():

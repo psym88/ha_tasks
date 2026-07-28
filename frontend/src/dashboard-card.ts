@@ -724,7 +724,7 @@ class TasksDashboardCard extends LitElement {
     }
     return staticHtml`
       <article class="card">
-        <ul aria-label=${t("v2.title")}>
+        <ul aria-label=${t("app.title")}>
           ${tasks.length
             ? tasks.map((task) => staticHtml`
                 <li class=${this.dueStatus(task)}>
@@ -745,7 +745,7 @@ class TasksDashboardCard extends LitElement {
                     ? staticHtml`
                         <span class="menu">
                           <${actionMenuTag}
-                            label=${t("v2.actions_for", {
+                            label=${t("app.actions_for", {
                               name: task.name,
                             })}
                             .items=${taskActions(task)}

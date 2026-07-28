@@ -68,8 +68,8 @@ separate archive schema or archive version.
 
 ## Frontend
 
-The TypeScript frontend under `frontend_v2/src` builds content-hashed ES
-modules into `custom_components/tasks/frontend/v2`. Home Assistant registers
+The TypeScript frontend under `frontend/src` builds bundled ES modules into
+`custom_components/tasks/frontend`. Home Assistant registers
 the stable `tasks-panel` and `tasks-card` custom elements from those versioned
 assets. Lit is bundled with the integration; no Home Assistant-internal UI
 component or table library is a runtime dependency.
@@ -100,7 +100,7 @@ paths are task-scoped and served through signed URLs.
 - Backend tests: `pytest`
 - Frontend tests: `node --test tests/frontend/*.test.mjs`
 - `manifest.json` is the release-version source.
-- Built frontend assets use content hashes under a manifest-versioned URL
+- Built frontend assets use stable filenames under a manifest-versioned URL
   prefix.
 - Development releases are tagged from `dev` and published as GitHub
   pre-releases.

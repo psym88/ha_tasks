@@ -51,15 +51,15 @@ interface FilterOption {
   label: string;
 }
 
-const localStorageKey = "tasks-v2-table-state-v1";
-const sessionStorageKey = "tasks-v2-table-session-v1";
+const localStorageKey = "tasks-table-state-v1";
+const sessionStorageKey = "tasks-table-session-v1";
 const columnLabels: Record<ColumnKey, string> = {
   due: "task.due",
   assignee: "table.assignee",
   labels: "task.labels",
   notifications: "table.notifications",
   trigger: "table.recurrence",
-  status: "v2.status",
+  status: "app.status",
 };
 const defaultColumns: ColumnVisibility = {
   due: true,
@@ -93,10 +93,10 @@ const storedObject = (
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 export const taskActions = (task: Task): ActionMenuItem[] => [
-  { label: t("v2.open"), value: "open" },
+  { label: t("app.open"), value: "open" },
   { label: t("menu.edit"), value: "edit" },
   {
-    label: task.active === false ? t("v2.resume") : t("v2.pause"),
+    label: task.active === false ? t("app.resume") : t("app.pause"),
     value: "active",
   },
   { label: t("common.delete"), value: "delete", destructive: true },
@@ -574,7 +574,7 @@ class TasksTaskTable extends LitElement {
       assignments.status === "rejected" ||
       devices.status === "rejected"
     ) {
-      this.registryError = t("v2.registry_load_error");
+      this.registryError = t("app.registry_load_error");
     }
   }
 
@@ -588,7 +588,7 @@ class TasksTaskTable extends LitElement {
   }
 
   private status(task: Task): string {
-    return task.active === false ? t("v2.paused") : t("v2.active");
+    return task.active === false ? t("app.paused") : t("app.active");
   }
 
   private assignee(task: Task): string {
@@ -671,7 +671,7 @@ class TasksTaskTable extends LitElement {
         ? t("task.unassigned")
         : key === "labels"
           ? t("task.no_labels")
-          : t("v2.no_notifications");
+          : t("app.no_notifications");
     }
     if (key === "assignee") {
       return this.users.find((user) => user.id === value)?.name || value;
@@ -1048,7 +1048,7 @@ class TasksTaskTable extends LitElement {
         actions: [
           { label: t("common.cancel"), value: "cancel" },
           {
-            label: deleting ? t("common.delete") : t("v2.complete"),
+            label: deleting ? t("common.delete") : t("app.complete"),
             value: "confirm",
             destructive: deleting,
           },
@@ -1226,7 +1226,7 @@ class TasksTaskTable extends LitElement {
                   type="button"
                   @click=${this.closePanel}
                 >
-                  ${t("v2.done")}
+                  ${t("app.done")}
                 </button>
               </div>
             </div>
@@ -1236,7 +1236,7 @@ class TasksTaskTable extends LitElement {
           <summary>${t("table.columns")}</summary>
           <div class="popover-panel column-panel">
             <fieldset>
-              <legend>${t("v2.visible_columns")}</legend>
+              <legend>${t("app.visible_columns")}</legend>
               ${(Object.keys(columnLabels) as ColumnKey[]).map(
                 (key) => html`
                   <label>
@@ -1257,7 +1257,7 @@ class TasksTaskTable extends LitElement {
             <div class="filter-footer">
               <span></span>
               <button type="button" @click=${this.closePanel}>
-                ${t("v2.done")}
+                ${t("app.done")}
               </button>
             </div>
           </div>
@@ -1267,7 +1267,7 @@ class TasksTaskTable extends LitElement {
         ? html`
             <div class="bulk-bar">
               <span class="bulk-count">
-                ${t("v2.selected", { count: selectedTasks.length })}
+                ${t("app.selected", { count: selectedTasks.length })}
               </span>
               <select
                 aria-label=${t("bulk.actions")}
@@ -1280,21 +1280,21 @@ class TasksTaskTable extends LitElement {
                   this.bulkError = "";
                 }}
               >
-                <option value="">${t("v2.choose_action")}</option>
+                <option value="">${t("app.choose_action")}</option>
                 <option value="complete">${t("bulk.complete")}</option>
-                <option value="pause">${t("v2.pause")}</option>
-                <option value="resume">${t("v2.resume")}</option>
+                <option value="pause">${t("app.pause")}</option>
+                <option value="resume">${t("app.resume")}</option>
                 <option value="assign">${t("bulk.assign_person")}</option>
-                <option value="add-label">${t("v2.add_label")}</option>
-                <option value="remove-label">${t("v2.remove_label")}</option>
-                <option value="add-notification">${t("v2.add_notification")}</option>
-                <option value="remove-notification">${t("v2.remove_notification")}</option>
+                <option value="add-label">${t("app.add_label")}</option>
+                <option value="remove-label">${t("app.remove_label")}</option>
+                <option value="add-notification">${t("app.add_notification")}</option>
+                <option value="remove-notification">${t("app.remove_notification")}</option>
                 <option value="delete">${t("bulk.delete")}</option>
               </select>
               ${bulkTargets.length
                 ? html`
                     <select
-                      aria-label=${t("v2.choose_target")}
+                      aria-label=${t("app.choose_target")}
                       .value=${this.bulkTarget}
                       @change=${(event: Event) => {
                         this.bulkTarget = (
@@ -1302,7 +1302,7 @@ class TasksTaskTable extends LitElement {
                         ).value;
                       }}
                     >
-                      <option value="">${t("v2.choose_target")}</option>
+                      <option value="">${t("app.choose_target")}</option>
                       ${bulkTargets.map(
                         (option) => html`
                           <option value=${option.value}>
@@ -1320,7 +1320,7 @@ class TasksTaskTable extends LitElement {
                 (this.bulkNeedsTarget() && !this.bulkTarget)}
                 @click=${() => void this.applyBulk()}
               >
-                ${this.bulkBusy ? t("v2.applying") : t("v2.apply")}
+                ${this.bulkBusy ? t("app.applying") : t("app.apply")}
               </button>
               <button
                 type="button"
@@ -1332,7 +1332,7 @@ class TasksTaskTable extends LitElement {
                   this.bulkError = "";
                 }}
               >
-                ${t("v2.clear")}
+                ${t("app.clear")}
               </button>
               ${this.bulkError
                 ? html`<p class="bulk-error">${this.bulkError}</p>`
@@ -1347,7 +1347,7 @@ class TasksTaskTable extends LitElement {
               <th class="selection">
                 <input
                   type="checkbox"
-                  aria-label=${t("v2.select_visible")}
+                  aria-label=${t("app.select_visible")}
                   .checked=${allVisibleSelected}
                   .indeterminate=${someVisibleSelected &&
                   !allVisibleSelected}
@@ -1374,7 +1374,7 @@ class TasksTaskTable extends LitElement {
                       <td class="selection">
                         <input
                           type="checkbox"
-                          aria-label=${t("v2.select_task", {
+                          aria-label=${t("app.select_task", {
                             name: task.name,
                           })}
                           .checked=${selectedIds.has(task.id)}
@@ -1402,7 +1402,7 @@ class TasksTaskTable extends LitElement {
                         this.columnCell(task, key))}
                       <td class="actions">
                         <${actionMenuTag}
-                          label=${t("v2.actions_for", {
+                          label=${t("app.actions_for", {
                             name: task.name,
                           })}
                           .items=${taskActions(task)}
@@ -1416,7 +1416,7 @@ class TasksTaskTable extends LitElement {
               : html`
                   <tr>
                     <td class="empty" colspan=${this.visibleColumnCount()}>
-                      ${this.search ? t("table.empty") : t("v2.no_tasks")}
+                      ${this.search ? t("table.empty") : t("app.no_tasks")}
                     </td>
                   </tr>
                 `}

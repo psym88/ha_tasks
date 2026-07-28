@@ -12,7 +12,7 @@ import { openTasksDialog } from "./ui/dialog";
 
 const taskTableTag = unsafeStatic(taskTableElementName);
 
-class TasksPanelV2 extends LitElement {
+class TasksPanel extends LitElement {
   static properties = {
     hass: { attribute: false },
     snapshot: { state: true },
@@ -203,10 +203,10 @@ class TasksPanelV2 extends LitElement {
     return html`
       <main>
         <header>
-          <h1>${t("v2.title")}</h1>
+          <h1>${t("app.title")}</h1>
           <div class="header-actions">
             ${snapshot
-              ? html`${t("v2.summary", {
+              ? html`${t("app.summary", {
                   count: snapshot.tasks.length,
                   revision: snapshot.revision,
                 })}`
@@ -228,7 +228,7 @@ class TasksPanelV2 extends LitElement {
           </div>
         </header>
         ${this.error
-          ? html`<p class="error">${t("v2.load_error", {
+          ? html`<p class="error">${t("app.load_error", {
               message: this.error,
             })}</p>`
           : !snapshot
@@ -251,5 +251,5 @@ class TasksPanelV2 extends LitElement {
 
 const panelElementName = "tasks-panel";
 if (!customElements.get(panelElementName)) {
-  customElements.define(panelElementName, TasksPanelV2);
+  customElements.define(panelElementName, TasksPanel);
 }

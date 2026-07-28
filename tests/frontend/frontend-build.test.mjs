@@ -3,121 +3,102 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(
-  new URL("../../frontend_v2/src/panel.ts", import.meta.url),
+  new URL("../../frontend/src/panel.ts", import.meta.url),
   "utf8",
 );
 const api = await readFile(
-  new URL("../../frontend_v2/src/api.ts", import.meta.url),
+  new URL("../../frontend/src/api.ts", import.meta.url),
   "utf8",
 );
 const archive = await readFile(
-  new URL("../../frontend_v2/src/archive.ts", import.meta.url),
+  new URL("../../frontend/src/archive.ts", import.meta.url),
   "utf8",
 );
 const dialog = await readFile(
-  new URL("../../frontend_v2/src/ui/dialog.ts", import.meta.url),
+  new URL("../../frontend/src/ui/dialog.ts", import.meta.url),
   "utf8",
 );
 const expandable = await readFile(
-  new URL("../../frontend_v2/src/ui/expandable.ts", import.meta.url),
+  new URL("../../frontend/src/ui/expandable.ts", import.meta.url),
   "utf8",
 );
 const version = await readFile(
-  new URL("../../frontend_v2/src/version.ts", import.meta.url),
+  new URL("../../frontend/src/version.ts", import.meta.url),
   "utf8",
 );
 const actionMenu = await readFile(
-  new URL("../../frontend_v2/src/ui/action-menu.ts", import.meta.url),
+  new URL("../../frontend/src/ui/action-menu.ts", import.meta.url),
   "utf8",
 );
 const pill = await readFile(
-  new URL("../../frontend_v2/src/ui/pill.ts", import.meta.url),
+  new URL("../../frontend/src/ui/pill.ts", import.meta.url),
   "utf8",
 );
 const fields = await readFile(
-  new URL("../../frontend_v2/src/ui/fields.ts", import.meta.url),
+  new URL("../../frontend/src/ui/fields.ts", import.meta.url),
   "utf8",
 );
 const taskForm = await readFile(
-  new URL("../../frontend_v2/src/task-form.ts", import.meta.url),
+  new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
 const taskViewer = await readFile(
-  new URL("../../frontend_v2/src/task-viewer.ts", import.meta.url),
+  new URL("../../frontend/src/task-viewer.ts", import.meta.url),
   "utf8",
 );
 const taskTable = await readFile(
-  new URL("../../frontend_v2/src/task-table.ts", import.meta.url),
+  new URL("../../frontend/src/task-table.ts", import.meta.url),
   "utf8",
 );
 const dashboardCard = await readFile(
-  new URL("../../frontend_v2/src/dashboard-card.ts", import.meta.url),
+  new URL("../../frontend/src/dashboard-card.ts", import.meta.url),
   "utf8",
 );
 const cardEntry = await readFile(
-  new URL("../../frontend_v2/src/card.ts", import.meta.url),
+  new URL("../../frontend/src/card.ts", import.meta.url),
   "utf8",
 );
-const assets = JSON.parse(
-  await readFile(
-    new URL(
-      "../../custom_components/tasks/frontend/v2/assets.json",
-      import.meta.url,
-    ),
-    "utf8",
-  ),
-);
 const bundle = await readFile(
-  new URL(
-    `../../custom_components/tasks/frontend/v2/${assets.panel}`,
-    import.meta.url,
-  ),
+  new URL("../../custom_components/tasks/frontend/panel.js", import.meta.url),
   "utf8",
 );
 const cardBundle = await readFile(
-  new URL(
-    `../../custom_components/tasks/frontend/v2/${assets.card}`,
-    import.meta.url,
-  ),
+  new URL("../../custom_components/tasks/frontend/card.js", import.meta.url),
   "utf8",
 );
 
-test("V2 subscribes to the revisioned snapshot protocol", () => {
+test("frontend subscribes to the revisioned snapshot protocol", () => {
   assert.match(api, /type: "tasks\/subscribe"/);
   assert.match(source, /snapshot\.revision/);
 });
 
-test("V2 bundles own their runtime and stable production elements", () => {
-  assert.match(assets.panel, /^panel-[A-Z0-9]+\.js$/);
-  assert.match(assets.card, /^card-[A-Z0-9]+\.js$/);
+test("frontend bundles own their runtime and stable production elements", () => {
   assert.match(version, /`ha-tasks-\${name}`/);
   assert.match(source, /const panelElementName = "tasks-panel"/);
   assert.match(bundle, /tasks-panel/);
   assert.match(cardBundle, /tasks-card/);
-  assert.doesNotMatch(source, /tasks-v2/);
-  assert.doesNotMatch(dashboardCard, /tasks-card-v2/);
   assert.doesNotMatch(bundle, /\bfrom\s+["']lit["']/);
   assert.doesNotMatch(bundle, /\bimport\s+["']lit["']/);
 });
 
-test("V2 dialog is owned and accepts rendered content", () => {
+test("frontend dialog is owned and accepts rendered content", () => {
   assert.match(dialog, /<dialog/);
   assert.match(dialog, /dialog\.showModal\(\)/);
   assert.match(dialog, /dialog\.content = content/);
   assert.doesNotMatch(dialog, /ha-dialog|show-dialog/);
 });
 
-test("V2 expandable uses native disclosure semantics", () => {
+test("frontend expandable uses native disclosure semantics", () => {
   assert.match(expandable, /<details/);
   assert.match(expandable, /<summary>/);
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 
-test("V2 elements use an integration-owned namespace", () => {
+test("frontend elements use an integration-owned namespace", () => {
   assert.match(version, /`ha-tasks-\${name}`/);
 });
 
-test("V2 action menu anchors to its trigger and stays in the viewport", () => {
+test("frontend action menu anchors to its trigger and stays in the viewport", () => {
   assert.match(actionMenu, /trigger\.getBoundingClientRect\(\)/);
   assert.match(actionMenu, /menu\.getBoundingClientRect\(\)/);
   assert.match(actionMenu, /window\.visualViewport/);
@@ -130,19 +111,19 @@ test("V2 action menu anchors to its trigger and stays in the viewport", () => {
   );
 });
 
-test("V2 action menu follows keyboard menu navigation", () => {
+test("frontend action menu follows keyboard menu navigation", () => {
   for (const key of ["ArrowDown", "ArrowUp", "Home", "End"]) {
     assert.match(actionMenu, new RegExp(`event\\.key === "${key}"`));
   }
 });
 
-test("V2 pill owns its presentation", () => {
+test("frontend pill owns its presentation", () => {
   assert.match(pill, /border-radius: 999px/);
   assert.match(pill, /elementName\("pill"\)/);
   assert.doesNotMatch(pill, /ha-chip|ha-assist-chip/);
 });
 
-test("V2 owns its text textarea select combobox and switch controls", () => {
+test("frontend owns its text textarea select combobox and switch controls", () => {
   assert.match(fields, /<input/);
   assert.match(fields, /<textarea/);
   assert.match(fields, /<select/);
@@ -157,7 +138,7 @@ test("V2 owns its text textarea select combobox and switch controls", () => {
   );
 });
 
-test("V2 editor saves task details and planning in one transaction", () => {
+test("frontend editor saves task details and planning in one transaction", () => {
   assert.match(api, /type: "tasks\/task\/save"/);
   assert.match(api, /schedulePayload\(details\.schedule\)/);
   assert.match(api, /task_id: task\.id/);
@@ -168,7 +149,7 @@ test("V2 editor saves task details and planning in one transaction", () => {
   assert.match(taskForm, /this\.scheduleDirty \? schedule : undefined/);
 });
 
-test("V2 creates tasks through the shared editor with complete defaults", () => {
+test("frontend creates tasks through the shared editor with complete defaults", () => {
   assert.match(taskForm, /existingTask\?: Task/);
   assert.match(taskForm, /existingTask\s*\?\s*`\$\{t\("task\.edit"\)\}/);
   assert.match(taskForm, /: t\("task\.new"\)/);
@@ -180,7 +161,7 @@ test("V2 creates tasks through the shared editor with complete defaults", () => 
   assert.match(source, /openTaskEditor\(this\.hass\)/);
 });
 
-test("V2 deletes tasks only after its owned confirmation", () => {
+test("frontend deletes tasks only after its owned confirmation", () => {
   assert.match(api, /type: "tasks\/task\/delete"/);
   assert.match(source, /heading: t\("task\.delete_title"\)/);
   assert.match(source, /run: \(\) => deleteTask\(this\.hass!, task\.id\)/);
@@ -190,12 +171,12 @@ test("V2 deletes tasks only after its owned confirmation", () => {
   );
 });
 
-test("V2 pauses and resumes tasks through the minimal update contract", () => {
+test("frontend pauses and resumes tasks through the minimal update contract", () => {
   assert.match(api, /type: "tasks\/task\/update"/);
   assert.match(api, /task_id: taskId,\s*active,/);
   assert.match(
     taskTable,
-    /task\.active === false \? t\("v2\.resume"\) : t\("v2\.pause"\)/,
+    /task\.active === false \? t\("app\.resume"\) : t\("app\.pause"\)/,
   );
   assert.match(taskTable, /value: "active"/);
   assert.match(
@@ -204,7 +185,7 @@ test("V2 pauses and resumes tasks through the minimal update contract", () => {
   );
 });
 
-test("V2 task table owns search sorting and responsive rows", () => {
+test("frontend task table owns search sorting and responsive rows", () => {
   assert.match(source, /taskTableElementName/);
   assert.match(taskTable, /<table>/);
   assert.match(taskTable, /type="search"/);
@@ -216,7 +197,7 @@ test("V2 task table owns search sorting and responsive rows", () => {
   assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
 });
 
-test("V2 task table keeps missing and paused due values sorted last", () => {
+test("frontend task table keeps missing and paused due values sorted last", () => {
   assert.match(
     taskTable,
     /if \(task\.active === false \|\| !task\.due\)/,
@@ -224,7 +205,7 @@ test("V2 task table keeps missing and paused due values sorted last", () => {
   assert.match(taskTable, /return leftDue === undefined \? 1 : -1/);
 });
 
-test("V2 task table resolves registry names and excludes deleted references", () => {
+test("frontend task table resolves registry names and excludes deleted references", () => {
   assert.match(taskTable, /loadAssignmentOptions/);
   assert.match(taskTable, /loadNotificationDevices/);
   assert.match(
@@ -243,7 +224,7 @@ test("V2 task table resolves registry names and excludes deleted references", ()
   assert.match(taskTable, /this\.columnHeader\(key\)/);
 });
 
-test("V2 task filters combine dimensions and values without grouping", () => {
+test("frontend task filters combine dimensions and values without grouping", () => {
   for (const dimension of [
     "assignee",
     "labels",
@@ -260,7 +241,7 @@ test("V2 task filters combine dimensions and values without grouping", () => {
   assert.doesNotMatch(taskTable, /grouping|group_by|groupColumn/i);
 });
 
-test("V2 table owns optional column visibility without grouping", () => {
+test("frontend table owns optional column visibility without grouping", () => {
   assert.match(taskTable, /type ColumnKey =/);
   assert.match(taskTable, /labels: false/);
   assert.match(taskTable, /notifications: false/);
@@ -269,9 +250,9 @@ test("V2 table owns optional column visibility without grouping", () => {
   assert.match(taskTable, /visibleColumns\.map\(\(key\) =>\s*this\.columnCell\(task, key\)\)/);
 });
 
-test("V2 table persists durable and per-tab view state separately", () => {
-  assert.match(taskTable, /tasks-v2-table-state-v1/);
-  assert.match(taskTable, /tasks-v2-table-session-v1/);
+test("frontend table persists durable and per-tab view state separately", () => {
+  assert.match(taskTable, /tasks-table-state-v1/);
+  assert.match(taskTable, /tasks-table-session-v1/);
   assert.match(
     taskTable,
     /localStorage\?\.setItem\([\s\S]*sortKey:[\s\S]*columns:/,
@@ -283,12 +264,12 @@ test("V2 table persists durable and per-tab view state separately", () => {
   assert.match(taskTable, /catch \{[\s\S]*Storage can be unavailable/);
 });
 
-test("V2 table selection submits one transactional bulk command", () => {
+test("frontend table selection submits one transactional bulk command", () => {
   assert.match(api, /type: "tasks\/task\/bulk"/);
   assert.match(api, /operations,/);
   assert.match(taskTable, /selectedIds: \{ state: true \}/);
-  assert.match(taskTable, /aria-label=\$\{t\("v2\.select_visible"\)\}/);
-  assert.match(taskTable, /t\("v2\.select_task"/);
+  assert.match(taskTable, /aria-label=\$\{t\("app\.select_visible"\)\}/);
+  assert.match(taskTable, /t\("app\.select_task"/);
   assert.match(taskTable, /private bulkOperations\(\): BulkTaskOperation\[\]/);
   assert.match(taskTable, /await mutateTasks\(this\.hass, operations\)/);
   assert.match(taskTable, /action: "complete"/);
@@ -296,7 +277,7 @@ test("V2 table selection submits one transactional bulk command", () => {
   assert.match(taskTable, /action: "update"/);
 });
 
-test("V2 bulk actions cover existing assignment and notification behavior", () => {
+test("frontend bulk actions cover existing assignment and notification behavior", () => {
   for (const action of [
     "pause",
     "resume",
@@ -315,7 +296,7 @@ test("V2 bulk actions cover existing assignment and notification behavior", () =
   assert.match(taskTable, /openTasksDialog/);
 });
 
-test("V2 dashboard card owns its view and editor", () => {
+test("frontend dashboard card owns its view and editor", () => {
   assert.match(cardEntry, /import "\.\/dashboard-card"/);
   assert.doesNotMatch(source, /dashboard-card/);
   assert.match(dashboardCard, /class TasksDashboardCard extends LitElement/);
@@ -333,7 +314,7 @@ test("V2 dashboard card owns its view and editor", () => {
   );
 });
 
-test("V2 dashboard card uses live snapshots and owned task actions", () => {
+test("frontend dashboard card uses live snapshots and owned task actions", () => {
   assert.match(dashboardCard, /subscribeTasks\(hass/);
   assert.match(dashboardCard, /task\.active !== false/);
   assert.match(dashboardCard, /currentUserFilter/);
@@ -343,7 +324,7 @@ test("V2 dashboard card uses live snapshots and owned task actions", () => {
   assert.match(dashboardCard, /taskActions\(task\)/);
 });
 
-test("V2 dashboard card follows the Lovelace custom-card contract", () => {
+test("frontend dashboard card follows the Lovelace custom-card contract", () => {
   assert.match(dashboardCard, /stableCardTag = "tasks-card"/);
   assert.match(dashboardCard, /editorElementName = "tasks-card-editor"/);
   assert.match(dashboardCard, /customElements\.define\(stableCardTag/);
@@ -351,10 +332,10 @@ test("V2 dashboard card follows the Lovelace custom-card contract", () => {
   assert.match(dashboardCard, /card\.type === stableCardTag/);
   assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
   assert.match(dashboardCard, /const \{ type: _type, \.\.\.config \}/);
-  assert.doesNotMatch(dashboardCard, /__haTasksV2CardRuntime|runtimeChangedEvent/);
+  assert.doesNotMatch(dashboardCard, /__haTasksCardRuntime|runtimeChangedEvent/);
 });
 
-test("V2 panel streams archive export and import through the owned backup UI", () => {
+test("frontend panel streams archive export and import through the owned backup UI", () => {
   assert.match(source, /openArchive\(this\.hass\)/);
   assert.match(api, /fetchWithAuth\("\/api\/tasks\/archive"/);
   assert.match(api, /method: "POST"/);
@@ -365,7 +346,7 @@ test("V2 panel streams archive export and import through the owned backup UI", (
   assert.match(archive, /report\.attachments_skipped/);
 });
 
-test("V2 planning uses the authoritative preview API for every recurrence", () => {
+test("frontend planning uses the authoritative preview API for every recurrence", () => {
   assert.match(api, /type: "tasks\/task\/preview_next_due"/);
   assert.match(taskForm, /previewTaskSchedule/);
   assert.match(taskForm, /scheduleType === "sensor"/);
@@ -376,7 +357,7 @@ test("V2 planning uses the authoritative preview API for every recurrence", () =
   assert.match(taskForm, /startsWith\("binary_sensor\."\)/);
 });
 
-test("V2 planning sends only fields used by the selected trigger", () => {
+test("frontend planning sends only fields used by the selected trigger", () => {
   assert.match(api, /if \(schedule\.type === "sensor"\)/);
   assert.match(api, /entity_id: schedule\.problemSensor\.trim\(\)/);
   assert.match(api, /if \(schedule\.type === "fixed"\)/);
@@ -384,7 +365,7 @@ test("V2 planning sends only fields used by the selected trigger", () => {
   assert.match(api, /payload\.month = schedule\.month/);
 });
 
-test("V2 assignment loads registries and saves only after editing", () => {
+test("frontend assignment loads registries and saves only after editing", () => {
   assert.match(api, /type: "tasks\/list"/);
   assert.match(api, /type: "tag\/list"/);
   assert.match(api, /type: "config\/label_registry\/list"/);
@@ -395,7 +376,7 @@ test("V2 assignment loads registries and saves only after editing", () => {
   assert.match(taskForm, /this\.assignmentDirty[\s\S]*?assignment:/);
 });
 
-test("V2 assignment excludes deleted registry references", () => {
+test("frontend assignment excludes deleted registry references", () => {
   assert.match(
     taskForm,
     /this\.users\.some\(\(user\) => user\.id === this\.assigneeId\)/,
@@ -410,7 +391,7 @@ test("V2 assignment excludes deleted registry references", () => {
   );
 });
 
-test("V2 notification editor loads mobile devices and saves only after editing", () => {
+test("frontend notification editor loads mobile devices and saves only after editing", () => {
   assert.match(api, /type: "config\/device_registry\/list"/);
   assert.match(api, /identifier\?\.\[0\] === "mobile_app"/);
   assert.match(
@@ -431,7 +412,7 @@ test("V2 notification editor loads mobile devices and saves only after editing",
   assert.match(taskForm, /notificationRoute\.startsWith\("\/\/"\)/);
 });
 
-test("V2 notification editor excludes deleted and non-mobile devices", () => {
+test("frontend notification editor excludes deleted and non-mobile devices", () => {
   assert.match(
     taskForm,
     /this\.devices\.some\(\(device\) => device\.id === id\)/,
@@ -439,7 +420,7 @@ test("V2 notification editor excludes deleted and non-mobile devices", () => {
   assert.match(taskForm, /loadNotificationDevices/);
 });
 
-test("V2 stages attachments and commits file changes transactionally", () => {
+test("frontend stages attachments and commits file changes transactionally", () => {
   assert.match(api, /hass\.fetchWithAuth\("\/api\/tasks\/upload"/);
   assert.match(api, /file_ids: fileIds/);
   assert.match(
@@ -453,7 +434,7 @@ test("V2 stages attachments and commits file changes transactionally", () => {
   assert.doesNotMatch(taskForm, /ha-file-upload|ha-selector/);
 });
 
-test("V2 loads completion history and stages deletion until save", () => {
+test("frontend loads completion history and stages deletion until save", () => {
   assert.match(api, /type: "tasks\/history\/list"/);
   assert.match(
     api,
@@ -464,7 +445,7 @@ test("V2 loads completion history and stages deletion until save", () => {
   assert.match(taskForm, /t\("history\.completed_via_nfc"\)/);
 });
 
-test("V2 task viewer loads assignment history and signed attachments", () => {
+test("frontend task viewer loads assignment history and signed attachments", () => {
   assert.match(taskViewer, /loadAssignmentOptions/);
   assert.match(taskViewer, /loadTaskHistory/);
   assert.match(taskViewer, /loadAttachmentUrls/);
@@ -473,7 +454,7 @@ test("V2 task viewer loads assignment history and signed attachments", () => {
   assert.match(source, /openTaskViewer/);
 });
 
-test("V2 previews common attachment types in its owned dialog", () => {
+test("frontend previews common attachment types in its owned dialog", () => {
   assert.match(taskViewer, /type\.startsWith\("image\/"\)/);
   assert.match(taskViewer, /type\.startsWith\("video\/"\)/);
   assert.match(taskViewer, /type\.startsWith\("audio\/"\)/);
@@ -482,7 +463,7 @@ test("V2 previews common attachment types in its owned dialog", () => {
   assert.doesNotMatch(taskViewer, /ha-dialog|show-dialog/);
 });
 
-test("V2 completion requires confirmation and sends trimmed notes", () => {
+test("frontend completion requires confirmation and sends trimmed notes", () => {
   assert.match(api, /type: "tasks\/task\/complete"/);
   assert.match(api, /notes: notes\.trim\(\) \|\| null/);
   assert.match(taskViewer, /heading: t\("task\.complete_title"\)/);
@@ -491,7 +472,7 @@ test("V2 completion requires confirmation and sends trimmed notes", () => {
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
 });
 
-test("V2 viewer renders complete trigger rules and responsive details", () => {
+test("frontend viewer renders complete trigger rules and responsive details", () => {
   assert.match(taskViewer, /schedule\.type === "sensor"/);
   assert.match(taskViewer, /schedule\.type === "sliding"/);
   assert.match(taskViewer, /unit === "weekly"/);
@@ -502,7 +483,7 @@ test("V2 viewer renders complete trigger rules and responsive details", () => {
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 
-test("V2 viewer preserves safe common markdown without HA internals", () => {
+test("frontend viewer preserves safe common markdown without HA internals", () => {
   assert.match(taskViewer, /renderDescription\(\)/);
   assert.match(taskViewer, /<strong>/);
   assert.match(taskViewer, /<em>/);
@@ -512,12 +493,12 @@ test("V2 viewer preserves safe common markdown without HA internals", () => {
   assert.doesNotMatch(taskViewer, /unsafeHTML|ha-markdown/);
 });
 
-test("V2 viewer keeps independently loaded details available", () => {
+test("frontend viewer keeps independently loaded details available", () => {
   assert.match(taskViewer, /Promise\.allSettled/);
   assert.match(taskViewer, /assignment\.status === "fulfilled"/);
   assert.match(taskViewer, /history\.status === "fulfilled"/);
   assert.match(taskViewer, /files\.status === "fulfilled"/);
-  assert.match(taskViewer, /t\("v2\.assignment_load_error"\)/);
-  assert.match(taskViewer, /t\("v2\.history_load_error"\)/);
-  assert.match(taskViewer, /t\("v2\.attachment_load_error"\)/);
+  assert.match(taskViewer, /t\("app\.assignment_load_error"\)/);
+  assert.match(taskViewer, /t\("app\.history_load_error"\)/);
+  assert.match(taskViewer, /t\("app\.attachment_load_error"\)/);
 });

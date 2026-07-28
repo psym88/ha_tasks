@@ -60,8 +60,8 @@ jobs:
 
       - name: Build and type-check V2 frontend
         run: |
-          pnpm typecheck:frontend-v2
-          pnpm build:frontend-v2
+          pnpm typecheck:frontend
+          pnpm build:frontend
 
       - name: Run frontend tests
         run: pnpm test:frontend

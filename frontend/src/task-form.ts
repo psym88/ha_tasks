@@ -43,12 +43,12 @@ const switchFieldTag = unsafeStatic(switchFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
 
 const statusOptions = (): FieldOption[] => [
-  { label: t("v2.active"), value: "active" },
-  { label: t("v2.inactive"), value: "inactive" },
+  { label: t("app.active"), value: "active" },
+  { label: t("app.inactive"), value: "inactive" },
 ];
 
 const iconOptions = (): FieldOption[] => [
-  { label: t("v2.title"), value: "mdi:clipboard-check-outline" },
+  { label: t("app.title"), value: "mdi:clipboard-check-outline" },
   { label: "🛠", value: "mdi:wrench-outline" },
   { label: "🧹", value: "mdi:broom" },
   { label: "⌂", value: "mdi:home-outline" },
@@ -507,7 +507,7 @@ class TasksTaskForm extends LitElement {
         ? this.nfcTagId
         : "";
     } catch {
-      this.assignmentError = t("v2.assignment_load_error");
+      this.assignmentError = t("app.assignment_load_error");
     } finally {
       this.assignmentLoading = false;
     }
@@ -540,7 +540,7 @@ class TasksTaskForm extends LitElement {
         this.devices.some((device) => device.id === id),
       );
     } catch {
-      this.notificationError = t("v2.notification_load_error");
+      this.notificationError = t("app.notification_load_error");
     } finally {
       this.notificationLoading = false;
     }
@@ -558,7 +558,7 @@ class TasksTaskForm extends LitElement {
       const result = await loadTaskHistory(hass, task.id);
       this.history = Array.isArray(result.history) ? result.history : [];
     } catch {
-      this.historyError = t("v2.history_load_error");
+      this.historyError = t("app.history_load_error");
     } finally {
       this.historyLoading = false;
     }
@@ -597,7 +597,7 @@ class TasksTaskForm extends LitElement {
     if (this.scheduleType === "sensor") {
       const problemSensor = this.problemSensor.trim();
       if (!problemSensor.startsWith("binary_sensor.")) {
-        error = t("v2.select_binary_sensor");
+        error = t("app.select_binary_sensor");
       }
       if (reportError) {
         this.scheduleError = error;
@@ -606,12 +606,12 @@ class TasksTaskForm extends LitElement {
     }
 
     if (!Number.isInteger(this.scheduleInterval) || this.scheduleInterval < 1) {
-      error = t("v2.interval_min");
+      error = t("app.interval_min");
     } else if (
       this.scheduleType === "fixed" &&
       !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.scheduleTime)
     ) {
-      error = t("v2.select_valid_time");
+      error = t("app.select_valid_time");
     } else if (
       this.scheduleType === "fixed" &&
       this.scheduleUnit === "weekly" &&
@@ -679,7 +679,7 @@ class TasksTaskForm extends LitElement {
     } catch {
       if (request === this.previewRequest) {
         this.preview = [];
-        this.previewError = t("v2.preview_load_error");
+        this.previewError = t("app.preview_load_error");
       }
     } finally {
       if (request === this.previewRequest) {
@@ -701,14 +701,14 @@ class TasksTaskForm extends LitElement {
     const schedule = this.scheduleDetails(true);
     const notificationRoute = this.notificationRoute.trim();
     if (!name) {
-      this.nameError = t("v2.name_required");
+      this.nameError = t("app.name_required");
     }
     if (
       notificationRoute &&
       (!notificationRoute.startsWith("/") ||
         notificationRoute.startsWith("//"))
     ) {
-      this.notificationRouteError = t("v2.route_invalid");
+      this.notificationRouteError = t("app.route_invalid");
     }
     if (!name || !schedule || this.notificationRouteError) {
       return false;
@@ -853,7 +853,7 @@ class TasksTaskForm extends LitElement {
     }
     if (this.previewLoading && !this.preview.length) {
       return html`<p class="hint" aria-live="polite">
-        ${t("v2.loading_preview")}
+        ${t("app.loading_preview")}
       </p>`;
     }
     if (this.previewError) {
@@ -884,7 +884,7 @@ class TasksTaskForm extends LitElement {
                 this.previewExpanded = !this.previewExpanded;
               }}
             >
-              ${this.previewExpanded ? t("v2.show_less") : t("v2.show_all")}
+              ${this.previewExpanded ? t("app.show_less") : t("app.show_all")}
             </button>
           `
         : nothing}
@@ -918,7 +918,7 @@ class TasksTaskForm extends LitElement {
               })}
           ></${comboboxFieldTag}>
           <p class="hint">
-            ${t("v2.sensor_hint")}
+            ${t("app.sensor_hint")}
           </p>
         </div>
       `;
@@ -937,7 +937,7 @@ class TasksTaskForm extends LitElement {
         ></${selectFieldTag}>
         <div class="row">
           <${textFieldTag}
-            label=${t("v2.every")}
+            label=${t("app.every")}
             required
             .inputType=${"number"}
             .min=${1}
@@ -949,7 +949,7 @@ class TasksTaskForm extends LitElement {
               })}
           ></${textFieldTag}>
           <${selectFieldTag}
-            label=${t("v2.unit")}
+            label=${t("app.unit")}
             .value=${this.scheduleUnit}
             .options=${scheduleUnitOptions()}
             ?disabled=${this.saving}
@@ -963,7 +963,7 @@ class TasksTaskForm extends LitElement {
         ${this.scheduleType === "sliding"
           ? html`
               <p class="hint">
-                ${t("v2.sliding_hint")}
+                ${t("app.sliding_hint")}
               </p>
             `
           : nothing}
@@ -978,7 +978,7 @@ class TasksTaskForm extends LitElement {
   private renderAssignment() {
     if (this.assignmentLoading) {
       return html`<p class="hint" aria-live="polite">
-        ${t("v2.loading_assignments")}
+        ${t("app.loading_assignments")}
       </p>`;
     }
     if (this.assignmentError) {
@@ -1038,7 +1038,7 @@ class TasksTaskForm extends LitElement {
   private renderNotification() {
     if (this.notificationLoading) {
       return html`<p class="hint" aria-live="polite">
-        ${t("v2.loading_notifications")}
+        ${t("app.loading_notifications")}
       </p>`;
     }
     if (this.notificationError) {
@@ -1051,7 +1051,7 @@ class TasksTaskForm extends LitElement {
     return staticHtml`
       <div class="planning">
         <${multiSelectFieldTag}
-          label=${t("v2.mobile_devices")}
+          label=${t("app.mobile_devices")}
           .value=${this.notificationDeviceIds}
           .options=${deviceOptions}
           ?disabled=${this.saving}
@@ -1062,7 +1062,7 @@ class TasksTaskForm extends LitElement {
         ></${multiSelectFieldTag}>
         ${deviceOptions.length
           ? nothing
-          : html`<p class="hint">${t("v2.no_mobile_devices")}</p>`}
+          : html`<p class="hint">${t("app.no_mobile_devices")}</p>`}
         <${switchFieldTag}
           label=${t("task.notification_persistent")}
           description=${t("task.notification_persistent_description")}
@@ -1084,7 +1084,7 @@ class TasksTaskForm extends LitElement {
             })}
         ></${switchFieldTag}>
         <${textFieldTag}
-          label=${t("v2.navigation_target")}
+          label=${t("app.navigation_target")}
           .value=${this.notificationRoute}
           .error=${this.notificationRouteError}
           ?disabled=${this.saving}
@@ -1093,7 +1093,7 @@ class TasksTaskForm extends LitElement {
               this.notificationRoute = event.detail;
             })}
         ></${textFieldTag}>
-        <p class="hint">${t("v2.navigation_hint")}</p>
+        <p class="hint">${t("app.navigation_hint")}</p>
       </div>
     `;
   }
@@ -1137,8 +1137,8 @@ class TasksTaskForm extends LitElement {
                         type="button"
                         aria-label=${t(
                           pending
-                            ? "v2.undo_remove_named"
-                            : "v2.remove_named",
+                            ? "app.undo_remove_named"
+                            : "app.remove_named",
                           { name: attachment.filename },
                         )}
                         ?disabled=${this.saving}
@@ -1161,13 +1161,13 @@ class TasksTaskForm extends LitElement {
                         <span class="record-title">${file.name}</span>
                         <span class="record-detail"
                           >${this.formatSize(file.size)} ·
-                          ${t("v2.new_file")}</span
+                          ${t("app.new_file")}</span
                         >
                       </span>
                       <button
                         class="record-action"
                         type="button"
-                        aria-label=${t("v2.remove_new_file", {
+                        aria-label=${t("app.remove_new_file", {
                           name: file.name,
                         })}
                         ?disabled=${this.saving}
@@ -1186,7 +1186,7 @@ class TasksTaskForm extends LitElement {
             `
           : html`<p class="hint">${t("task.no_files")}.</p>`}
         <label class="file-picker">
-          <span>${t("v2.add_files")}</span>
+          <span>${t("app.add_files")}</span>
           <input
             type="file"
             multiple
@@ -1208,7 +1208,7 @@ class TasksTaskForm extends LitElement {
   private renderHistory() {
     if (this.historyLoading) {
       return html`<p class="hint" aria-live="polite">
-        ${t("v2.loading_history")}
+        ${t("app.loading_history")}
       </p>`;
     }
     if (this.historyError) {
@@ -1226,7 +1226,7 @@ class TasksTaskForm extends LitElement {
           const notes =
             entry.notes === "tasks.history.completed_via_nfc"
               ? t("history.completed_via_nfc")
-              : entry.notes || t("v2.no_notes");
+              : entry.notes || t("app.no_notes");
           return html`
             <li class="record ${pending ? "pending" : ""}">
               <span class="record-copy">
@@ -1283,7 +1283,7 @@ class TasksTaskForm extends LitElement {
           }}
         ></${textFieldTag}>
         <${selectFieldTag}
-          label=${t("v2.status")}
+          label=${t("app.status")}
           .value=${this.status}
           .options=${statusOptions()}
           ?disabled=${this.saving}

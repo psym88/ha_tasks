@@ -1,6 +1,6 @@
 # Tasks rewrite status
 
-The V2 rewrite is complete. This document records the resulting contracts
+The frontend rewrite is complete. This document records the resulting contracts
 rather than the retired transition strategy.
 
 ## Decisions
@@ -57,14 +57,14 @@ embedded in the aggregate.
 - Bulk changes are committed as one backend operation.
 - Editor saves commit task fields, staged uploads, attachment deletions, and
   history deletions as one task operation.
-- HTTP handles multipart attachment uploads and ZIP streaming. WebSocket
-  handles state, commands, and subscriptions.
+- HTTP handles multipart attachment uploads, archive downloads, and streamed
+  archive imports. WebSocket handles state, commands, and subscriptions.
 - Individual attachments are limited to 100 MiB. Archive imports have no
   application-level size limit and are streamed to disk before parsing.
 
 ## Frontend
 
-- The frontend is TypeScript built into content-hashed production assets.
+- The frontend is TypeScript built into stable bundled production assets.
 - Lit is bundled by the integration.
 - Only integration-owned `ha-tasks-*` custom elements and browser primitives
   are used.
@@ -96,6 +96,6 @@ The maintained checks cover:
 - attachment transactions and archive streaming,
 - WebSocket subscriptions and bulk operations,
 - TypeScript type checking,
-- frontend behavior and production asset maps,
+- frontend behavior and generated production assets,
 - Home Assistant startup with the integration mounted read-only from the
   active workspace.

@@ -1,4 +1,4 @@
-import{a as n,b as r,c,d as p,e as f,f as v,g as b,h as y,i as k,k as x,l as _,m as e,n as o,o as T,q as $,r as l,s as d,v as w,w as A}from"./chunk-3GEVNOJB.js";var h=(a,t,s)=>e(a===1?t:s,{count:a}),m=class extends p{static properties={hass:{attribute:!1},busy:{state:!0},status:{state:!0},warning:{state:!0},failed:{state:!0}};static styles=n`
+import{a as n,b as r,c,d as p,e as f,f as v,g as b,h as y,i as k,k as x,l as _,m as e,n as o,o as T,q as $,r as l,s as d,v as w,w as A}from"./shared.js";var h=(a,t,s)=>e(a===1?t:s,{count:a}),m=class extends p{static properties={hass:{attribute:!1},busy:{state:!0},status:{state:!0},warning:{state:!0},failed:{state:!0}};static styles=n`
     :host {
       display: grid;
       gap: 18px;
@@ -176,9 +176,9 @@ import{a as n,b as r,c,d as p,e as f,f as v,g as b,h as y,i as k,k as x,l as _,m
       </p>`,actions:[{label:e("common.cancel"),value:"cancel"},{label:e("common.delete"),value:"delete",destructive:!0,run:()=>x(this.hass,t.id)}]})}handleTaskAction(t,s){this.hass&&(t==="open"?this.openTask(s):t==="edit"?d(this.hass,s):t==="active"?_(this.hass,s.id,s.active===!1):t==="delete"&&this.confirmDelete(s))}render(){let t=this.snapshot;return r`
       <main>
         <header>
-          <h1>${e("v2.title")}</h1>
+          <h1>${e("app.title")}</h1>
           <div class="header-actions">
-            ${t?r`${e("v2.summary",{count:t.tasks.length,revision:t.revision})}`:c}
+            ${t?r`${e("app.summary",{count:t.tasks.length,revision:t.revision})}`:c}
             <button
               class="backup"
               type="button"
@@ -195,7 +195,7 @@ import{a as n,b as r,c,d as p,e as f,f as v,g as b,h as y,i as k,k as x,l as _,m
             </button>
           </div>
         </header>
-        ${this.error?r`<p class="error">${e("v2.load_error",{message:this.error})}</p>`:t?v`
+        ${this.error?r`<p class="error">${e("app.load_error",{message:this.error})}</p>`:t?v`
                 <${H}
                   .hass=${this.hass}
                   .tasks=${t.tasks}

@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 COMPONENT = ROOT / "custom_components" / "tasks"
-FRONTEND_SOURCE = ROOT / "frontend_v2" / "src"
+FRONTEND_SOURCE = ROOT / "frontend" / "src"
 TRANSLATIONS = COMPONENT / "translations"
 
 _DYNAMIC_FRONTEND_KEYS = {

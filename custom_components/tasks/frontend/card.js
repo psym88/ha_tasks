@@ -1,4 +1,4 @@
-import{a as b,b as c,c as u,d as y,e as k,f as h,g as T,j as C,k as E,l as S,m as n,n as D,o as v,p as I,r as Z,s as _,t as A,u as M,w as H}from"./chunk-3GEVNOJB.js";var d="tasks-card",w="tasks-card-editor",p=[{value:"due",label:"task.due"},{value:"assignee",label:"task.user"},{value:"nfc_tag",label:"task.nfc_tag_id"},{value:"labels",label:"task.labels"}],m=()=>({type:`custom:${d}`,show_action_menu:!1,show_add_task:!1,secondary_info:p.map(i=>i.value),due_days:0,assignee_filter:"all"}),U=()=>{let{type:i,...e}=m();return e},P=(i={})=>{let e=Number(i.due_days);return{...m(),...i,type:i.type||`custom:${d}`,show_action_menu:i.show_action_menu===!0,show_add_task:i.show_add_task===!0,secondary_info:Array.isArray(i.secondary_info)?i.secondary_info.filter((t,s,a)=>p.some(o=>o.value===t)&&a.indexOf(t)===s):p.map(t=>t.value),due_days:i.due_days===null?null:Number.isInteger(e)&&e>=0?e:0,assignee_filter:typeof i.assignee_filter=="string"&&i.assignee_filter.trim()?i.assignee_filter.trim():"all"}},l=(i,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(i)),s=a=>t.find(o=>o.type===a)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},z=(i,e)=>{let[t,s,a]=i.split("-").map(Number);return new Date(Date.UTC(t,s-1,a+e)).toISOString().slice(0,10)},x=class extends y{static properties={hass:{attribute:!1},config:{state:!0}};static styles=b`
+import{a as b,b as c,c as u,d as y,e as k,f as h,g as T,j as C,k as E,l as S,m as n,n as D,o as v,p as I,r as Z,s as _,t as A,u as M,w as H}from"./shared.js";var d="tasks-card",w="tasks-card-editor",p=[{value:"due",label:"task.due"},{value:"assignee",label:"task.user"},{value:"nfc_tag",label:"task.nfc_tag_id"},{value:"labels",label:"task.labels"}],m=()=>({type:`custom:${d}`,show_action_menu:!1,show_add_task:!1,secondary_info:p.map(i=>i.value),due_days:0,assignee_filter:"all"}),U=()=>{let{type:i,...e}=m();return e},P=(i={})=>{let e=Number(i.due_days);return{...m(),...i,type:i.type||`custom:${d}`,show_action_menu:i.show_action_menu===!0,show_add_task:i.show_add_task===!0,secondary_info:Array.isArray(i.secondary_info)?i.secondary_info.filter((t,s,a)=>p.some(o=>o.value===t)&&a.indexOf(t)===s):p.map(t=>t.value),due_days:i.due_days===null?null:Number.isInteger(e)&&e>=0?e:0,assignee_filter:typeof i.assignee_filter=="string"&&i.assignee_filter.trim()?i.assignee_filter.trim():"all"}},l=(i,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(i)),s=a=>t.find(o=>o.type===a)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},z=(i,e)=>{let[t,s,a]=i.split("-").map(Number);return new Date(Date.UTC(t,s-1,a+e)).toISOString().slice(0,10)},x=class extends y{static properties={hass:{attribute:!1},config:{state:!0}};static styles=b`
     :host {
       display: grid;
       gap: 18px;
@@ -237,7 +237,7 @@ import{a as b,b as c,c as u,d as y,e as k,f as h,g as T,j as C,k as E,l as S,m a
         ${n("task.delete_confirm",{name:e.name})}
       </p>`,actions:[{label:n("common.cancel"),value:"cancel"},{label:n("common.delete"),value:"delete",destructive:!0,run:()=>E(this.hass,e.id)}]})}render(){let e=this.visibleTasks();return this.error?c`<article class="card error">${this.error}</article>`:h`
       <article class="card">
-        <ul aria-label=${n("v2.title")}>
+        <ul aria-label=${n("app.title")}>
           ${e.length?e.map(t=>h`
                 <li class=${this.dueStatus(t)}>
                   <button
@@ -254,7 +254,7 @@ import{a as b,b as c,c as u,d as y,e as k,f as h,g as T,j as C,k as E,l as S,m a
                   ${this.config.show_action_menu?h`
                         <span class="menu">
                           <${L}
-                            label=${n("v2.actions_for",{name:t.name})}
+                            label=${n("app.actions_for",{name:t.name})}
                             .items=${M(t)}
                             @tasks-action=${s=>this.action(t,s.detail)}
                           ></${L}>

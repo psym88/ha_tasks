@@ -6,7 +6,7 @@ import { build } from "esbuild";
 
 const root = new URL("../..", import.meta.url);
 const localize = await readFile(
-  new URL("frontend_v2/src/localize.ts", root),
+  new URL("frontend/src/localize.ts", root),
   "utf8",
 );
 const languages = {};
@@ -34,7 +34,7 @@ for (const language of ["en", "de"]) {
 }
 
 const sourceFiles = await readdir(
-  new URL("frontend_v2/src", root),
+  new URL("frontend/src", root),
   { recursive: true },
 );
 const source = (
@@ -43,21 +43,21 @@ const source = (
       .filter((file) => file.endsWith(".ts"))
       .map((file) =>
         readFile(
-          new URL(`frontend_v2/src/${file.replaceAll(path.sep, "/")}`, root),
+          new URL(`frontend/src/${file.replaceAll(path.sep, "/")}`, root),
           "utf8",
         ),
       ),
   )
 ).join("\n");
 
-test("V2 loads versioned language catalogs with English fallback", () => {
+test("frontend loads versioned language catalogs with English fallback", () => {
   assert.match(localize, /"\/tasks_strings\.json"/);
   assert.match(localize, /`\/tasks_translations\/\$\{code\}\.json`/);
   assert.match(localize, /\?v=\$\{encodeURIComponent/);
   assert.match(localize, /messages = \{ \.\.\.fallback, \.\.\.translated \}/);
 });
 
-test("V2 localizes Home Assistant WebSocket error objects", async () => {
+test("frontend localizes Home Assistant WebSocket error objects", async () => {
   const output = await build({
     stdin: {
       contents: localize,
@@ -112,7 +112,7 @@ test("V2 localizes Home Assistant WebSocket error objects", async () => {
   );
 });
 
-test("every direct V2 translation key exists in English and German", () => {
+test("every direct frontend translation key exists in English and German", () => {
   const keys = [
     ...source.matchAll(/\bt\(\s*"([^"]+)"/g),
   ].map((match) => match[1]);
@@ -124,7 +124,7 @@ test("every direct V2 translation key exists in English and German", () => {
   }
 });
 
-test("V2 panel and card follow Home Assistant language changes", () => {
+test("frontend panel and card follow Home Assistant language changes", () => {
   assert.match(source, /setLanguage\(this\.language\)/);
   assert.match(source, /this\.hass\?\.locale\?\.language/);
   assert.match(source, /Intl\.RelativeTimeFormat/);

@@ -1,6 +1,5 @@
 """Tasks integration."""
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,25 +34,6 @@ class TasksData:
     manager: TaskManager
 
 
-def _v2_assets() -> tuple[str, str]:
-    """Return the validated generated V2 frontend filenames."""
-    assets = json.loads(
-        (Path(__file__).parent / "frontend/v2/assets.json").read_text()
-    )
-    panel = assets.get("panel")
-    card = assets.get("card")
-    for name, value in (("panel", panel), ("card", card)):
-        if (
-            not isinstance(value, str)
-            or not value.startswith(f"{name}-")
-            or not value.endswith(".js")
-            or "/" in value
-            or "\\" in value
-        ):
-            raise RuntimeError(f"Invalid Tasks V2 {name} asset")
-    return panel, card
-
-
 async def _frontend_urls(
     hass: HomeAssistant,
 ) -> tuple[str, str, str]:
@@ -62,13 +42,10 @@ async def _frontend_urls(
     if version is None:
         raise RuntimeError("Tasks manifest version is required")
     base_url = f"{FRONTEND_URL}/{version}"
-    v2_panel_asset, v2_card_asset = await hass.async_add_executor_job(
-        _v2_assets
-    )
     return (
         base_url,
-        f"{base_url}/v2/{v2_panel_asset}",
-        f"{base_url}/v2/{v2_card_asset}",
+        f"{base_url}/panel.js",
+        f"{base_url}/card.js",
     )
 
 

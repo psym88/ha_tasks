@@ -13,7 +13,7 @@ test("documentation screenshots exclude transient Home Assistant notifications",
   assert.match(source, /hideNotificationManagers\(document\);[\s\S]*?page\.screenshot/);
 });
 
-test("documentation screenshots target the production V2 elements", () => {
+test("documentation screenshots target the production frontend elements", () => {
   const source = readFileSync(
     new URL("../screenshots/capture.mjs", import.meta.url),
     "utf8",
