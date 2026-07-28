@@ -5,7 +5,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 DOMAIN = "tasks"
 PLATFORMS = ["sensor"]
 STORAGE_KEY = DOMAIN
-STORAGE_VERSION = 3
+STORAGE_VERSION = 6
 EVENT_TASKS = f"{DOMAIN}_event"
 TASKS_DEVICE_INFO = DeviceInfo(
     identifiers={(DOMAIN, DOMAIN)},
@@ -19,3 +19,4 @@ TRANSLATIONS_URL = f"/{DOMAIN}_translations"
 ENGLISH_TRANSLATIONS_URL = f"/{DOMAIN}_strings.json"
 DOWNLOAD_URL = f"/api/{DOMAIN}/download"
 ARCHIVE_URL = f"/api/{DOMAIN}/archive"
+UPLOAD_URL = f"/api/{DOMAIN}/upload"

@@ -3,359 +3,238 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from .datetime_utils import normalize_utc_datetime, parse_aware_datetime
-from .recurrence import occurrences, validate_trigger
-from .store_converter import upgrade_store_data
-
-_SCHEDULE_FIELDS = (
-    "schedule_type",
-    "schedule_unit",
-    "schedule_interval",
-    "schedule_weekdays",
-    "schedule_day",
-    "schedule_month",
-    "schedule_time",
-    "problem_sensor",
+from .models import (
+    Attachment,
+    Completion,
+    ProblemTrigger,
+    TASK_MUTABLE_FIELDS,
+    TRIGGER_FIELDS,
+    Task,
+    trigger_from_record,
 )
-_TASK_FIELDS = (
-    "task_name",
-    "task_icon",
-    "task_description",
-    "active",
-    "assignee_id",
-    "nfc_tag_id",
-    "notification_target",
-    "notification_persistent",
-    "notification_critical",
-    "notification_route",
-    "task_due",
-)
-
-def get_store(hass: HomeAssistant):
-    """Return the loaded singleton store."""
-    entries = hass.config_entries.async_entries(DOMAIN)
-    if not entries or not hasattr(entries[0], "runtime_data"):
-        return None
-    data = entries[0].runtime_data
-    return getattr(data, "store", None)
-
-
-def _now() -> str:
-    return dt_util.utcnow().isoformat()
-
-
-def _schedule_signature(task: dict[str, Any]) -> tuple[Any, ...]:
-    """Return only values that affect the active recurrence rule."""
-    mode = task.get("schedule_type")
-    if mode == "sensor":
-        return (mode, task.get("problem_sensor"))
-    schedule_unit = task.get("schedule_unit")
-    values: list[Any] = [mode, schedule_unit, int(task.get("schedule_interval") or 1)]
-    if mode == "fixed":
-        values.append(task.get("schedule_time"))
-    if mode == "fixed" and schedule_unit == "weekly":
-        values.append(tuple(sorted(int(day) for day in task.get("schedule_weekdays") or [])))
-    elif mode == "fixed" and schedule_unit == "monthly":
-        values.append(task.get("schedule_day"))
-    elif mode == "fixed" and schedule_unit == "yearly":
-        values.extend((task.get("schedule_month"), task.get("schedule_day")))
-    return tuple(values)
-
-
-def _normalize_schedule(task: dict[str, Any]) -> dict[str, Any]:
-    """Clear recurrence values that do not belong to the active rule."""
-    normalized = dict(task)
-    if task.get("schedule_type") == "sensor":
-        normalized.update(
-            {
-                "schedule_unit": None,
-                "schedule_interval": None,
-                "schedule_weekdays": [],
-                "schedule_day": None,
-                "schedule_month": None,
-                "schedule_time": None,
-                "problem_sensor": str(task.get("problem_sensor") or "").strip(),
-            }
-        )
-        return normalized
-    normalized["problem_sensor"] = None
-    normalized["schedule_time"] = (
-        task.get("schedule_time")
-        if task.get("schedule_type") == "fixed"
-        else None
-    )
-    normalized["schedule_weekdays"] = (
-        list(task.get("schedule_weekdays") or [])
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") == "weekly"
-        else []
-    )
-    normalized["schedule_day"] = (
-        task.get("schedule_day")
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") in {"monthly", "yearly"}
-        else None
-    )
-    normalized["schedule_month"] = (
-        task.get("schedule_month")
-        if task.get("schedule_type") == "fixed"
-        and task.get("schedule_unit") == "yearly"
-        else None
-    )
-    return normalized
-
-
-class _TasksDataStore(Store[dict[str, Any]]):
-    """Home Assistant store with Tasks schema migrations."""
-
-    async def _async_migrate_func(
-        self,
-        old_major_version: int,
-        old_minor_version: int,
-        old_data: dict[str, Any],
-    ) -> dict[str, Any]:
-        del old_minor_version
-        return upgrade_store_data(old_major_version, old_data)
+from .recurrence import next_due_after_completion, occurrences
+from .repository import TasksRepository
 
 
 class TasksStore:
-    """Serialize mutations and persist one compact snapshot."""
+    """Persist and mutate versioned task aggregates."""
 
-    def __init__(self, hass: HomeAssistant, upload_dir: Path) -> None:
-        self._hass = hass
-        self._store: Store[dict[str, Any]] = _TasksDataStore(
-            hass, STORAGE_VERSION, STORAGE_KEY
-        )
-        self._upload_dir = upload_dir
+    def __init__(
+        self,
+        hass: HomeAssistant | None = None,
+        upload_dir: Path | None = None,
+        *,
+        repository: TasksRepository | None = None,
+    ) -> None:
+        if repository is None:
+            if hass is None or upload_dir is None:
+                raise TypeError("TasksRepository is required")
+            repository = TasksRepository(hass, upload_dir)
+        self._repository = repository
         self._lock = asyncio.Lock()
-        self._data: dict[str, Any] = {
-            "tasks": [],
-            "history": {},
-            "attachments": [],
-        }
+        self._data: dict[str, Any] = {"tasks": []}
 
     async def async_load(self) -> None:
-        if stored := await self._store.async_load():
-            self._data = {key: stored.get(key, default) for key, default in self._data.items()}
+        self._data = await self._repository.async_load(self._data)
 
     def snapshot(self) -> dict[str, Any]:
-        return {
-            "tasks": list(self._data["tasks"]),
-            "attachments": list(self._data["attachments"]),
-        }
+        return deepcopy(self._data)
 
-    async def async_export_archive(self) -> tuple[dict[str, Any], dict[str, bytes]]:
-        """Return a consistent copy of all persisted data and attachment content."""
+    async def async_export_archive(
+        self,
+    ) -> tuple[dict[str, Any], dict[str, bytes]]:
+        """Return a consistent current archive and its attachment content."""
         async with self._lock:
             data = deepcopy(self._data)
-            files = await self._hass.async_add_executor_job(
-                self._read_attachment_files, data["attachments"]
+            attachments = [
+                attachment
+                for task in data["tasks"]
+                for attachment in task["attachments"]
+            ]
+            files = await self._repository.async_read_attachment_files(
+                attachments
             )
             return data, files
 
-    def _read_attachment_files(
-        self, attachments: list[dict[str, Any]]
-    ) -> dict[str, bytes]:
-        return {
-            item["attachment_id"]: self.file_path(item["attachment_id"]).read_bytes()
-            for item in attachments
-        }
-
     async def async_import_archive(
-        self, data: Any, files: dict[str, bytes]
+        self, data: Any, files: dict[str, bytes | Path]
     ) -> dict[str, Any]:
-        """Add new archive records without overwriting existing data."""
+        """Add converted current archive records as complete task aggregates."""
         imported = deepcopy(data)
         async with self._lock:
-            old_data = self._data
-            existing_task_ids = {task["task_id"] for task in old_data["tasks"]}
+            existing_task_ids = {task["id"] for task in self._data["tasks"]}
             existing_attachment_ids = {
-                attachment["attachment_id"] for attachment in old_data["attachments"]
+                attachment["id"]
+                for task in self._data["tasks"]
+                for attachment in task["attachments"]
             }
-            new_tasks = [
+            candidates = [
                 task for task in imported["tasks"]
-                if task["task_id"] not in existing_task_ids
+                if task["id"] not in existing_task_ids
             ]
             skipped_tasks = [
                 task for task in imported["tasks"]
-                if task["task_id"] in existing_task_ids
+                if task["id"] in existing_task_ids
             ]
-            new_task_ids = {task["task_id"] for task in new_tasks}
-            new_attachments = [
-                attachment for attachment in imported["attachments"]
-                if attachment["task_id"] in new_task_ids
-                and attachment["attachment_id"] not in existing_attachment_ids
-                and not self.file_path(attachment["attachment_id"]).exists()
-            ]
-            new_attachment_ids = {
-                attachment["attachment_id"] for attachment in new_attachments
-            }
-            merged = deepcopy(old_data)
-            merged["tasks"].extend(new_tasks)
-            merged["attachments"].extend(new_attachments)
-            merged["history"].update({
-                task_id: entries
-                for task_id, entries in imported["history"].items()
-                if task_id in new_task_ids
-            })
-            created_files = await self._hass.async_add_executor_job(
-                self._write_attachment_files,
-                {
-                    file_id: content for file_id, content in files.items()
-                    if file_id in new_attachment_ids
-                },
+            new_attachment_ids: set[str] = set()
+            attachment_count = sum(
+                len(task["attachments"]) for task in imported["tasks"]
             )
-            self._data = merged
+            new_tasks = []
+            for task in candidates:
+                accepted = []
+                for attachment in task["attachments"]:
+                    file_id = attachment["id"]
+                    if (
+                        file_id in existing_attachment_ids
+                        or file_id in new_attachment_ids
+                        or self._repository.file_path(file_id).exists()
+                    ):
+                        continue
+                    new_attachment_ids.add(file_id)
+                    accepted.append(Attachment.from_record(attachment).record())
+                completions = [
+                    Completion.from_record(entry).record()
+                    for entry in task["completions"]
+                ]
+                new_tasks.append(
+                    Task.from_record(task).record(
+                        completions=completions,
+                        attachments=accepted,
+                    )
+                )
+            merged = deepcopy(self._data)
+            merged["tasks"].extend(new_tasks)
+            created_files = (
+                await self._repository.async_write_attachment_files({
+                    file_id: content
+                    for file_id, content in files.items()
+                    if file_id in new_attachment_ids
+                })
+            )
             try:
-                await self._save()
+                await self._commit(merged)
             except Exception:
-                self._data = old_data
-                await self._hass.async_add_executor_job(
-                    self._remove_attachment_files, created_files
+                await self._repository.async_remove_attachment_files(
+                    created_files
                 )
                 raise
             return {
                 "tasks_imported": len(new_tasks),
                 "tasks_skipped": [
-                    task.get("task_name") or task["task_id"]
+                    task.get("name") or task["id"]
                     for task in skipped_tasks
                 ],
                 "history_entries_imported": sum(
-                    len(imported["history"].get(task_id, []))
-                    for task_id in new_task_ids
+                    len(task["completions"]) for task in new_tasks
                 ),
-                "attachments_imported": len(new_attachments),
-                "attachments_skipped": len(imported["attachments"])
-                - len(new_attachments),
+                "attachments_imported": len(new_attachment_ids),
+                "attachments_skipped": attachment_count
+                - len(new_attachment_ids),
             }
-
-    def _write_attachment_files(self, files: dict[str, bytes]) -> list[Path]:
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
-        created: list[Path] = []
-        try:
-            for file_id, content in files.items():
-                path = self._upload_dir / file_id
-                with path.open("xb") as output:
-                    created.append(path)
-                    output.write(content)
-            return created
-        except Exception:
-            self._remove_attachment_files(created)
-            raise
-
-    @staticmethod
-    def _remove_attachment_files(files: list[Path]) -> None:
-        for path in files:
-            path.unlink(missing_ok=True)
 
     @property
     def tasks(self) -> list[dict[str, Any]]:
-        return list(self._data["tasks"])
+        return deepcopy(self._data["tasks"])
 
-    def _find(self, kind: str, item_id: str) -> dict[str, Any]:
-        id_key = {"tasks": "task_id", "attachments": "attachment_id"}[kind]
-        item = next((x for x in self._data[kind] if x[id_key] == item_id), None)
-        if item is None:
-            raise ValueError(f"unknown_{kind[:-1]}")
-        return item
+    @staticmethod
+    def _find_task_in(
+        data: dict[str, Any], task_id: str
+    ) -> dict[str, Any]:
+        task = next(
+            (task for task in data["tasks"] if task["id"] == task_id),
+            None,
+        )
+        if task is None:
+            raise ValueError("unknown_task")
+        return task
+
+    @classmethod
+    def _find_attachment_in(
+        cls, data: dict[str, Any], attachment_id: str
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        for task in data["tasks"]:
+            attachment = next(
+                (
+                    item
+                    for item in task["attachments"]
+                    if item["id"] == attachment_id
+                ),
+                None,
+            )
+            if attachment is not None:
+                return task, attachment
+        raise ValueError("unknown_attachment")
 
     def _normalize_nfc_tag_id(
-        self, value: Any, exclude_task_id: str | None = None
+        self,
+        value: Any,
+        exclude_task_id: str | None = None,
+        data: dict[str, Any] | None = None,
     ) -> str | None:
         tag_id = str(value or "").strip() or None
         if tag_id and any(
-            task["task_id"] != exclude_task_id and task.get("nfc_tag_id") == tag_id
-            for task in self._data["tasks"]
+            task["id"] != exclude_task_id
+            and task.get("nfc_tag_id") == tag_id
+            for task in (data or self._data)["tasks"]
         ):
             raise ValueError("nfc_tag_already_assigned")
         return tag_id
 
     def task(self, task_id: str) -> dict[str, Any]:
-        """Return one task for validation by the API layer."""
-        return dict(self._find("tasks", task_id))
+        """Return one task aggregate."""
+        return deepcopy(self._find_task_in(self._data, task_id))
 
-    async def _save(self) -> None:
-        await self._store.async_save(self._data)
+    async def _commit(self, data: dict[str, Any]) -> None:
+        await self._repository.async_save(data)
+        self._data = data
 
-    @staticmethod
-    def _required_name(value: Any) -> str:
-        name = str(value or "").strip()
-        if not name:
-            raise ValueError("name_required")
-        return name
-
-    @staticmethod
-    def _notification_target(value: Any) -> dict[str, list[str]]:
-        device_ids = list(dict.fromkeys((value or {}).get("device_id", [])))
-        return {"device_id": device_ids} if device_ids else {}
-
-    @staticmethod
-    def _notification_route(value: Any) -> str | None:
-        route = str(value or "").strip()
-        if route and (not route.startswith("/") or route.startswith("//")):
-            raise ValueError("invalid_notification_route")
-        return route or None
-
-    async def async_add_task(
-        self, payload: dict[str, Any], now: datetime | None = None
+    def _add_task_in(
+        self,
+        data: dict[str, Any],
+        payload: dict[str, Any],
+        now: datetime | None = None,
     ) -> dict[str, Any]:
-        validate_trigger(payload)
-        sensor_schedule = payload.get("schedule_type") == "sensor"
+        trigger = trigger_from_record(payload["schedule"])
         created_at = now or dt_util.utcnow()
-        task_due = (
+        record = {
+            **{
+                key: payload[key]
+                for key in TASK_MUTABLE_FIELDS
+                if key in payload
+            },
+            "id": uuid4().hex,
+            "nfc_tag_id": self._normalize_nfc_tag_id(
+                payload.get("nfc_tag_id"), data=data
+            ),
+            "notification": payload.get("notification") or {},
+            "completions": [],
+            "attachments": [],
+        }
+        due = (
             None
-            if sensor_schedule
+            if isinstance(trigger, ProblemTrigger)
             else normalize_utc_datetime(
-                payload.get("task_due")
-                or next(occurrences(payload, created_at))
+                payload.get("due")
+                or next(occurrences({**record, "due": None}, created_at))
             )
         )
-        async with self._lock:
-            nfc_tag_id = self._normalize_nfc_tag_id(payload.get("nfc_tag_id"))
-            task = _normalize_schedule({
-                "task_id": uuid4().hex,
-                **{
-                    key: payload.get(key)
-                    for key in (
-                        "task_icon",
-                        "task_description",
-                        "assignee_id",
-                        *_SCHEDULE_FIELDS,
-                    )
-                },
-                "task_name": self._required_name(payload.get("task_name")),
-                "active": bool(payload.get("active", True)),
-                "label_ids": list(dict.fromkeys(payload.get("label_ids") or [])),
-                "nfc_tag_id": nfc_tag_id,
-                "notification_target": self._notification_target(
-                    payload.get("notification_target")
-                ),
-                "notification_persistent": bool(
-                    payload.get("notification_persistent", False)
-                ),
-                "notification_critical": bool(
-                    payload.get("notification_critical", False)
-                ),
-                "notification_route": self._notification_route(
-                    payload.get("notification_route")
-                ),
-                "task_due": task_due,
-            })
-            self._data["tasks"].append(task)
-            await self._save()
-            return task
+        record["due"] = due
+        task = Task.from_record(record)
+        stored = task.record()
+        data["tasks"].append(stored)
+        return deepcopy(stored)
 
     async def async_update_task(
         self,
@@ -364,89 +243,85 @@ class TasksStore:
         now: datetime | None = None,
     ) -> dict[str, Any]:
         async with self._lock:
-            task = self._find("tasks", task_id)
-            values = {key: payload[key] for key in _TASK_FIELDS if key in payload}
-            if "task_name" in values:
-                values["task_name"] = self._required_name(values["task_name"])
-            if "active" in values:
-                values["active"] = bool(values["active"])
-            if "label_ids" in payload:
-                values["label_ids"] = list(dict.fromkeys(payload["label_ids"]))
-            if "nfc_tag_id" in values:
-                values["nfc_tag_id"] = self._normalize_nfc_tag_id(
-                    values["nfc_tag_id"], task_id
-                )
-            if "notification_target" in values:
-                values["notification_target"] = self._notification_target(
-                    values["notification_target"]
-                )
-            for key in ("notification_persistent", "notification_critical"):
-                if key in values:
-                    values[key] = bool(values[key])
-            if "notification_route" in values:
-                values["notification_route"] = self._notification_route(
-                    values["notification_route"]
-                )
-            old_schedule = _schedule_signature(task)
-            schedule_update = any(
-                key in payload for key in _SCHEDULE_FIELDS
-            )
-            normalized_schedule = None
-            if schedule_update:
-                merged_schedule = {
-                    **task,
-                    **{
-                        key: payload[key]
-                        for key in _SCHEDULE_FIELDS
-                        if key in payload
-                    },
-                }
-                validate_trigger(merged_schedule)
-                normalized_schedule = _normalize_schedule(merged_schedule)
-            task.update(values)
-            if normalized_schedule is not None:
-                for key in _SCHEDULE_FIELDS:
-                    task[key] = normalized_schedule[key]
-            schedule_changed = _schedule_signature(task) != old_schedule
-            if schedule_changed:
-                if task.get("schedule_type") == "sensor":
-                    task["task_due"] = None
-                else:
-                    boundary = dt_util.as_local(now or dt_util.utcnow())
-                    if task.get("task_due") and old_schedule[0] != "sensor":
-                        previous_due = dt_util.as_local(
-                            parse_aware_datetime(task["task_due"])
-                        )
-                        boundary = boundary.replace(
-                            hour=previous_due.hour,
-                            minute=previous_due.minute,
-                            second=previous_due.second,
-                            microsecond=previous_due.microsecond,
-                            fold=0,
-                        )
-                    schedule = {
-                        key: value
-                        for key, value in task.items()
-                        if key != "task_due"
-                    }
-                    task["task_due"] = normalize_utc_datetime(
-                        next(occurrences(schedule, boundary))
-                    )
-            elif "task_due" in payload and payload["task_due"] is not None:
-                task["task_due"] = normalize_utc_datetime(payload["task_due"])
-            await self._save()
+            data = deepcopy(self._data)
+            task = self._update_task_in(data, task_id, payload, now)
+            await self._commit(data)
             return task
+
+    def _update_task_in(
+        self,
+        data: dict[str, Any],
+        task_id: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        record = self._find_task_in(data, task_id)
+        current = Task.from_record(record)
+        values = {
+            key: payload[key]
+            for key in TASK_MUTABLE_FIELDS
+            if key in payload
+        }
+        if "nfc_tag_id" in values:
+            values["nfc_tag_id"] = self._normalize_nfc_tag_id(
+                values["nfc_tag_id"], task_id, data
+            )
+        candidate = {**record, **values}
+        updated = Task.from_record(candidate)
+        if (
+            any(key in payload for key in TRIGGER_FIELDS)
+            and updated.trigger.signature() != current.trigger.signature()
+        ):
+            if isinstance(updated.trigger, ProblemTrigger):
+                updated = replace(updated, due=None)
+            else:
+                boundary = dt_util.as_local(now or dt_util.utcnow())
+                if current.due and not isinstance(
+                    current.trigger, ProblemTrigger
+                ):
+                    previous_due = dt_util.as_local(current.due)
+                    boundary = boundary.replace(
+                        hour=previous_due.hour,
+                        minute=previous_due.minute,
+                        second=previous_due.second,
+                        microsecond=previous_due.microsecond,
+                        fold=0,
+                    )
+                updated = replace(
+                    updated,
+                    due=next(
+                        occurrences(
+                            {**updated.record(), "due": None}, boundary
+                        )
+                    ),
+                )
+        children = {
+            "completions": record["completions"],
+            "attachments": record["attachments"],
+        }
+        record.clear()
+        record.update(
+            updated.record(**children)
+        )
+        return deepcopy(record)
 
     async def async_delete_task(self, task_id: str) -> None:
         async with self._lock:
-            self._find("tasks", task_id)
-            file_ids = [a["attachment_id"] for a in self._data["attachments"] if a["task_id"] == task_id]
-            self._data["tasks"] = [t for t in self._data["tasks"] if t["task_id"] != task_id]
-            self._data["attachments"] = [a for a in self._data["attachments"] if a["task_id"] != task_id]
-            self._data["history"].pop(task_id, None)
+            data = deepcopy(self._data)
+            file_ids = self._delete_task_in(data, task_id)
+            await self._commit(data)
             for file_id in file_ids:
-                await self._unlink(file_id)
-            await self._save()
+                await self._repository.async_delete_attachment(file_id)
+
+    def _delete_task_in(
+        self, data: dict[str, Any], task_id: str
+    ) -> list[str]:
+        task = self._find_task_in(data, task_id)
+        file_ids = [
+            attachment["id"] for attachment in task["attachments"]
+        ]
+        data["tasks"].remove(task)
+        return file_ids
 
     async def async_complete_task(
         self,
@@ -457,126 +332,208 @@ class TasksStore:
         notes: str | None = None,
     ) -> dict[str, Any]:
         async with self._lock:
-            task = self._find("tasks", task_id)
-            task_due_before = task.get("task_due")
-            completion = parse_aware_datetime(completed_at)
-            if task.get("schedule_type") == "sensor":
-                task_due_after = None
-            else:
-                task_due_after = normalize_utc_datetime(
-                    next(occurrences(task, completion))
-                )
-            record = {
-                "history_entry_id": uuid4().hex,
-                "completed_at": normalize_utc_datetime(completion),
-                "user_id": user_id,
-                "user_name": user_name,
-                "notes": str(notes or "").strip() or None,
-                "task_due_before": task_due_before,
-                "task_due_after": task_due_after,
-            }
-            task["task_due"] = task_due_after
-            self._data["history"].setdefault(task_id, []).append(record)
-            await self._save()
+            data = deepcopy(self._data)
+            task = self._complete_task_in(
+                data,
+                task_id,
+                completed_at,
+                user_id,
+                user_name,
+                notes,
+            )
+            await self._commit(data)
             return task
 
+    def _complete_task_in(
+        self,
+        data: dict[str, Any],
+        task_id: str,
+        completed_at: str,
+        user_id: str | None,
+        user_name: str,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        task = self._find_task_in(data, task_id)
+        completion = parse_aware_datetime(completed_at)
+        task["due"] = (
+            None
+            if task["schedule"]["type"] == "sensor"
+            else normalize_utc_datetime(
+                next(occurrences(task, completion))
+            )
+        )
+        task["completions"].append(
+            Completion(
+                uuid4().hex,
+                completion,
+                user_id,
+                user_name,
+                str(notes or "").strip() or None,
+            ).record()
+        )
+        return deepcopy(task)
+
+    async def async_bulk_mutate(
+        self,
+        operations: list[dict[str, Any]],
+        user_id: str | None,
+        user_name: str,
+        now: datetime,
+    ) -> list[dict[str, Any]]:
+        """Apply task operations to one snapshot and persist exactly once."""
+        async with self._lock:
+            data = deepcopy(self._data)
+            results = []
+            deleted_files = []
+            for operation in operations:
+                action = operation["action"]
+                task_id = operation["id"]
+                if action == "update":
+                    task = self._update_task_in(
+                        data, task_id, operation["changes"], now
+                    )
+                elif action == "complete":
+                    task = self._complete_task_in(
+                        data,
+                        task_id,
+                        operation.get(
+                            "completed_at",
+                            normalize_utc_datetime(now),
+                        ),
+                        user_id,
+                        user_name,
+                        operation.get("notes"),
+                    )
+                else:
+                    deleted_files.extend(
+                        self._delete_task_in(data, task_id)
+                    )
+                    task = None
+                results.append(
+                    {"action": action, "id": task_id, "task": task}
+                )
+            await self._commit(data)
+            for file_id in deleted_files:
+                await self._repository.async_delete_attachment(file_id)
+            return results
+
     def history(self, task_id: str) -> list[dict[str, Any]]:
-        self._find("tasks", task_id)
+        task = self._find_task_in(self._data, task_id)
         return sorted(
-            self._data["history"].get(task_id, []),
-            key=lambda x: x["completed_at"],
+            deepcopy(task["completions"]),
+            key=lambda entry: entry["completed_at"],
             reverse=True,
         )
 
-    async def async_delete_history(self, task_id: str, history_entry_id: str) -> dict[str, Any]:
+    async def async_save_task(
+        self,
+        task_id: str | None,
+        payload: dict[str, Any],
+        uploads: list[tuple[str, str, bytes]],
+        deleted_attachment_ids: list[str],
+        deleted_history_entry_ids: list[str],
+        now: datetime,
+    ) -> dict[str, Any]:
+        """Save editor task, attachment, and history changes atomically."""
         async with self._lock:
-            task = self._find("tasks", task_id)
-            entries = self._data["history"].get(task_id, [])
-            removed = next((x for x in entries if x["history_entry_id"] == history_entry_id), None)
-            if removed is None:
-                raise ValueError("unknown_history_entry")
-            if (
-                task.get("schedule_type") == "sensor"
-                or removed.get("task_due_before") is None
-                or removed.get("task_due_after") is None
-            ):
-                self._data["history"][task_id] = [
-                    entry
-                    for entry in entries
-                    if entry["history_entry_id"] != history_entry_id
-                ]
-                await self._save()
-                return task
-            chronological = sorted(
-                entries, key=lambda entry: entry["completed_at"]
+            data = deepcopy(self._data)
+            task_fields = (
+                self._update_task_in(data, task_id, payload, now)
+                if task_id
+                else self._add_task_in(data, payload, now)
             )
-            original_due = chronological[0]["task_due_before"]
-            remaining = [entry for entry in chronological if entry["history_entry_id"] != history_entry_id]
-            replay_task = {**task, "task_due": original_due}
-            for entry in remaining:
-                entry["task_due_before"] = replay_task["task_due"]
-                entry["task_due_after"] = normalize_utc_datetime(
-                    next(
-                        occurrences(
-                            replay_task,
-                            parse_aware_datetime(entry["completed_at"]),
-                        )
-                    )
+            task_id = task_fields["id"]
+            task = self._find_task_in(data, task_id)
+            known_attachment_ids = {
+                attachment["id"] for attachment in task["attachments"]
+            }
+            if not set(deleted_attachment_ids) <= known_attachment_ids:
+                raise ValueError("unknown_attachment")
+            deleted_files = [
+                self._repository.file_path(attachment_id)
+                for attachment_id in deleted_attachment_ids
+            ]
+            task["attachments"] = [
+                attachment
+                for attachment in task["attachments"]
+                if attachment["id"] not in deleted_attachment_ids
+            ]
+            known_history_ids = {
+                entry["id"] for entry in task["completions"]
+            }
+            if not set(deleted_history_entry_ids) <= known_history_ids:
+                raise ValueError("unknown_history_entry")
+            task["completions"] = [
+                entry
+                for entry in task["completions"]
+                if entry["id"] not in deleted_history_entry_ids
+            ]
+            if deleted_history_entry_ids and task["completions"]:
+                latest_completion = max(
+                    (
+                        parse_aware_datetime(entry["completed_at"])
+                        for entry in task["completions"]
+                    ),
                 )
-                replay_task["task_due"] = entry["task_due_after"]
-            self._data["history"][task_id] = remaining
-            task["task_due"] = replay_task["task_due"]
-            await self._save()
-            return task
+                replayed_due = next_due_after_completion(
+                    task, latest_completion
+                )
+                if replayed_due is not None:
+                    task["due"] = normalize_utc_datetime(replayed_due)
+            attachments = [
+                Attachment(
+                    uuid4().hex,
+                    filename,
+                    content_type,
+                    len(content),
+                    now,
+                ).record()
+                for filename, content_type, content in uploads
+            ]
+            task["attachments"].extend(attachments)
+            created_files = (
+                await self._repository.async_write_attachment_files({
+                    attachment["id"]: upload[2]
+                    for attachment, upload in zip(
+                        attachments, uploads, strict=True
+                    )
+                })
+                if attachments
+                else []
+            )
+            try:
+                await self._commit(data)
+            except Exception:
+                await self._repository.async_remove_attachment_files(
+                    created_files
+                )
+                raise
+            if deleted_files:
+                await self._repository.async_remove_attachment_files(
+                    deleted_files
+                )
+            return {
+                "task": deepcopy(task),
+            }
 
     def attachment(self, attachment_id: str) -> dict[str, Any] | None:
-        return next((x for x in self._data["attachments"] if x["attachment_id"] == attachment_id), None)
-
-    async def async_add_attachment(self, task_id: str, filename: str, content_type: str, data: bytes) -> dict[str, Any]:
-        async with self._lock:
-            self._find("tasks", task_id)
-            attachment = {"attachment_id": uuid4().hex, "task_id": task_id, "filename": filename, "content_type": content_type, "size": len(data), "uploaded_at": _now()}
-            await self._hass.async_add_executor_job(self._write, attachment["attachment_id"], data)
-            self._data["attachments"].append(attachment)
-            await self._save()
-            return attachment
-
-    async def async_delete_attachment(self, attachment_id: str) -> None:
-        async with self._lock:
-            if self.attachment(attachment_id) is None:
-                raise ValueError("unknown_attachment")
-            self._data["attachments"] = [x for x in self._data["attachments"] if x["attachment_id"] != attachment_id]
-            await self._unlink(attachment_id)
-            await self._save()
-
-    def _write(self, file_id: str, data: bytes) -> None:
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
-        (self._upload_dir / file_id).write_bytes(data)
-
-    async def _unlink(self, file_id: str) -> None:
-        await self._hass.async_add_executor_job(self._unlink_sync, file_id)
-
-    def _unlink_sync(self, file_id: str) -> None:
-        with contextlib.suppress(FileNotFoundError):
-            (self._upload_dir / file_id).unlink()
+        try:
+            _, attachment = self._find_attachment_in(
+                self._data, attachment_id
+            )
+        except ValueError:
+            return None
+        return deepcopy(attachment)
 
     def file_path(self, file_id: str) -> Path:
-        if (
-            not isinstance(file_id, str)
-            or not file_id
-            or file_id in {".", ".."}
-            or "/" in file_id
-            or "\\" in file_id
-        ):
-            raise ValueError("invalid_attachment_id")
-        return self._upload_dir / file_id
+        return self._repository.file_path(file_id)
 
     @staticmethod
     def is_due(task: dict[str, Any], now: datetime) -> bool:
         return (
             task.get("active", True)
-            and bool(task.get("task_due"))
-            and parse_aware_datetime(task["task_due"]) <= now
+            and bool(task.get("due"))
+            and parse_aware_datetime(task["due"]) <= now
         )
 
     async def async_trigger_problem_task(
@@ -584,13 +541,14 @@ class TasksStore:
     ) -> dict[str, Any] | None:
         """Make one waiting sensor task due exactly once."""
         async with self._lock:
-            task = self._find("tasks", task_id)
+            data = deepcopy(self._data)
+            task = self._find_task_in(data, task_id)
             if (
                 not task.get("active", True)
-                or task.get("schedule_type") != "sensor"
-                or task.get("task_due")
+                or task["schedule"]["type"] != "sensor"
+                or task.get("due")
             ):
                 return None
-            task["task_due"] = normalize_utc_datetime(triggered_at)
-            await self._save()
-            return dict(task)
+            task["due"] = normalize_utc_datetime(triggered_at)
+            await self._commit(data)
+            return deepcopy(task)

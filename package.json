@@ -4,13 +4,20 @@
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "typecheck:frontend": "tsc -p frontend/tsconfig.json",
     "test:frontend": "node --test \"tests/frontend/**/*.test.mjs\"",
     "screenshots": "node tests/screenshots/capture.mjs",
     "screenshots:compare": "node tests/screenshots/compare.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",
+    "esbuild": "0.28.1",
     "pixelmatch": "7.1.0",
-    "pngjs": "7.0.0"
+    "pngjs": "7.0.0",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "lit": "3.3.3"
   }
 }

@@ -9,42 +9,58 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 COMPONENT = ROOT / "custom_components" / "tasks"
-FRONTEND = COMPONENT / "frontend"
+FRONTEND_SOURCE = ROOT / "frontend" / "src"
 TRANSLATIONS = COMPONENT / "translations"
-FRONTEND_TRANSLATIONS = COMPONENT / "frontend_translations"
 
-LOCALIZE_ALIASES = {
-    "addTask": "common.add_task",
-    "fixed": "task.fixed",
-    "sliding": "task.sliding",
-    "daily": "task.daily",
-    "weekly": "task.weekly",
-    "monthly": "task.monthly",
-    "yearly": "task.yearly",
-    "save": "common.save",
-    "files": "task.files",
-    "history": "task.history",
-    "noFiles": "task.no_files",
-    "noHistory": "task.no_history",
+_DYNAMIC_FRONTEND_KEYS = {
+    "notification.due_message",
+    "notification.due_title",
+    "notification.problem_message",
+    "notification.problem_title",
+    "schedule.after_completion_many",
+    "schedule.after_completion_one",
+    "schedule.fixed_many",
+    "schedule.fixed_one",
+    "schedule.monthly_many",
+    "schedule.monthly_one",
+    "schedule.on_day_number",
+    "schedule.on_day_of_month",
+    "schedule.on_days",
+    "schedule.on_last_day",
+    "schedule.on_last_day_of_month",
+    "schedule.period_day",
+    "schedule.period_days",
+    "schedule.period_month",
+    "schedule.period_months",
+    "schedule.period_week",
+    "schedule.period_weeks",
+    "schedule.period_year",
+    "schedule.period_years",
+    "schedule.weekly_many",
+    "schedule.weekly_one",
+    "schedule.yearly_many",
+    "schedule.yearly_one",
 }
 
 
 def _catalog(language: str) -> dict[str, str]:
-    path = FRONTEND_TRANSLATIONS / f"{language}.json"
+    path = TRANSLATIONS / f"{language}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
-    return data["frontend"]
+    return {
+        key.removeprefix("ui_").replace("_", ".", 1): value
+        for key, value in data["common"].items()
+        if key.startswith("ui_")
+    }
 
 
 def _used_frontend_keys() -> set[str]:
     source = "\n".join(
-        path.read_text(encoding="utf-8") for path in FRONTEND.glob("*.js")
+        path.read_text(encoding="utf-8")
+        for path in FRONTEND_SOURCE.rglob("*.ts")
     )
-    keys = set(re.findall(r'\b(?:t|tr)\(\s*["\']([^"\']+)["\']', source))
-    keys.update(
-        LOCALIZE_ALIASES.get(alias, alias)
-        for alias in re.findall(r"\bL\.([A-Za-z0-9_]+)", source)
+    return set(
+        re.findall(r'["\']([a-z0-9_]+\.[a-z0-9_]+)["\']', source)
     )
-    return keys
 
 
 def _backend_error_codes() -> set[str]:
@@ -58,16 +74,24 @@ def test_language_catalogs_have_identical_frontend_keys() -> None:
     assert set(_catalog("de")) == set(_catalog("en"))
 
 
-def test_home_assistant_catalogs_exclude_custom_frontend_keys() -> None:
+def test_home_assistant_catalogs_contain_ui_strings_as_common_keys() -> None:
     for language in ("de", "en"):
         data = json.loads(
             (TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8")
         )
-        assert set(data) == {"config", "entity"}
+        assert set(data) == {"common", "config", "entity"}
+        assert all(key.startswith("ui_") for key in data["common"])
 
 
 def test_all_frontend_translation_keys_exist() -> None:
     assert _used_frontend_keys() <= set(_catalog("en"))
+
+
+def test_frontend_catalog_has_no_unused_keys() -> None:
+    dynamic = _DYNAMIC_FRONTEND_KEYS | {
+        f"error.{code}" for code in _backend_error_codes()
+    }
+    assert set(_catalog("en")) <= _used_frontend_keys() | dynamic
 
 
 def test_backend_error_codes_are_translated() -> None:

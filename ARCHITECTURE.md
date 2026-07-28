@@ -1,67 +1,106 @@
 # Architecture
 
-Tasks is a local-push Home Assistant integration with one config entry. Persistent data is stored in Home Assistant; attachments live under `<config>/tasks/uploads`.
+Tasks is a local-push Home Assistant integration with one config entry.
+Persistent data is stored in Home Assistant; attachment files live under
+`<config>/tasks/uploads`.
 
 ## Data model
 
-- A **task** stores its description, active state, user and Home Assistant label assignments, nullable timezone-aware UTC `task_due` datetime, optional NFC tag, recurrence or binary-sensor trigger, due-notification settings, attachments, and completion history. Label assignments persist stable Home Assistant label IDs; the frontend resolves their current names from the label registry.
-- Fixed schedules stay anchored to configured calendar rules and their selected local wall time. Completion-based schedules use their creation time initially and then advance from the exact completion datetime. Calendar calculations run in Home Assistant's time zone and persisted values use UTC.
-- A problem-sensor task has no due value while waiting. For an active task, an `off` to `on` transition sets its due value to the transition time and emits the shared due event. Completing it clears the due value; a later `off` to `on` transition can trigger it again. Startup and trigger-setting changes reconcile active sensors that are already on.
-- Pausing preserves a task's stored due value but excludes it from due scheduling, problem-sensor triggering, the dashboard card, and the due-task count. Resuming performs no scheduled-due recalculation.
-- Persistent store schemas use sequential migrations so upgrades preserve tasks, completion history, and attachment metadata. Store migration fixtures cover every published schema version.
+- A task is the persisted aggregate root. It embeds identity and content,
+  exactly one schedule variant, notification settings, completion history, and
+  attachment metadata. Attachment content remains in separate files.
+- The runtime, WebSocket API, Store, and exported `tasks.json` use the same
+  aggregate schema. Support for older flat records is isolated to Store
+  migrations.
+- A fixed schedule advances by its configured calendar rule. A sliding schedule
+  advances from the exact completion time. Neither schedule uses a separate
+  anchor field.
+- A sensor task has no due value while waiting. An `off` to `on` transition sets
+  `due` to the transition time and emits the shared due event. Completing it
+  clears `due`; a later transition can trigger it again.
+- Pausing preserves `due` but excludes the task from scheduling, sensor
+  triggering, the dashboard card, and the due-task count.
+- Removing completion records recalculates fixed and sliding `due` from the
+  newest remaining completion. Sensor tasks and tasks without remaining
+  completions preserve their current `due`.
+- Date-times are validated as timezone-aware values and normalized to UTC ISO
+  strings. Recurrence calculations parse them into aware Python values.
+- Store schema 6 nests completion and attachment metadata under each task and
+  removes fields not defined by the aggregate. The sequential
+  `1 -> 2 -> 3 -> 4 -> 5 -> 6` migration chain is the only Store
+  compatibility layer.
 
 ## Home Assistant platforms
 
-- `sensor.tasks_due` is a push-only summary of active tasks whose due datetime has been reached.
-- A single timer tracks the nearest future `task_due` among active tasks, fires one `task_due` event per matching task, and then schedules the next due time. Task mutations rebuild that timer.
-- A separate problem-sensor scheduler listens for binary-sensor state transitions for active tasks. It persists the trigger time first, then uses the same due-event and notification path as scheduled tasks.
+- `sensor.tasks_due` is a push-only summary of active tasks whose due date-time
+  has been reached.
+- One `TaskEngine` owns the nearest fixed or sliding timer and listens only to
+  binary sensors referenced by active sensor tasks. It persists sensor trigger
+  times first, then uses the same due-event and notification path as scheduled
+  tasks.
 
 ## Backend
 
-- `task_store.py`: persistence, serialized mutations, and task normalization
-- `store_converter.py`: sequential Home Assistant store-schema migrations
-- `archive_converter.py`: sequential upgrades from older archive manifests to the current format
-- `recurrence.py`: trigger validation and recurring local datetime calculations
-- `due_events.py`: shared UTC datetime parsing and the single due-event timer
-- `problem_events.py`: binary problem-sensor transitions and startup reconciliation
-- `notifications.py`: Mobile App and persistent panel notifications for due tasks
-- `task_api.py`: authenticated task and metadata API
-- `attachment_api.py`: authenticated attachments and ZIP import/export
+- `models.py`: typed current task, schedule, completion, notification, and
+  attachment values
+- `repository.py`: Home Assistant Store persistence and attachment files
+- `task_store.py`: atomic current-schema aggregate mutations
+- `manager.py`: the sole mutation entry point, runtime revisions, direct
+  internal callbacks, and the public event
+- `migrations.py`: sequential Store migrations
+- `recurrence.py`: schedule validation and recurring local date-time
+  calculations
+- `scheduling.py`: timer scheduling, tracked sensor transitions, and startup
+  reconciliation
+- `notifications.py`: Mobile App and persistent notifications for due tasks
+- `task_api.py`: authenticated commands, subscriptions, bulk operations, and
+  atomic editor saves
+- `attachment_api.py`: authenticated multipart uploads, attachments, and ZIP
+  import/export
 - `sensor.py`: due-task summary entity
 - `nfc_completion.py`: tag-scan handling and completion attribution
-- `task_events.py`: public Tasks event helper
 - `config_flow.py` and `__init__.py`: setup and integration lifecycle
 
-Import upgrades supported older archive manifests before validating them against the current outer schema. Archive format 3 converts legacy date-based task due and completion-history values to timezone-aware UTC datetimes; missing task activation values retain the active default.
+The ZIP archive contains a versioned Store snapshot in `tasks.json` and
+attachment content under `attachments/`. Import applies the same Store
+migrations used at startup before current-schema validation. There is no
+separate archive schema or archive version.
 
 ## Frontend
 
-The frontend is split into native ES modules under `custom_components/tasks/frontend`:
+The TypeScript frontend under `frontend/src` builds bundled ES modules into
+`custom_components/tasks/frontend`. Home Assistant registers
+the stable `tasks-panel` and `tasks-card` custom elements from those versioned
+assets. Lit is bundled with the integration; no Home Assistant-internal UI
+component or table library is a runtime dependency.
 
-- `controller.js`: shared data and workflow controller used by the panel and card
-- `panel.js`: Home Assistant panel entry point and custom-element registration
-- `dashboard-card.js`: Lovelace card and visual editor
-- `sidebar-task-list.js`: sidebar table adapter, flat row mapping, filter categories, and HA table configuration
-- `popup-task-editor.js`: task editor workflow and reusable file and history sections
-- `popup-*.js`: Home Assistant adaptive-dialog hosts for task viewing, attachment previews, confirmations, and settings
-- `action-menu.js`: shared native action-menu construction
-- `localize.js`: frontend localization and safe text rendering
+The panel and card consume the revisioned `tasks/subscribe` snapshot. Registry
+lookups are loaded independently. Task changes do not reload unrelated Home
+Assistant registries.
 
-The sidebar panel maps backend tasks to flat rows and delegates its toolbar, search, sorting, grouping, and table rendering to Home Assistant's internal `hass-tabs-subpage-data-table` and `ha-data-table` components. A shared dimension registry defines groupable and filterable columns; filters reduce the row data before it is passed to the table. The dashboard card keeps its separate compact task presentation.
+`task-table.ts` owns search, filters, sorting, selection, bulk actions,
+responsive rows, and persisted view preferences. `dashboard-card.ts` owns the
+compact Lovelace presentation and its editor. Dialogs, menus, fields,
+expandable sections, and status pills use integration-owned custom elements and
+browser primitives.
 
-The sidebar panel and dashboard card share the same controller and task viewer/editor workflows. Popups use Home Assistant's composed `show-dialog` contract and `ha-adaptive-dialog`; shared file and history sections are produced by `popup-task-editor.js`. Attachments are signed anchors whose click handler opens the integration's preview popup through the same native dialog contract.
-
-Frontend development follows a native-first rule: use Home Assistant components and interaction contracts before adding custom UI. Custom CSS is limited to structural layout that HA components do not provide; visual values use Home Assistant CSS variables and design tokens. No external UI or table library is used.
-
-The frontend loads an initial snapshot and reloads it from `tasks_event`. The same event updates the summary sensor immediately after stored mutations and due-time transitions; no dispatcher, entity fingerprint, or polling is used.
+The engine, due sensor, and notification coordinator receive committed changes
+directly from `TaskManager`. The public Home Assistant `tasks_event` remains
+available to users and automations but is not an internal message bus.
 
 ## Security and permissions
 
-WebSocket and HTTP endpoints require an authenticated Home Assistant user. All signed-in users can manage tasks; only administrators can open the sidebar panel. Dashboard edit controls are governed by the card configuration. Attachment paths are task-scoped and served through signed URLs.
+WebSocket and HTTP endpoints require an authenticated Home Assistant user. All
+signed-in users can manage tasks; only administrators can open the sidebar
+panel. Dashboard edit controls are governed by card configuration. Attachment
+paths are task-scoped and served through signed URLs.
 
 ## Tests and releases
 
 - Backend tests: `pytest`
 - Frontend tests: `node --test tests/frontend/*.test.mjs`
-- `manifest.json` is the sole release-version source. The integration derives a versioned frontend URL prefix from it so every ES module and translation request changes together without enabling long-lived static cache headers.
-- Development releases are tagged from `dev` and published as GitHub pre-releases.
+- `manifest.json` is the release-version source.
+- Built frontend assets use stable filenames under a manifest-versioned URL
+  prefix.
+- Development releases are tagged from `dev` and published as GitHub
+  pre-releases.

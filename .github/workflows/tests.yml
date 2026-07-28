@@ -50,5 +50,18 @@ jobs:
         with:
           node-version: 24
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 11.9.0
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and type-check frontend
+        run: |
+          pnpm typecheck:frontend
+          pnpm build:frontend
+
       - name: Run frontend tests
-        run: node --test "tests/frontend/**/*.test.mjs"
+        run: pnpm test:frontend

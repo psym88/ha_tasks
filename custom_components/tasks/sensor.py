@@ -2,12 +2,13 @@
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import TasksData
-from .const import EVENT_TASKS, TASKS_DEVICE_INFO
+from .const import TASKS_DEVICE_INFO
+from .manager import TaskChange, TaskManager
 
 
 async def async_setup_entry(
@@ -15,13 +16,8 @@ async def async_setup_entry(
     entry: ConfigEntry[TasksData],
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    entity = TasksDueSensor(entry.runtime_data.store)
-    async_add_entities([entity])
-
-    async def refresh(_event: Event) -> None:
-        entity.async_write_ha_state()
-
-    entry.async_on_unload(hass.bus.async_listen(EVENT_TASKS, refresh))
+    manager = entry.runtime_data.manager
+    async_add_entities([TasksDueSensor(manager)])
 
 
 class TasksDueSensor(SensorEntity):
@@ -35,8 +31,19 @@ class TasksDueSensor(SensorEntity):
     _attr_icon = "mdi:clipboard-alert-outline"
     _attr_should_poll = False
 
-    def __init__(self, store) -> None:
-        self._store = store
+    def __init__(self, manager: TaskManager) -> None:
+        self._manager = manager
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to task changes after the entity is registered."""
+        await super().async_added_to_hass()
+        self.async_on_remove(self._manager.subscribe(self._handle_change))
+
+    @callback
+    def _handle_change(self, change: TaskChange) -> None:
+        """Refresh the state after a committed task change."""
+        if change.affects_tasks:
+            self.async_write_ha_state()
 
     @property
     def suggested_object_id(self) -> str:
@@ -46,4 +53,6 @@ class TasksDueSensor(SensorEntity):
     @property
     def native_value(self) -> int:
         now = dt_util.utcnow()
-        return sum(self._store.is_due(task, now) for task in self._store.tasks)
+        return sum(
+            self._manager.is_due(task, now) for task in self._manager.tasks
+        )

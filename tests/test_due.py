@@ -9,7 +9,7 @@ from custom_components.tasks.datetime_utils import (
     normalize_utc_datetime,
     parse_aware_datetime,
 )
-from custom_components.tasks.due_events import TaskDueEventScheduler
+from custom_components.tasks.scheduling import TaskEngine
 
 
 def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
@@ -29,45 +29,40 @@ def test_task_due_requires_an_aware_datetime_and_normalizes_to_utc():
 
 
 def test_due_scheduler_fires_one_event_per_task(monkeypatch):
-    events = []
-    hass = SimpleNamespace(
-        bus=SimpleNamespace(
-            async_fire=lambda event_type, data, context=None: events.append(
-                (event_type, data)
-            )
-        )
-    )
-    store = SimpleNamespace(
+    due = []
+    hass = SimpleNamespace()
+    manager = SimpleNamespace(
         tasks=[
             {
-                "task_id": "waiting",
-                "task_name": "Waiting",
-                "task_due": None,
+                "id": "waiting",
+                "name": "Waiting",
+                "due": None,
             },
             {
-                "task_id": "one",
-                "task_name": "One",
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "id": "one",
+                "name": "One",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "two",
-                "task_name": "Two",
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "id": "two",
+                "name": "Two",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "inactive",
-                "task_name": "Inactive",
+                "id": "inactive",
+                "name": "Inactive",
                 "active": False,
-                "task_due": "2026-07-25T08:00:00+00:00",
+                "due": "2026-07-25T08:00:00+00:00",
             },
             {
-                "task_id": "later",
-                "task_name": "Later",
-                "task_due": "2026-07-25T09:00:00+00:00",
+                "id": "later",
+                "name": "Later",
+                "due": "2026-07-25T09:00:00+00:00",
             },
-        ]
+        ],
+        task_became_due=lambda task: due.append(task),
     )
-    scheduler = TaskDueEventScheduler(hass, store)
+    scheduler = TaskEngine(hass, manager)
     monkeypatch.setattr(scheduler, "reschedule", lambda: None)
 
     scheduler._fire_due(
@@ -75,8 +70,7 @@ def test_due_scheduler_fires_one_event_per_task(monkeypatch):
         datetime(2026, 7, 25, 8, 0, 1, tzinfo=timezone.utc),
     )
 
-    assert [data["resource_id"] for _, data in events] == ["one", "two"]
-    assert all(data["action"] == "task_due" for _, data in events)
+    assert [task["id"] for task in due] == ["one", "two"]
 
 
 def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
@@ -87,9 +81,9 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
     store = SimpleNamespace(
         tasks=[
             {
-                "task_id": "one",
-                "task_name": "One",
-                "task_due": target.isoformat(),
+                "id": "one",
+                "name": "One",
+                "due": target.isoformat(),
             }
         ]
     )
@@ -99,14 +93,14 @@ def test_due_scheduler_timer_callback_stays_on_event_loop(monkeypatch):
         return lambda: None
 
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
+        "custom_components.tasks.scheduling.dt_util.utcnow", lambda: now
     )
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.async_track_point_in_time",
+        "custom_components.tasks.scheduling.async_track_point_in_time",
         track_point_in_time,
     )
 
-    TaskDueEventScheduler(hass, store).reschedule()
+    TaskEngine(hass, store).reschedule()
 
     assert captured["hass"] is hass
     assert captured["point"] == target
@@ -121,25 +115,25 @@ def test_due_scheduler_ignores_inactive_future_tasks(monkeypatch):
         tasks=[
             {
                 "active": False,
-                "task_due": (now + timedelta(seconds=5)).isoformat(),
+                "due": (now + timedelta(seconds=5)).isoformat(),
             },
             {
-                "task_due": (now + timedelta(seconds=10)).isoformat(),
+                "due": (now + timedelta(seconds=10)).isoformat(),
             },
         ]
     )
 
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.dt_util.utcnow", lambda: now
+        "custom_components.tasks.scheduling.dt_util.utcnow", lambda: now
     )
     monkeypatch.setattr(
-        "custom_components.tasks.due_events.async_track_point_in_time",
+        "custom_components.tasks.scheduling.async_track_point_in_time",
         lambda _hass, _action, point: (
             captured.update(point=point),
             lambda: None,
         )[1],
     )
 
-    TaskDueEventScheduler(hass, store).reschedule()
+    TaskEngine(hass, store).reschedule()
 
     assert captured["point"] == now + timedelta(seconds=10)

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 from custom_components.tasks.const import EVENT_TASKS
-from custom_components.tasks.task_events import async_fire_tasks_event
+from custom_components.tasks.manager import TaskManager
 
 
 def test_tasks_event_has_stable_filterable_data():
@@ -17,8 +17,8 @@ def test_tasks_event_has_stable_filterable_data():
         )
     )
 
-    async_fire_tasks_event(
-        hass,
+    manager = TaskManager(hass, SimpleNamespace())
+    manager._changed(
         "completed",
         "task",
         "task-1",

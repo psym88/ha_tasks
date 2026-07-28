@@ -48,7 +48,7 @@ If network access is unavailable, use locally installed Home Assistant source an
    - use Home Assistant timezone helpers appropriate to the verified target version,
    - test DST boundaries when recurrence or scheduling depends on wall time.
 6. Treat persisted Store data as user data. Follow the repository's migration/versioning policy and verify every published upgrade path.
-7. For frontend resources, verify registration, cache behavior, browser URL behavior, and retained local-storage state separately; do not assume one implies another.
+7. For frontend resources, verify registration, cache behavior, versioned URLs, and retained local-storage state through focused automated tests; do not assume one implies another.
 
 ## Validate proportionally
 
@@ -58,7 +58,10 @@ Run the checks required by the repository plus the checks relevant to the change
 - complete backend and frontend test suites when feasible,
 - formatting, typing, and Hassfest validation when configured,
 - import/setup/reload paths affected by the change,
-- frontend behavior in a real browser when changing panels, cards, popups, resources, or caching.
+- production frontend builds plus automated source, bundle, asset-map, and HTTP/resource checks when changing panels, cards, popups, resources, or caching.
+
+Do not start or control an interactive browser for validation unless the user
+explicitly requests a browser check.
 
 After integration code changes, refresh or restart the development Home Assistant container as required by the repository. Verify:
 
@@ -66,7 +69,7 @@ After integration code changes, refresh or restart the development Home Assistan
 2. Home Assistant reaches a healthy running state,
 3. the custom integration loads without relevant warnings or errors,
 4. migrations or startup behavior appear as expected in logs,
-5. the changed user path works in the running instance.
+5. changed integration endpoints and served frontend resources respond as expected when affected.
 
 A successful process exit alone is not runtime verification.
 
@@ -76,7 +79,7 @@ Lead with the outcome. Include only useful evidence:
 
 - Home Assistant version(s) checked,
 - official documentation or Core tag/commit used for a version-sensitive decision,
-- tests and container/browser checks performed,
+- tests, builds, asset checks, and container checks performed,
 - any compatibility range or assumption that could not be verified.
 
 Never claim Home Assistant or HACS conformity from file shape alone.

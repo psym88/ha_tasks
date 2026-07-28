@@ -11,24 +11,33 @@ from typing import Any
 from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
-from homeassistant.core import Event, HomeAssistant, callback
-
-from .const import DOMAIN, EVENT_TASKS
+from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"
-FRONTEND_TRANSLATIONS = Path(__file__).parent / "frontend_translations"
+TRANSLATIONS = Path(__file__).parent / "translations"
+
+
+def _frontend_key(key: str) -> str:
+    """Convert a Home Assistant common key to a frontend key."""
+    namespace, name = key.removeprefix("ui_").split("_", 1)
+    return f"{namespace}.{name}"
 
 
 @cache
 def _load_translations(language: str) -> dict[str, str]:
-    """Load a frontend translation catalog, falling back to English."""
+    """Load UI translations from the Home Assistant catalog."""
     language = language.lower().replace("_", "-").split("-", 1)[0]
-    path = FRONTEND_TRANSLATIONS / f"{language}.json"
+    path = TRANSLATIONS / f"{language}.json"
     if not path.is_file():
-        path = FRONTEND_TRANSLATIONS / "en.json"
-    return json.loads(path.read_text(encoding="utf-8"))["frontend"]
+        path = TRANSLATIONS / "en.json"
+    common = json.loads(path.read_text(encoding="utf-8"))["common"]
+    return {
+        _frontend_key(key): value
+        for key, value in common.items()
+        if key.startswith("ui_")
+    }
 
 
 def notification_id(task_id: str) -> str:
@@ -38,8 +47,10 @@ def notification_id(task_id: str) -> str:
 
 def has_due_notification(task: dict[str, Any]) -> bool:
     """Return whether a task has any due notification enabled."""
-    target = task.get("notification_target") or {}
-    return bool(target.get("device_id") or task.get("notification_persistent"))
+    notification = task["notification"]
+    return bool(
+        notification["device_ids"] or notification["persistent"]
+    )
 
 
 async def _notification_content(
@@ -48,8 +59,8 @@ async def _notification_content(
 ) -> tuple[str, str]:
     language = getattr(getattr(hass, "config", None), "language", "en")
     translations = await hass.async_add_executor_job(_load_translations, language)
-    task_name = task["task_name"]
-    kind = "problem" if task.get("schedule_type") == "sensor" else "due"
+    task_name = task["name"]
+    kind = "problem" if task["schedule"]["type"] == "sensor" else "due"
     return (
         translations[f"notification.{kind}_title"],
         translations[f"notification.{kind}_message"].format(task_name=task_name),
@@ -57,11 +68,12 @@ async def _notification_content(
 
 
 def _mobile_data(task: dict[str, Any]) -> dict[str, Any]:
-    data: dict[str, Any] = {"tag": notification_id(task["task_id"])}
-    if notification_route := task.get("notification_route"):
+    data: dict[str, Any] = {"tag": notification_id(task["id"])}
+    notification = task["notification"]
+    if notification_route := notification.get("route"):
         data["url"] = notification_route
         data["clickAction"] = notification_route
-    if task.get("notification_critical"):
+    if notification["critical"]:
         data.update(
             {
                 "ttl": 0,
@@ -85,15 +97,15 @@ async def async_notify_task_due(
 ) -> None:
     """Send every notification configured for a due task."""
     title, message = await _notification_content(hass, task)
-    if task.get("notification_persistent"):
+    if task["notification"]["persistent"]:
         persistent_notification.async_create(
             hass,
             message,
             title=title,
-            notification_id=notification_id(task["task_id"]),
+            notification_id=notification_id(task["id"]),
         )
 
-    for device_id in (task.get("notification_target") or {}).get("device_id", []):
+    for device_id in task["notification"]["device_ids"]:
         try:
             await device_action.async_call_action_from_config(
                 hass,
@@ -112,21 +124,10 @@ async def async_notify_task_due(
             _LOGGER.exception(
                 "Failed to notify mobile app device %s for task %s",
                 device_id,
-                task["task_id"],
+                task["id"],
             )
 
 
-@callback
-def async_setup_listener(hass: HomeAssistant):
-    """Dismiss panel notifications when their task is completed or deleted."""
-
-    @callback
-    def _handle_event(event: Event) -> None:
-        if (
-            event.data.get("resource_type") == "task"
-            and event.data.get("action") in {"completed", "deleted"}
-            and (task_id := event.data.get("resource_id"))
-        ):
-            persistent_notification.async_dismiss(hass, notification_id(task_id))
-
-    return hass.bus.async_listen(EVENT_TASKS, _handle_event)
+def dismiss_task_notification(hass: HomeAssistant, task_id: str) -> None:
+    """Dismiss the persistent due notification for one task."""
+    persistent_notification.async_dismiss(hass, notification_id(task_id))
