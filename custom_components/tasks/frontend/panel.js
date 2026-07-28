@@ -951,7 +951,7 @@ var J=globalThis,Q=J.ShadowRoot&&(J.ShadyCSS===void 0||J.ShadyCSS.nativeShadow)&
             `:h}
         ${this.saveError?o`<p class="error" role="alert">${this.saveError}</p>`:h}
       </form>
-    `}},qe=v("task-form");customElements.get(qe)||customElements.define(qe,Ve);var We=async(r,e,t=[])=>{let i=e||{id:"",name:"",active:!0,schedule:{type:"sliding",unit:"monthly",interval:1},notification:{device_ids:[],persistent:!1,critical:!1,route:null},due:null,completions:[],attachments:[]},s=document.createElement(qe);return s.configure(r,i,t),await k({heading:e?`${a("task.edit")}: ${i.name}`:a("task.new"),content:s,actions:[{label:a("common.cancel"),value:"cancel"},{label:a("common.save"),value:"save",run:()=>s.save()}]})==="save"};var Ke=class extends g{static properties={items:{attribute:!1},label:{},open:{state:!0}};static styles=b`
+    `}},qe=v("task-form");customElements.get(qe)||customElements.define(qe,Ve);var We=async(r,e,t=[])=>{let i=e||{id:"",name:"",active:!0,schedule:{type:"sliding",unit:"monthly",interval:1},notification:{device_ids:[],persistent:!1,critical:!1,route:null},due:null,completions:[],attachments:[]},s=document.createElement(qe);return s.configure(r,i,t),await k({heading:e?a("task.edit"):a("task.new"),content:s,actions:[{label:a("common.cancel"),value:"cancel"},{label:a("common.save"),value:"save",run:()=>s.save()}]})==="save"};var Ke=class extends g{static properties={items:{attribute:!1},label:{},open:{state:!0}};static styles=b`
     :host {
       display: inline-flex;
     }

@@ -1389,9 +1389,7 @@ export const openTaskEditor = async (
   const form = document.createElement(taskFormElementName) as TasksTaskForm;
   form.configure(hass, task, attachments);
   const result = await openTasksDialog({
-    heading: existingTask
-      ? `${t("task.edit")}: ${task.name}`
-      : t("task.new"),
+    heading: existingTask ? t("task.edit") : t("task.new"),
     content: form,
     actions: [
       { label: t("common.cancel"), value: "cancel" },
