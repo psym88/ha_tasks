@@ -1,5 +1,6 @@
-import { LitElement, css, html } from "lit";
+import { css, html } from "lit";
 
+import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
 export interface FieldOption {
@@ -97,7 +98,7 @@ const fieldStyles = css`
   }
 `;
 
-abstract class TasksField extends LitElement {
+abstract class TasksField extends LocalizedLitElement {
   static properties = {
     label: {},
     value: {},
@@ -277,7 +278,7 @@ class TasksComboboxField extends TasksField {
   }
 }
 
-class TasksMultiSelectField extends LitElement {
+class TasksMultiSelectField extends LocalizedLitElement {
   static properties = {
     label: {},
     value: { attribute: false },
@@ -340,7 +341,7 @@ class TasksMultiSelectField extends LitElement {
   }
 }
 
-class TasksSwitchField extends LitElement {
+class TasksSwitchField extends LocalizedLitElement {
   static properties = {
     label: {},
     description: {},

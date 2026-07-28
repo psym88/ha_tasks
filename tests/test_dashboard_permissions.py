@@ -64,10 +64,14 @@ def test_only_sidepanel_requires_admin():
     assert sources.count("require_admin=True") == 1
 
 
-def test_dashboard_module_is_registered_and_removed_with_config_entry():
+def test_dashboard_module_is_registered_as_lovelace_resource():
     source=(ROOT / "custom_components/tasks/__init__.py").read_text(encoding="utf-8")
-    assert "frontend.add_extra_js_url(hass, card_js_url)" in source
-    assert "frontend.remove_extra_js_url(hass, card_js_url)" in source
+    assert "await _async_register_dashboard_resource(hass, card_js_url)" in source
+    assert 'resource_data = {"res_type": "module", "url": card_js_url}' in source
+    assert "resources.async_create_item(resource_data)" in source
+    assert "resources.async_update_item(current[\"id\"], resource_data)" in source
+    assert "frontend.add_extra_js_url" not in source
+    assert "frontend.remove_extra_js_url" not in source
 
 
 def test_frontend_uses_stable_panel_and_card_assets():
@@ -89,6 +93,7 @@ def test_native_tag_integration_is_loaded_as_a_dependency():
 
     manifest = json.loads((ROOT / "custom_components/tasks/manifest.json").read_text(encoding="utf-8"))
     assert "tag" in manifest["dependencies"]
+    assert "lovelace" in manifest["dependencies"]
     assert "file_upload" not in manifest["dependencies"]
 
 

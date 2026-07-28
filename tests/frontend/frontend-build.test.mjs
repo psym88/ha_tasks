@@ -66,6 +66,10 @@ const cardBundle = await readFile(
   new URL("../../custom_components/tasks/frontend/card.js", import.meta.url),
   "utf8",
 );
+const buildScript = await readFile(
+  new URL("../../scripts/build-frontend.mjs", import.meta.url),
+  "utf8",
+);
 
 test("frontend subscribes to the revisioned snapshot protocol", () => {
   assert.match(api, /type: "tasks\/subscribe"/);
@@ -79,6 +83,9 @@ test("frontend bundles own their runtime and stable production elements", () => 
   assert.match(cardBundle, /tasks-card/);
   assert.doesNotMatch(bundle, /\bfrom\s+["']lit["']/);
   assert.doesNotMatch(bundle, /\bimport\s+["']lit["']/);
+  assert.match(buildScript, /splitting: false/);
+  assert.doesNotMatch(bundle, /\bfrom\s+["'][^"']+["']/);
+  assert.doesNotMatch(cardBundle, /\bfrom\s+["'][^"']+["']/);
 });
 
 test("frontend dialog is owned and accepts rendered content", () => {
@@ -299,10 +306,13 @@ test("frontend bulk actions cover existing assignment and notification behavior"
 test("frontend dashboard card owns its view and editor", () => {
   assert.match(cardEntry, /import "\.\/dashboard-card"/);
   assert.doesNotMatch(source, /dashboard-card/);
-  assert.match(dashboardCard, /class TasksDashboardCard extends LitElement/);
   assert.match(
     dashboardCard,
-    /class TasksDashboardCardEditor extends LitElement/,
+    /class TasksDashboardCard extends LocalizedLitElement/,
+  );
+  assert.match(
+    dashboardCard,
+    /class TasksDashboardCardEditor extends LocalizedLitElement/,
   );
   assert.match(dashboardCard, /new CustomEvent\("config-changed"/);
   assert.match(dashboardCard, /secondary_info:/);

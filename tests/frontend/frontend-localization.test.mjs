@@ -9,6 +9,10 @@ const localize = await readFile(
   new URL("frontend/src/localize.ts", root),
   "utf8",
 );
+const localizedElement = await readFile(
+  new URL("frontend/src/localized-element.ts", root),
+  "utf8",
+);
 const languages = {};
 for (const language of ["en", "de"]) {
   languages[language] = JSON.parse(
@@ -87,6 +91,13 @@ test("frontend localizes Home Assistant WebSocket error objects", async () => {
     ).toString("base64")}`;
     const runtime = await import(moduleUrl);
     await runtime.ready;
+    let languageUpdates = 0;
+    const unsubscribe = runtime.subscribeLanguage(() => {
+      languageUpdates += 1;
+    });
+    await runtime.setLanguage("de");
+    assert.equal(languageUpdates, 1);
+    unsubscribe();
     assert.equal(
       runtime.errorText({
         code: "nfc_tag_already_assigned",
@@ -140,4 +151,6 @@ test("frontend panel and card follow Home Assistant language changes", () => {
   assert.match(source, /setLanguage\(this\.language\)/);
   assert.match(source, /this\.hass\?\.locale\?\.language/);
   assert.match(source, /Intl\.RelativeTimeFormat/);
+  assert.match(localize, /for \(const listener of listeners\)/);
+  assert.match(localizedElement, /subscribeLanguage\(\(\) => this\.requestUpdate\(\)\)/);
 });

@@ -13,6 +13,7 @@ let messages: Messages = {};
 let language = "";
 let requestedLanguage = "";
 const catalogs = new Map<string, Promise<Messages>>();
+const listeners = new Set<() => void>();
 
 const normalizeLanguage = (value?: string): string => {
   const code = String(value || "en")
@@ -100,7 +101,15 @@ export async function setLanguage(value?: string): Promise<void> {
   if (requestedLanguage === next && language !== next) {
     language = next;
     messages = { ...fallback, ...translated };
+    for (const listener of listeners) {
+      listener();
+    }
   }
 }
+
+export const subscribeLanguage = (listener: () => void): (() => void) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
 
 export const ready = setLanguage(globalThis.navigator?.language);

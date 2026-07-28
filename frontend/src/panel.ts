@@ -1,9 +1,10 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import { deleteTask, setTaskActive, subscribeTasks } from "./api";
 import { openArchive } from "./archive";
 import { errorText, setLanguage, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import { openTaskEditor } from "./task-form";
 import { taskTableElementName } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -12,9 +13,10 @@ import { openTasksDialog } from "./ui/dialog";
 
 const taskTableTag = unsafeStatic(taskTableElementName);
 
-class TasksPanel extends LitElement {
+class TasksPanel extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
+    narrow: { type: Boolean },
     snapshot: { state: true },
     error: { state: true },
   };
@@ -22,65 +24,75 @@ class TasksPanel extends LitElement {
   static styles = css`
     :host {
       display: block;
-      min-height: 100%;
+      height: 100%;
       box-sizing: border-box;
-      padding: 24px;
       color: var(--primary-text-color);
       background: var(--primary-background-color);
       font-family: var(--ha-font-family-body, sans-serif);
     }
 
+    .page {
+      height: 100%;
+      overflow: auto;
+    }
+
     main {
       max-width: 960px;
       margin: 0 auto;
+      padding: var(--ha-space-6);
+      padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
     }
 
     header {
+      position: sticky;
+      z-index: 4;
+      top: 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: var(--ha-space-4);
+      min-height: var(--header-height);
+      box-sizing: border-box;
+      padding: var(--safe-area-inset-top, 0) var(--ha-space-4) 0;
+      color: var(--app-header-text-color, var(--primary-text-color));
+      background: var(--app-header-background-color, var(--card-background-color));
+      border-bottom: var(
+        --app-header-border-bottom,
+        var(--ha-border-width-s) solid var(--divider-color)
+      );
+    }
+
+    .header-title {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: var(--ha-space-3);
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: var(--ha-space-4);
     }
 
-    .add {
-      min-height: 40px;
-      padding: 0 18px;
-      color: var(--text-primary-color, white);
-      background: var(--primary-color);
-      border: 0;
-      border-radius: 20px;
-      font: inherit;
-      font-weight: 500;
-      cursor: pointer;
+    .fab {
+      position: fixed;
+      z-index: 3;
+      right: calc(var(--ha-space-6) + var(--safe-area-inset-right, 0px));
+      bottom: calc(var(--ha-space-6) + var(--safe-area-inset-bottom, 0px));
+      display: inline-flex;
+      width: auto;
+      --ha-button-box-shadow: var(--ha-box-shadow-l);
     }
 
     .backup {
-      min-height: 40px;
-      padding: 0 16px;
-      color: var(--primary-color);
-      background: transparent;
-      border: 1px solid var(--divider-color);
-      border-radius: 20px;
-      font: inherit;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    .backup:focus-visible,
-    .add:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
+      color: var(--app-header-text-color);
     }
 
     h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: var(--ha-font-size-xl);
+      font-weight: var(--ha-font-weight-normal, 400);
     }
 
     .error {
@@ -88,18 +100,33 @@ class TasksPanel extends LitElement {
     }
 
     @media (max-width: 520px) {
-      header,
       .header-actions {
-        align-items: flex-start;
+        gap: var(--ha-space-2);
       }
 
       header {
-        flex-direction: column;
+        padding-right: var(--ha-space-2);
+        padding-left: var(--ha-space-1);
+      }
+
+      main {
+        padding: var(--ha-space-4) var(--ha-space-2) var(--ha-space-6);
+        padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
+      }
+
+      .header-actions > span {
+        display: none;
+      }
+
+      .fab {
+        right: calc(var(--ha-space-4) + var(--safe-area-inset-right, 0px));
+        bottom: calc(var(--ha-space-4) + var(--safe-area-inset-bottom, 0px));
       }
     }
   `;
 
   declare hass?: HomeAssistant;
+  declare narrow: boolean;
   declare snapshot?: TasksSnapshot;
   declare error?: string;
 
@@ -201,50 +228,54 @@ class TasksPanel extends LitElement {
   protected render() {
     const snapshot = this.snapshot;
     return html`
-      <main>
+      <div class="page">
         <header>
-          <h1>${t("app.title")}</h1>
+          <div class="header-title">
+            <ha-menu-button .hass=${this.hass} .narrow=${this.narrow}>
+            </ha-menu-button>
+            <h1>${t("app.title")}</h1>
+          </div>
           <div class="header-actions">
-            ${snapshot
-              ? html`${t("app.summary", {
-                  count: snapshot.tasks.length,
-                  revision: snapshot.revision,
-                })}`
-              : nothing}
-            <button
+            <ha-icon-button
               class="backup"
-              type="button"
+              label=${t("settings.import_export")}
+              title=${t("settings.import_export")}
               @click=${() => this.hass && void openArchive(this.hass)}
             >
-              ${t("settings.import_export")}
-            </button>
-            <button
-              class="add"
-              type="button"
-              @click=${() => this.hass && void openTaskEditor(this.hass)}
-            >
-              ${t("common.add_task")}
-            </button>
+              <ha-icon icon="mdi:cog-outline"></ha-icon>
+            </ha-icon-button>
           </div>
         </header>
-        ${this.error
-          ? html`<p class="error">${t("app.load_error", {
-              message: this.error,
-            })}</p>`
-          : !snapshot
-            ? html`<p>${t("common.loading")}</p>`
-            : staticHtml`
-                <${taskTableTag}
-                  .hass=${this.hass}
-                  .tasks=${snapshot.tasks}
-                  @tasks-task-open=${(event: CustomEvent<Task>) =>
-                    this.openTask(event.detail)}
-                  @tasks-task-action=${(
-                    event: CustomEvent<{ action: string; task: Task }>,
-                  ) => this.handleTaskAction(event.detail.action, event.detail.task)}
-                ></${taskTableTag}>
-              `}
-      </main>
+        <main>
+          ${this.error
+            ? html`<p class="error">${t("app.load_error", {
+                message: this.error,
+              })}</p>`
+            : !snapshot
+              ? html`<p>${t("common.loading")}</p>`
+              : staticHtml`
+                  <${taskTableTag}
+                    .hass=${this.hass}
+                    .tasks=${snapshot.tasks}
+                    @tasks-task-open=${(event: CustomEvent<Task>) =>
+                      this.openTask(event.detail)}
+                    @tasks-task-action=${(
+                      event: CustomEvent<{ action: string; task: Task }>,
+                    ) => this.handleTaskAction(event.detail.action, event.detail.task)}
+                  ></${taskTableTag}>
+                `}
+        </main>
+        <ha-button
+          class="fab"
+          appearance="accent"
+          variant="brand"
+          size="l"
+          @click=${() => this.hass && void openTaskEditor(this.hass)}
+        >
+          <ha-icon slot="start" icon="mdi:plus"></ha-icon>
+          ${t("common.add_task")}
+        </ha-button>
+      </div>
     `;
   }
 }

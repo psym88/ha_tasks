@@ -1,4 +1,5 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
+import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
   exportTasksArchive,
@@ -6,14 +7,17 @@ import {
   type ArchiveImportReport,
 } from "./api";
 import { errorText, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import type { HomeAssistant } from "./types";
 import { openTasksDialog } from "./ui/dialog";
-import { elementName } from "./version";
+import { expandableElementName } from "./ui/expandable";
+import { elementName, frontendVersion } from "./version";
 
 const countText = (count: number, one: string, many: string): string =>
   t(count === 1 ? one : many, { count });
+const expandableTag = unsafeStatic(expandableElementName);
 
-class TasksArchive extends LitElement {
+class TasksArchive extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     busy: { state: true },
@@ -25,7 +29,7 @@ class TasksArchive extends LitElement {
   static styles = css`
     :host {
       display: grid;
-      gap: 18px;
+      gap: var(--ha-space-3);
     }
 
     p,
@@ -58,7 +62,7 @@ class TasksArchive extends LitElement {
     }
 
     button.primary {
-      color: var(--text-primary-color, white);
+      color: var(--text-primary-color);
       background: var(--primary-color);
       border-color: var(--primary-color);
     }
@@ -87,6 +91,17 @@ class TasksArchive extends LitElement {
 
     .error {
       color: var(--error-color);
+    }
+
+    .backup-content {
+      display: grid;
+      gap: var(--ha-space-4);
+    }
+
+    .version {
+      color: var(--secondary-text-color);
+      font-size: var(--ha-font-size-s);
+      text-align: end;
     }
   `;
 
@@ -203,42 +218,53 @@ class TasksArchive extends LitElement {
       : this.warning
         ? "status warning"
         : "status";
-    return html`
-      <p>${t("settings.archive_hint")}</p>
-      ${this.status
-        ? html`<ul class=${statusClass} role="status" aria-live="polite">
-            ${this.status.map((line) => html`<li>${line}</li>`)}
-          </ul>`
+    return staticHtml`
+      <${expandableTag} heading=${t("settings.import_export")} open>
+        <div class="backup-content">
+          <p>${t("settings.archive_hint")}</p>
+          ${this.status
+            ? html`<ul class=${statusClass} role="status" aria-live="polite">
+                ${this.status.map((line) => html`<li>${line}</li>`)}
+              </ul>`
+            : nothing}
+          <input
+            id="archive"
+            type="file"
+            accept=".zip,application/zip"
+            ?disabled=${this.busy}
+            @change=${(event: Event) => {
+              const input = event.currentTarget as HTMLInputElement;
+              void this.importArchive(input.files?.[0]);
+              input.value = "";
+            }}
+          />
+          <div class="actions">
+            <button
+              type="button"
+              ?disabled=${this.busy}
+              @click=${() =>
+                this.renderRoot.querySelector<HTMLInputElement>(
+                  "#archive",
+                )?.click()}
+            >
+              ${t("settings.import")}
+            </button>
+            <button
+              class="primary"
+              type="button"
+              ?disabled=${this.busy}
+              @click=${() => void this.exportArchive()}
+            >
+              ${t("settings.export")}
+            </button>
+          </div>
+        </div>
+      </${expandableTag}>
+      ${frontendVersion
+        ? html`<p class="version">${t("app.version", {
+            version: frontendVersion,
+          })}</p>`
         : nothing}
-      <input
-        id="archive"
-        type="file"
-        accept=".zip,application/zip"
-        ?disabled=${this.busy}
-        @change=${(event: Event) => {
-          const input = event.currentTarget as HTMLInputElement;
-          void this.importArchive(input.files?.[0]);
-          input.value = "";
-        }}
-      />
-      <div class="actions">
-        <button
-          type="button"
-          ?disabled=${this.busy}
-          @click=${() =>
-            this.renderRoot.querySelector<HTMLInputElement>("#archive")?.click()}
-        >
-          ${t("settings.import")}
-        </button>
-        <button
-          class="primary"
-          type="button"
-          ?disabled=${this.busy}
-          @click=${() => void this.exportArchive()}
-        >
-          ${t("settings.export")}
-        </button>
-      </div>
     `;
   }
 }
@@ -253,7 +279,7 @@ export const openArchive = (hass: HomeAssistant): Promise<string> => {
   const content = document.createElement(archiveElementName) as TasksArchive;
   content.hass = hass;
   return openTasksDialog({
-    heading: t("settings.import_export"),
+    heading: t("settings.title"),
     content,
     actions: [{ label: t("common.close"), value: "close" }],
   });

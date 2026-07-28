@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
@@ -8,11 +8,13 @@ import {
   type BulkTaskOperation,
 } from "./api";
 import { errorText, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import type {
   HomeAssistant,
   Task,
   TasksDevice,
   TasksLabel,
+  TasksTag,
   TasksUser,
 } from "./types";
 import {
@@ -24,7 +26,12 @@ import { elementName } from "./version";
 
 type SortKey = "name" | "due" | "assignee" | "trigger" | "status";
 type SortDirection = "asc" | "desc";
-type FilterKey = "assignee" | "labels" | "notifications" | "trigger";
+type FilterKey =
+  | "assignee"
+  | "labels"
+  | "notifications"
+  | "trigger"
+  | "status";
 type Filters = Record<FilterKey, string[]>;
 type BulkAction =
   | ""
@@ -40,6 +47,8 @@ type BulkAction =
 type ColumnKey =
   | "due"
   | "assignee"
+  | "nfc"
+  | "files"
   | "labels"
   | "notifications"
   | "trigger"
@@ -51,11 +60,13 @@ interface FilterOption {
   label: string;
 }
 
-const localStorageKey = "tasks-table-state-v1";
+const localStorageKey = "tasks-table-state-v2";
 const sessionStorageKey = "tasks-table-session-v1";
 const columnLabels: Record<ColumnKey, string> = {
   due: "task.due",
   assignee: "table.assignee",
+  nfc: "task.nfc_tag_id",
+  files: "task.files",
   labels: "task.labels",
   notifications: "table.notifications",
   trigger: "table.recurrence",
@@ -64,16 +75,19 @@ const columnLabels: Record<ColumnKey, string> = {
 const defaultColumns: ColumnVisibility = {
   due: true,
   assignee: true,
+  nfc: true,
+  files: true,
   labels: false,
   notifications: false,
-  trigger: true,
-  status: true,
+  trigger: false,
+  status: false,
 };
 const emptyFilters = (): Filters => ({
   assignee: [],
   labels: [],
   notifications: [],
   trigger: [],
+  status: [],
 });
 
 const storedObject = (
@@ -93,16 +107,53 @@ const storedObject = (
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 export const taskActions = (task: Task): ActionMenuItem[] => [
-  { label: t("app.open"), value: "open" },
-  { label: t("menu.edit"), value: "edit" },
+  { label: t("menu.edit"), value: "edit", icon: "mdi:pencil-outline" },
   {
     label: task.active === false ? t("app.resume") : t("app.pause"),
     value: "active",
+    icon:
+      task.active === false
+        ? "mdi:play-circle-outline"
+        : "mdi:pause-circle-outline",
   },
-  { label: t("common.delete"), value: "delete", destructive: true },
+  {
+    label: t("common.delete"),
+    value: "delete",
+    icon: "mdi:delete-outline",
+    destructive: true,
+  },
 ];
 
-class TasksTaskTable extends LitElement {
+const bulkActions = (): ActionMenuItem[] => [
+  { label: t("bulk.complete"), value: "complete", icon: "mdi:check-circle-outline" },
+  { label: t("app.pause"), value: "pause", icon: "mdi:pause-circle-outline" },
+  { label: t("app.resume"), value: "resume", icon: "mdi:play-circle-outline" },
+  { label: t("bulk.assign_person"), value: "assign", icon: "mdi:account-outline" },
+  { label: t("app.add_label"), value: "add-label", icon: "mdi:tag-plus-outline" },
+  {
+    label: t("app.remove_label"),
+    value: "remove-label",
+    icon: "mdi:tag-minus-outline",
+  },
+  {
+    label: t("app.add_notification"),
+    value: "add-notification",
+    icon: "mdi:bell-plus-outline",
+  },
+  {
+    label: t("app.remove_notification"),
+    value: "remove-notification",
+    icon: "mdi:bell-minus-outline",
+  },
+  {
+    label: t("bulk.delete"),
+    value: "delete",
+    icon: "mdi:delete-outline",
+    destructive: true,
+  },
+];
+
+class TasksTaskTable extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     tasks: { attribute: false },
@@ -129,28 +180,25 @@ class TasksTaskTable extends LitElement {
     }
 
     .toolbar {
+      position: relative;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 8px;
       margin-bottom: 12px;
+    }
+
+    .selection-toolbar {
+      display: flex;
+      min-width: 0;
+      flex: 1;
+      align-items: center;
+      gap: 8px;
     }
 
     .bulk-bar {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
+      display: grid;
       gap: 8px;
-      margin-bottom: 12px;
-      padding: 10px 12px;
-      color: var(--primary-text-color);
-      background: var(--card-background-color);
-      border: 1px solid var(--divider-color);
-      border-radius: var(--ha-card-border-radius, 12px);
-    }
-
-    .bulk-count {
-      margin-right: auto;
-      font-weight: 500;
+      width: 280px;
     }
 
     .bulk-bar select,
@@ -176,14 +224,104 @@ class TasksTaskTable extends LitElement {
     }
 
     .bulk-error {
-      flex-basis: 100%;
       margin: 0;
       color: var(--error-color);
     }
 
+    .bulk-menu .popover-panel {
+      width: 312px;
+    }
+
+    .bulk-menu > summary {
+      color: var(--primary-color);
+    }
+
+    .bulk-action-picker {
+      overflow: hidden;
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-border-radius-lg);
+    }
+
+    .bulk-action-picker > summary {
+      display: flex;
+      min-height: 48px;
+      align-items: center;
+      gap: var(--ha-space-3);
+      padding: 0 var(--ha-space-4);
+      color: var(--primary-text-color);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+    }
+
+    .bulk-action-picker > summary ha-icon {
+      --mdc-icon-size: 20px;
+      color: var(--secondary-text-color);
+    }
+
+    .bulk-action-picker > summary .picker-chevron {
+      margin-inline-start: auto;
+    }
+
+    .bulk-action-picker[open] > summary .picker-chevron {
+      transform: rotate(180deg);
+    }
+
+    .bulk-action-list {
+      display: grid;
+      max-height: min(336px, 42dvh);
+      overflow-y: auto;
+      border-top: 1px solid var(--divider-color);
+    }
+
+    .bulk-bar .bulk-action {
+      display: flex;
+      min-height: 48px;
+      align-items: center;
+      gap: var(--ha-space-3);
+      padding: 0 var(--ha-space-4);
+      color: var(--secondary-text-color);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      text-align: start;
+    }
+
+    .bulk-bar .bulk-action + .bulk-action {
+      border-top: 1px solid var(--divider-color);
+    }
+
+    .bulk-bar .bulk-action:hover,
+    .bulk-bar .bulk-action.selected {
+      background: var(--secondary-background-color);
+    }
+
+    .bulk-bar .bulk-action.selected {
+      color: var(--primary-color);
+    }
+
+    .bulk-action ha-icon {
+      --mdc-icon-size: 20px;
+      color: var(--secondary-text-color);
+    }
+
+    .bulk-bar .bulk-action.destructive,
+    .bulk-action.destructive ha-icon {
+      color: var(--error-color);
+    }
+
+    .bulk-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--ha-space-2);
+      padding-top: var(--ha-space-2);
+    }
+
     .search {
       width: min(360px, 100%);
+      min-width: 0;
       min-height: 40px;
+      flex: 1;
       box-sizing: border-box;
       padding: 8px 12px;
       color: var(--primary-text-color);
@@ -230,21 +368,61 @@ class TasksTaskTable extends LitElement {
       color: var(--primary-text-color);
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-card-border-radius, 12px);
-      box-shadow: var(
-        --ha-card-box-shadow,
-        0 6px 24px rgba(0, 0, 0, 0.28)
-      );
+      border-radius: var(--ha-border-radius-lg);
+      box-shadow: var(--ha-box-shadow-m, var(--ha-card-box-shadow));
     }
 
-    .column-panel {
-      width: 240px;
+    .column-panel,
+    .filter-panel {
+      width: 312px;
     }
 
     .filter-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--ha-space-2);
+      width: 100%;
+    }
+
+    .filter-category {
+      position: static;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-border-radius-lg);
+    }
+
+    .filter-category > summary {
+      display: flex;
+      min-height: 48px;
+      align-items: center;
+      padding: 0 var(--ha-space-4);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      font-weight: var(--ha-font-weight-medium);
+    }
+
+    .filter-category > summary .filter-chevron {
+      margin-inline-start: auto;
+      color: var(--secondary-text-color);
+    }
+
+    .filter-category-count {
+      margin-inline-start: var(--ha-space-2);
+      color: var(--secondary-text-color);
+      font-weight: var(--ha-font-weight-normal);
+    }
+
+    .filter-category[open] > summary .filter-chevron {
+      transform: rotate(180deg);
+    }
+
+    .filter-category fieldset {
+      display: grid;
+      box-sizing: border-box;
+      padding: 0;
+      border-top: 1px solid var(--divider-color);
     }
 
     fieldset {
@@ -266,37 +444,64 @@ class TasksTaskTable extends LitElement {
       min-height: 32px;
     }
 
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      accent-color: var(--primary-color);
+    ha-checkbox {
+      min-height: 32px;
+    }
+
+    .column-options {
+      display: grid;
+      overflow: hidden;
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-border-radius-lg);
+    }
+
+    .option-row {
+      display: flex;
+      width: 100%;
+      height: 48px;
+      box-sizing: border-box;
+      align-items: center;
+      justify-content: flex-start;
+      gap: var(--ha-space-3);
+      padding-inline: var(--ha-space-4);
+      color: var(--secondary-text-color);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      font: inherit;
+      text-align: start;
+      cursor: pointer;
+    }
+
+    .option-row ha-icon {
+      --mdc-icon-size: 20px;
+      margin-inline-start: auto;
+    }
+
+    .option-row + .option-row {
+      border-top: 1px solid var(--divider-color);
+    }
+
+    .option-row:hover,
+    .option-row.active {
+      background: var(--secondary-background-color);
+    }
+
+    .option-row.active {
+      color: var(--primary-color);
+      font-weight: var(--ha-font-weight-medium);
     }
 
     .filter-footer {
       display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid var(--divider-color);
+      justify-content: flex-end;
+      gap: var(--ha-space-2);
+      margin-top: 0;
+      padding-top: var(--ha-space-2);
     }
 
-    .filter-footer button {
-      min-height: 36px;
-      padding: 0 12px;
-      color: var(--primary-color);
-      background: transparent;
-      border: 0;
-      border-radius: 18px;
-      font: inherit;
-      cursor: pointer;
-    }
-
-    .filter-actions {
-      display: flex;
-      gap: 4px;
-      margin-left: auto;
+    .reset-action {
+      margin-inline-start: auto;
     }
 
     .registry-error {
@@ -308,7 +513,7 @@ class TasksTaskTable extends LitElement {
       overflow-x: auto;
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-card-border-radius, 12px);
+      border-radius: var(--ha-border-radius-lg);
     }
 
     table {
@@ -363,11 +568,38 @@ class TasksTaskTable extends LitElement {
       );
     }
 
-    .task {
+    tbody tr {
+      cursor: pointer;
+    }
+
+    .task-name {
       font-weight: 500;
     }
 
-    .inactive .task {
+    .inactive .task-name {
+      color: var(--secondary-text-color);
+    }
+
+    .inactive td {
+      color: var(--secondary-text-color);
+    }
+
+    .inactive {
+      background: color-mix(
+        in srgb,
+        var(--secondary-text-color) 5%,
+        transparent
+      );
+    }
+
+    .icon {
+      width: 40px;
+      padding-right: 4px;
+      padding-left: 12px;
+      text-align: center;
+    }
+
+    .icon ha-icon {
       color: var(--secondary-text-color);
     }
 
@@ -380,7 +612,7 @@ class TasksTaskTable extends LitElement {
     .status::before {
       width: 8px;
       height: 8px;
-      background: var(--success-color, #43a047);
+      background: var(--success-color);
       border-radius: 50%;
       content: "";
     }
@@ -397,10 +629,23 @@ class TasksTaskTable extends LitElement {
     }
 
     .selection {
+      position: relative;
       width: 48px;
+      padding-top: 0;
       padding-right: 8px;
+      padding-bottom: 0;
       padding-left: 12px;
+      line-height: 0;
       text-align: center;
+    }
+
+    .selection ha-checkbox {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: block;
+      min-height: 0;
+      transform: translate(-50%, -50%);
     }
 
     .empty {
@@ -424,6 +669,8 @@ class TasksTaskTable extends LitElement {
 
       .due-column,
       .assignee-column,
+      .files-column,
+      .nfc-column,
       .labels-column,
       .notifications-column,
       .trigger-column,
@@ -435,26 +682,27 @@ class TasksTaskTable extends LitElement {
         flex-wrap: wrap;
       }
 
-      .bulk-count {
-        flex-basis: 100%;
-      }
-
       .search {
-        flex: 1 1 220px;
+        flex: 1;
       }
 
-      .popover-panel {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        left: 16px;
+      .toolbar > details,
+      .selection-toolbar > details {
+        position: static;
+      }
+
+      .toolbar .popover-panel {
+        top: calc(100% + 6px);
+        right: 0;
+        left: 0;
         width: auto;
-        max-height: calc(100dvh - 32px);
+        max-width: none;
+        max-height: calc(100dvh - 96px);
         overflow: auto;
       }
 
-      .filter-grid {
-        grid-template-columns: 1fr;
+      .bulk-bar {
+        width: 100%;
       }
 
       th,
@@ -477,6 +725,7 @@ class TasksTaskTable extends LitElement {
   declare filters: Filters;
   declare users: TasksUser[];
   declare labels: TasksLabel[];
+  declare tags: TasksTag[];
   declare devices: TasksDevice[];
   declare registryError: string;
   declare columns: ColumnVisibility;
@@ -487,6 +736,14 @@ class TasksTaskTable extends LitElement {
   declare bulkError: string;
 
   private registryConnection?: HomeAssistant["connection"];
+  private readonly closePanels = (event: Event): void => {
+    const path = event.composedPath();
+    for (const details of this.renderRoot.querySelectorAll("details[open]")) {
+      if (!path.includes(details)) {
+        details.removeAttribute("open");
+      }
+    }
+  };
 
   constructor() {
     super();
@@ -533,6 +790,7 @@ class TasksTaskTable extends LitElement {
     ) as ColumnVisibility;
     this.users = [];
     this.labels = [];
+    this.tags = [];
     this.devices = [];
     this.registryError = "";
     this.selectedIds = [];
@@ -540,6 +798,16 @@ class TasksTaskTable extends LitElement {
     this.bulkTarget = "";
     this.bulkBusy = false;
     this.bulkError = "";
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener("click", this.closePanels);
+  }
+
+  disconnectedCallback(): void {
+    document.removeEventListener("click", this.closePanels);
+    super.disconnectedCallback();
   }
 
   protected updated(): void {
@@ -566,6 +834,7 @@ class TasksTaskTable extends LitElement {
     if (assignments.status === "fulfilled") {
       this.users = assignments.value.users;
       this.labels = assignments.value.labels;
+      this.tags = assignments.value.tags;
     }
     if (devices.status === "fulfilled") {
       this.devices = devices.value;
@@ -595,6 +864,16 @@ class TasksTaskTable extends LitElement {
     return (
       this.users.find((user) => user.id === task.assignee_id)?.name ||
       t("task.unassigned")
+    );
+  }
+
+  private nfcTag(task: Task): string {
+    if (!task.nfc_tag_id) {
+      return "—";
+    }
+    return (
+      this.tags.find((tag) => tag.id === task.nfc_tag_id)?.name ||
+      task.nfc_tag_id
     );
   }
 
@@ -662,6 +941,9 @@ class TasksTaskTable extends LitElement {
       ];
       return values.length ? values : ["__none__"];
     }
+    if (key === "status") {
+      return [task.active === false ? "paused" : "active"];
+    }
     return [task.schedule.type];
   }
 
@@ -687,6 +969,9 @@ class TasksTaskTable extends LitElement {
         : this.deviceName(
             this.devices.find((device) => device.id === value)!,
           );
+    }
+    if (key === "status") {
+      return value === "paused" ? t("app.paused") : t("app.active");
     }
     return value === "sensor"
       ? t("task.problem_sensor")
@@ -791,6 +1076,7 @@ class TasksTaskTable extends LitElement {
               task.name,
               task.description,
               this.assignee(task),
+              this.nfcTag(task),
               this.taskLabels(task).map((label) => label.name).join(" "),
               this.notificationDevices(task)
                 .map((device) => this.deviceName(device))
@@ -835,11 +1121,17 @@ class TasksTaskTable extends LitElement {
         ? [...new Set([...values, value])]
         : values.filter((item) => item !== value),
     };
+    this.retainVisibleSelection();
     this.storeSessionView();
   }
 
   private toggleColumn(key: ColumnKey, visible: boolean): void {
     this.columns = { ...this.columns, [key]: visible };
+    this.storeLocalView();
+  }
+
+  private resetColumns(): void {
+    this.columns = { ...defaultColumns };
     this.storeLocalView();
   }
 
@@ -879,6 +1171,12 @@ class TasksTaskTable extends LitElement {
     if (key === "assignee") {
       return this.assignee(task);
     }
+    if (key === "files") {
+      return String(task.attachments.length);
+    }
+    if (key === "nfc") {
+      return this.nfcTag(task);
+    }
     if (key === "labels") {
       return this.labelsText(task);
     }
@@ -899,12 +1197,22 @@ class TasksTaskTable extends LitElement {
   }
 
   private visibleColumnCount(): number {
-    return Object.values(this.columns).filter(Boolean).length + 3;
+    return Object.values(this.columns).filter(Boolean).length + 4;
   }
 
   private selectedTasks(): Task[] {
     const ids = new Set(this.selectedIds);
     return this.tasks.filter((task) => ids.has(task.id));
+  }
+
+  private visibleSelectedTasks(): Task[] {
+    const ids = new Set(this.selectedIds);
+    return this.visibleTasks().filter((task) => ids.has(task.id));
+  }
+
+  private retainVisibleSelection(): void {
+    const visibleIds = new Set(this.visibleTasks().map((task) => task.id));
+    this.selectedIds = this.selectedIds.filter((id) => visibleIds.has(id));
   }
 
   private toggleTask(taskId: string, selected: boolean): void {
@@ -969,8 +1277,72 @@ class TasksTaskTable extends LitElement {
     ].includes(this.bulkAction);
   }
 
+  private bulkActionDestructive(): boolean {
+    return [
+      "delete",
+      "remove-label",
+      "remove-notification",
+    ].includes(this.bulkAction);
+  }
+
+  private bulkActionLabel(): string {
+    if (this.bulkAction === "complete") {
+      return t("bulk.complete");
+    }
+    if (this.bulkAction === "pause") {
+      return t("app.pause");
+    }
+    if (this.bulkAction === "resume") {
+      return t("app.resume");
+    }
+    if (this.bulkAction === "assign") {
+      return t("app.assign");
+    }
+    if (
+      this.bulkAction === "add-label" ||
+      this.bulkAction === "add-notification"
+    ) {
+      return t("app.add");
+    }
+    if (
+      this.bulkAction === "remove-label" ||
+      this.bulkAction === "remove-notification"
+    ) {
+      return t("common.remove");
+    }
+    return this.bulkAction === "delete"
+      ? t("common.delete")
+      : t("app.apply");
+  }
+
+  private bulkTargetLabel(): string {
+    if (this.bulkAction === "assign") {
+      return t("app.choose_person");
+    }
+    if (
+      this.bulkAction === "add-label" ||
+      this.bulkAction === "remove-label"
+    ) {
+      return t("app.choose_label");
+    }
+    return t("app.choose_notification");
+  }
+
+  private bulkTargetIcon(): string {
+    if (this.bulkAction === "assign") {
+      return "mdi:account-outline";
+    }
+    if (
+      this.bulkAction === "add-label" ||
+      this.bulkAction === "remove-label"
+    ) {
+      return "mdi:tag-outline";
+    }
+    return "mdi:bell-outline";
+  }
+
   private bulkOperations(): BulkTaskOperation[] {
-    return this.selectedTasks().map((task) => {
+    return this.visibleSelectedTasks().map((task) => {
       if (this.bulkAction === "complete") {
         return { action: "complete", id: task.id, notes: null };
       }
@@ -1021,6 +1393,123 @@ class TasksTaskTable extends LitElement {
     });
   }
 
+  private renderBulkMenu(selected: Task[]) {
+    const bulkTargets = this.bulkTargets();
+    const actions = bulkActions();
+    const selectedAction = actions.find(
+      (action) => action.value === this.bulkAction,
+    );
+    const selectedTarget = bulkTargets.find(
+      (target) => target.value === this.bulkTarget,
+    );
+    return html`
+      <details class="bulk-menu">
+        <summary>${t("bulk.actions")} (${selected.length})</summary>
+        <div class="popover-panel">
+          <div class="bulk-bar">
+            <details class="bulk-action-picker">
+              <summary>
+                <ha-icon
+                  .icon=${selectedAction?.icon || "mdi:gesture-tap-button"}
+                ></ha-icon>
+                <span>${selectedAction?.label || t("app.choose_action")}</span>
+                <ha-icon
+                  class="picker-chevron"
+                  icon="mdi:chevron-down"
+                ></ha-icon>
+              </summary>
+              <div class="bulk-action-list">
+                ${actions.map(
+                  (action) => html`
+                    <button
+                      class=${[
+                        "bulk-action",
+                        this.bulkAction === action.value ? "selected" : "",
+                        action.destructive ? "destructive" : "",
+                      ].filter(Boolean).join(" ")}
+                      type="button"
+                      @click=${(event: Event) => {
+                        this.bulkAction = action.value as BulkAction;
+                        this.bulkTarget = "";
+                        this.bulkError = "";
+                        (
+                          event.currentTarget as HTMLElement
+                        ).closest("details")?.removeAttribute("open");
+                      }}
+                    >
+                      <ha-icon .icon=${action.icon}></ha-icon>
+                      <span>${action.label}</span>
+                    </button>
+                  `,
+                )}
+              </div>
+            </details>
+            ${bulkTargets.length
+              ? html`
+                  <details class="bulk-action-picker">
+                    <summary>
+                      <ha-icon .icon=${this.bulkTargetIcon()}></ha-icon>
+                      <span>
+                        ${selectedTarget?.label || this.bulkTargetLabel()}
+                      </span>
+                      <ha-icon
+                        class="picker-chevron"
+                        icon="mdi:chevron-down"
+                      ></ha-icon>
+                    </summary>
+                    <div class="bulk-action-list">
+                      ${bulkTargets.map(
+                        (option) => html`
+                          <button
+                            class=${[
+                              "bulk-action",
+                              this.bulkTarget === option.value
+                                ? "selected"
+                                : "",
+                            ].filter(Boolean).join(" ")}
+                            type="button"
+                            @click=${(event: Event) => {
+                              this.bulkTarget = option.value;
+                              (
+                                event.currentTarget as HTMLElement
+                              ).closest("details")?.removeAttribute("open");
+                            }}
+                          >
+                            <ha-icon .icon=${this.bulkTargetIcon()}></ha-icon>
+                            <span>${option.label}</span>
+                          </button>
+                        `,
+                      )}
+                    </div>
+                  </details>
+                `
+              : nothing}
+            <div class="bulk-footer">
+              <ha-button
+                appearance="accent"
+                variant=${this.bulkActionDestructive() ? "danger" : "brand"}
+                ?disabled=${this.bulkBusy ||
+                !selected.length ||
+                !this.bulkAction ||
+                (this.bulkNeedsTarget() && !this.bulkTarget)}
+                @click=${() => void this.applyBulk()}
+              >
+                ${this.bulkBusy
+                  ? t("app.applying")
+                  : this.bulkActionLabel()}
+              </ha-button>
+            </div>
+            ${this.bulkError
+              ? html`<p class="bulk-error" role="alert">
+                  ${this.bulkError}
+                </p>`
+              : nothing}
+          </div>
+        </div>
+      </details>
+    `;
+  }
+
   private async applyBulk(): Promise<void> {
     if (
       !this.hass ||
@@ -1062,7 +1551,10 @@ class TasksTaskTable extends LitElement {
     this.bulkError = "";
     try {
       await mutateTasks(this.hass, operations);
-      this.selectedIds = [];
+      const appliedIds = new Set(operations.map((operation) => operation.id));
+      this.selectedIds = this.selectedIds.filter(
+        (id) => !appliedIds.has(id),
+      );
       this.bulkAction = "";
       this.bulkTarget = "";
     } catch (error) {
@@ -1083,34 +1575,48 @@ class TasksTaskTable extends LitElement {
     label: string,
     key: FilterKey,
   ) {
+    const activeCount = this.filters[key].length;
     return html`
-      <fieldset>
-        <legend>${label}</legend>
-        ${this.filterOptions(key).map(
-          (option) => html`
-            <label>
-              <input
-                type="checkbox"
-                .checked=${this.filters[key].includes(option.value)}
-                @change=${(event: Event) =>
+      <details class="filter-category">
+        <summary>
+          <span>${label}</span>
+          ${activeCount
+            ? html`<span class="filter-category-count">
+                (${activeCount})
+              </span>`
+            : nothing}
+          <ha-icon
+            class="filter-chevron"
+            icon="mdi:chevron-down"
+          ></ha-icon>
+        </summary>
+        <fieldset>
+          ${this.filterOptions(key).map(
+            (option) => {
+              const active = this.filters[key].includes(option.value);
+              return html`
+              <button
+                class=${active ? "option-row active" : "option-row"}
+                type="button"
+                aria-pressed=${active}
+                @click=${() =>
                   this.toggleFilter(
                     key,
                     option.value,
-                    (event.currentTarget as HTMLInputElement).checked,
+                    !active,
                   )}
               >
-              <span>${option.label}</span>
-            </label>
-          `,
-        )}
-      </fieldset>
+                <span>${option.label}</span>
+                ${active
+                  ? html`<ha-icon icon="mdi:check"></ha-icon>`
+                  : nothing}
+              </button>
+            `;
+            },
+          )}
+        </fieldset>
+      </details>
     `;
-  }
-
-  private closePanel(event: Event): void {
-    (event.currentTarget as HTMLElement)
-      .closest("details")
-      ?.removeAttribute("open");
   }
 
   private open(task: Task): void {
@@ -1155,7 +1661,10 @@ class TasksTaskTable extends LitElement {
 
   private columnHeader(key: ColumnKey) {
     const className = `${key}-column`;
-    return key === "labels" || key === "notifications"
+    return key === "labels" ||
+      key === "notifications" ||
+      key === "files" ||
+      key === "nfc"
       ? html`<th class=${className}>${t(columnLabels[key])}</th>`
       : this.header(t(columnLabels[key]), key, className);
   }
@@ -1185,168 +1694,93 @@ class TasksTaskTable extends LitElement {
     const someVisibleSelected = tasks.some((task) =>
       selectedIds.has(task.id),
     );
-    const bulkTargets = this.bulkTargets();
     return staticHtml`
       <div class="toolbar">
-        <input
-          class="search"
-          type="search"
-          aria-label=${t("table.search")}
-          placeholder=${t("table.search")}
-          .value=${this.search}
-          @input=${(event: Event) => {
-            this.search = (event.currentTarget as HTMLInputElement).value;
-            this.storeSessionView();
-          }}
-        >
+        <div class="selection-toolbar">
+          <input
+            class="search"
+            type="search"
+            aria-label=${t("table.search")}
+            placeholder=${t("table.search")}
+            .value=${this.search}
+            @input=${(event: Event) => {
+              this.search = (event.currentTarget as HTMLInputElement).value;
+              this.retainVisibleSelection();
+              this.storeSessionView();
+            }}
+          >
+          ${selectedTasks.length
+            ? this.renderBulkMenu(selectedTasks)
+            : nothing}
+        </div>
         <details>
           <summary>${t("table.filters")}${filterCount ? ` (${filterCount})` : ""}</summary>
-          <div class="popover-panel">
+          <div class="popover-panel filter-panel">
             <div class="filter-grid">
               ${this.filterGroup(t("task.assignment"), "assignee")}
               ${this.filterGroup(t("task.labels"), "labels")}
               ${this.filterGroup(t("table.notifications"), "notifications")}
               ${this.filterGroup(t("table.recurrence"), "trigger")}
+              ${this.filterGroup(t("app.status"), "status")}
             </div>
             <div class="filter-footer">
               ${this.registryError
                 ? html`<p class="registry-error">${this.registryError}</p>`
-                : html`<span></span>`}
-              <div class="filter-actions">
-                <button
-                  type="button"
-                  @click=${() => {
-                    this.filters = emptyFilters();
-                    this.storeSessionView();
-                  }}
-                >
-                  ${t("table.reset_filters")}
-                </button>
-                <button
-                  type="button"
-                  @click=${this.closePanel}
-                >
-                  ${t("app.done")}
-                </button>
-              </div>
+                : nothing}
+              <ha-button
+                appearance="plain"
+                variant="neutral"
+                @click=${() => {
+                  this.filters = emptyFilters();
+                  this.storeSessionView();
+                }}
+              >
+                ${t("table.reset_filters")}
+              </ha-button>
             </div>
           </div>
         </details>
         <details>
           <summary>${t("table.columns")}</summary>
           <div class="popover-panel column-panel">
-            <fieldset>
-              <legend>${t("app.visible_columns")}</legend>
+            <div class="column-options">
               ${(Object.keys(columnLabels) as ColumnKey[]).map(
                 (key) => html`
-                  <label>
-                    <input
-                      type="checkbox"
-                      .checked=${this.columns[key]}
-                      @change=${(event: Event) =>
-                        this.toggleColumn(
-                          key,
-                          (event.currentTarget as HTMLInputElement).checked,
-                        )}
-                    >
+                  <button
+                    class=${this.columns[key]
+                      ? "option-row active"
+                      : "option-row"}
+                    type="button"
+                    aria-pressed=${this.columns[key]}
+                    @click=${() =>
+                      this.toggleColumn(key, !this.columns[key])}
+                  >
                     <span>${t(columnLabels[key])}</span>
-                  </label>
+                    ${this.columns[key]
+                      ? html`<ha-icon icon="mdi:check"></ha-icon>`
+                      : nothing}
+                  </button>
                 `,
               )}
-            </fieldset>
+            </div>
             <div class="filter-footer">
-              <span></span>
-              <button type="button" @click=${this.closePanel}>
-                ${t("app.done")}
-              </button>
+              <ha-button
+                appearance="plain"
+                variant="neutral"
+                @click=${this.resetColumns}
+              >
+                ${t("table.reset_columns")}
+              </ha-button>
             </div>
           </div>
         </details>
       </div>
-      ${selectedTasks.length
-        ? html`
-            <div class="bulk-bar">
-              <span class="bulk-count">
-                ${t("app.selected", { count: selectedTasks.length })}
-              </span>
-              <select
-                aria-label=${t("bulk.actions")}
-                .value=${this.bulkAction}
-                @change=${(event: Event) => {
-                  this.bulkAction = (
-                    event.currentTarget as HTMLSelectElement
-                  ).value as BulkAction;
-                  this.bulkTarget = "";
-                  this.bulkError = "";
-                }}
-              >
-                <option value="">${t("app.choose_action")}</option>
-                <option value="complete">${t("bulk.complete")}</option>
-                <option value="pause">${t("app.pause")}</option>
-                <option value="resume">${t("app.resume")}</option>
-                <option value="assign">${t("bulk.assign_person")}</option>
-                <option value="add-label">${t("app.add_label")}</option>
-                <option value="remove-label">${t("app.remove_label")}</option>
-                <option value="add-notification">${t("app.add_notification")}</option>
-                <option value="remove-notification">${t("app.remove_notification")}</option>
-                <option value="delete">${t("bulk.delete")}</option>
-              </select>
-              ${bulkTargets.length
-                ? html`
-                    <select
-                      aria-label=${t("app.choose_target")}
-                      .value=${this.bulkTarget}
-                      @change=${(event: Event) => {
-                        this.bulkTarget = (
-                          event.currentTarget as HTMLSelectElement
-                        ).value;
-                      }}
-                    >
-                      <option value="">${t("app.choose_target")}</option>
-                      ${bulkTargets.map(
-                        (option) => html`
-                          <option value=${option.value}>
-                            ${option.label}
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  `
-                : nothing}
-              <button
-                type="button"
-                ?disabled=${this.bulkBusy ||
-                !this.bulkAction ||
-                (this.bulkNeedsTarget() && !this.bulkTarget)}
-                @click=${() => void this.applyBulk()}
-              >
-                ${this.bulkBusy ? t("app.applying") : t("app.apply")}
-              </button>
-              <button
-                type="button"
-                ?disabled=${this.bulkBusy}
-                @click=${() => {
-                  this.selectedIds = [];
-                  this.bulkAction = "";
-                  this.bulkTarget = "";
-                  this.bulkError = "";
-                }}
-              >
-                ${t("app.clear")}
-              </button>
-              ${this.bulkError
-                ? html`<p class="bulk-error">${this.bulkError}</p>`
-                : nothing}
-            </div>
-          `
-        : nothing}
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th class="selection">
-                <input
-                  type="checkbox"
+                <ha-checkbox
                   aria-label=${t("app.select_visible")}
                   .checked=${allVisibleSelected}
                   .indeterminate=${someVisibleSelected &&
@@ -1354,10 +1788,15 @@ class TasksTaskTable extends LitElement {
                   @change=${(event: Event) =>
                     this.toggleVisible(
                       tasks,
-                      (event.currentTarget as HTMLInputElement).checked,
+                      (
+                        event.currentTarget as HTMLElement & {
+                          checked: boolean;
+                        }
+                      ).checked,
                     )}
-                >
+                ></ha-checkbox>
               </th>
+              <th class="icon" aria-hidden="true"></th>
               ${this.header(t("table.task"), "name")}
               ${visibleColumns.map((key) => this.columnHeader(key))}
               <th class="actions" aria-label=${t("task.actions")}></th>
@@ -1370,10 +1809,13 @@ class TasksTaskTable extends LitElement {
                     <tr
                       class=${task.active === false ? "inactive" : ""}
                       aria-selected=${selectedIds.has(task.id)}
+                      @click=${() => this.open(task)}
                     >
-                      <td class="selection">
-                        <input
-                          type="checkbox"
+                      <td
+                        class="selection"
+                        @click=${(event: Event) => event.stopPropagation()}
+                      >
+                        <ha-checkbox
                           aria-label=${t("app.select_task", {
                             name: task.name,
                           })}
@@ -1381,26 +1823,33 @@ class TasksTaskTable extends LitElement {
                           @change=${(event: Event) =>
                             this.toggleTask(
                               task.id,
-                              (event.currentTarget as HTMLInputElement)
-                                .checked,
+                              (
+                                event.currentTarget as HTMLElement & {
+                                  checked: boolean;
+                                }
+                              ).checked,
                             )}
-                        >
+                        ></ha-checkbox>
                       </td>
-                      <td>
-                        <button
-                          class="task"
-                          type="button"
-                          @click=${() => this.open(task)}
-                        >
-                          ${task.name}
-                          <span class="mobile-details">
-                            ${this.mobileDetails(task)}
-                          </span>
-                        </button>
+                      <td class="icon">
+                        <ha-icon
+                          .icon=${task.active === false
+                            ? "mdi:pause-circle-outline"
+                            : task.icon || "mdi:clipboard-check-outline"}
+                        ></ha-icon>
+                      </td>
+                      <td class="task-name">
+                        ${task.name}
+                        <span class="mobile-details">
+                          ${this.mobileDetails(task)}
+                        </span>
                       </td>
                       ${visibleColumns.map((key) =>
                         this.columnCell(task, key))}
-                      <td class="actions">
+                      <td
+                        class="actions"
+                        @click=${(event: Event) => event.stopPropagation()}
+                      >
                         <${actionMenuTag}
                           label=${t("app.actions_for", {
                             name: task.name,

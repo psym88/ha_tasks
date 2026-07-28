@@ -16,9 +16,11 @@ await build({
   },
   outdir,
   bundle: true,
-  splitting: true,
+  // The panel and dashboard card are registered in different custom-element
+  // contexts in Home Assistant. Keep each entry point and its Lit runtime
+  // self-contained so constructors never cross those registry boundaries.
+  splitting: false,
   entryNames: "[name]",
-  chunkNames: "shared",
   format: "esm",
   legalComments: "none",
   minify: true,

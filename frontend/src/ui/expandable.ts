@@ -1,10 +1,12 @@
-import { LitElement, css, html } from "lit";
+import { css, html, nothing } from "lit";
 
+import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
-class TasksExpandable extends LitElement {
+class TasksExpandable extends LocalizedLitElement {
   static properties = {
     heading: {},
+    icon: {},
     open: { type: Boolean },
   };
 
@@ -12,7 +14,7 @@ class TasksExpandable extends LitElement {
     details {
       overflow: hidden;
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-card-border-radius, 12px);
+      border-radius: var(--ha-border-radius-lg);
     }
 
     summary {
@@ -31,13 +33,12 @@ class TasksExpandable extends LitElement {
       display: none;
     }
 
-    summary::after {
-      margin-left: auto;
-      content: "⌄";
-      transition: transform 160ms ease;
+    .chevron {
+      margin-inline-start: auto;
+      color: var(--secondary-text-color);
     }
 
-    details[open] summary::after {
+    details[open] .chevron {
       transform: rotate(180deg);
     }
 
@@ -53,11 +54,13 @@ class TasksExpandable extends LitElement {
   `;
 
   declare heading: string;
+  declare icon: string;
   declare open: boolean;
 
   constructor() {
     super();
     this.heading = "";
+    this.icon = "";
     this.open = false;
   }
 
@@ -69,7 +72,14 @@ class TasksExpandable extends LitElement {
           this.open = (event.currentTarget as HTMLDetailsElement).open;
         }}
       >
-        <summary>${this.heading}</summary>
+        <summary>
+          ${this.icon ? html`<ha-icon .icon=${this.icon}></ha-icon>` : nothing}
+          ${this.heading}
+          <ha-icon
+            class="chevron"
+            icon="mdi:chevron-down"
+          ></ha-icon>
+        </summary>
         <div class="content"><slot></slot></div>
       </details>
     `;

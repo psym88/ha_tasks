@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
@@ -10,6 +10,7 @@ import {
   type ScheduleDetails,
 } from "./api";
 import { errorText, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import type {
   Attachment,
   Completion,
@@ -41,11 +42,6 @@ const comboboxFieldTag = unsafeStatic(comboboxFieldElementName);
 const multiSelectFieldTag = unsafeStatic(multiSelectFieldElementName);
 const switchFieldTag = unsafeStatic(switchFieldElementName);
 const expandableTag = unsafeStatic(expandableElementName);
-
-const statusOptions = (): FieldOption[] => [
-  { label: t("app.active"), value: "active" },
-  { label: t("app.inactive"), value: "inactive" },
-];
 
 const iconOptions = (): FieldOption[] => [
   { label: t("app.title"), value: "mdi:clipboard-check-outline" },
@@ -97,7 +93,7 @@ const localDateParts = (
   );
 };
 
-class TasksTaskForm extends LitElement {
+class TasksTaskForm extends LocalizedLitElement {
   static properties = {
     name: { state: true },
     description: { state: true },
@@ -177,7 +173,7 @@ class TasksTaskForm extends LitElement {
     }
 
     .weekday[aria-pressed="true"] {
-      color: var(--text-primary-color, #fff);
+      color: var(--text-primary-color);
       background: var(--primary-color);
     }
 
@@ -242,11 +238,16 @@ class TasksTaskForm extends LitElement {
     .record {
       display: grid;
       min-width: 0;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
       padding: 8px 0;
       border-bottom: 1px solid var(--divider-color);
+    }
+
+    .record-icon {
+      --mdc-icon-size: 20px;
+      color: var(--secondary-text-color);
     }
 
     .record.pending {
@@ -265,15 +266,24 @@ class TasksTaskForm extends LitElement {
       overflow-wrap: anywhere;
     }
 
+    .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .record-detail {
       color: var(--secondary-text-color);
       font-size: 13px;
     }
 
     .record-action {
-      min-width: 40px;
-      min-height: 40px;
-      padding: 0 10px;
+      display: inline-flex;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
       color: var(--error-color);
       background: transparent;
       border: 0;
@@ -284,6 +294,10 @@ class TasksTaskForm extends LitElement {
 
     .pending .record-action {
       color: var(--primary-color);
+    }
+
+    .record-action ha-icon {
+      --mdc-icon-size: 20px;
     }
 
     .file-picker {
@@ -1001,6 +1015,15 @@ class TasksTaskForm extends LitElement {
     }));
     return staticHtml`
       <div class="planning">
+        <${comboboxFieldTag}
+          label=${t("task.icon")}
+          .value=${this.icon}
+          .options=${iconOptions()}
+          ?disabled=${this.saving}
+          @value-changed=${(event: CustomEvent<string>) => {
+            this.icon = event.detail;
+          }}
+        ></${comboboxFieldTag}>
         <${selectFieldTag}
           label=${t("task.user")}
           .value=${this.assigneeId}
@@ -1108,6 +1131,50 @@ class TasksTaskForm extends LitElement {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  private fileIcon(filename: string, contentType: string): string {
+    const type = contentType.toLowerCase();
+    const extension = filename.split(".").pop()?.toLowerCase();
+    if (type.startsWith("image/")) {
+      return "mdi:file-image-outline";
+    }
+    if (type === "application/pdf" || extension === "pdf") {
+      return "mdi:file-pdf-box";
+    }
+    if (
+      type.startsWith("text/") ||
+      ["txt", "md", "log"].includes(extension || "")
+    ) {
+      return "mdi:file-document-outline";
+    }
+    if (type.startsWith("audio/")) {
+      return "mdi:file-music-outline";
+    }
+    if (type.startsWith("video/")) {
+      return "mdi:file-video-outline";
+    }
+    if (
+      type.includes("zip") ||
+      type.includes("compressed") ||
+      ["zip", "rar", "7z", "gz"].includes(extension || "")
+    ) {
+      return "mdi:folder-zip-outline";
+    }
+    if (
+      type.includes("spreadsheet") ||
+      type.includes("excel") ||
+      ["csv", "xls", "xlsx", "ods"].includes(extension || "")
+    ) {
+      return "mdi:file-table-outline";
+    }
+    if (
+      type.includes("word") ||
+      ["doc", "docx", "odt", "rtf"].includes(extension || "")
+    ) {
+      return "mdi:file-word-outline";
+    }
+    return "mdi:file-outline";
+  }
+
   private toggleId(id: string, values: string[]): string[] {
     return values.includes(id)
       ? values.filter((value) => value !== id)
@@ -1126,8 +1193,17 @@ class TasksTaskForm extends LitElement {
                   );
                   return html`
                     <li class="record ${pending ? "pending" : ""}">
+                      <ha-icon
+                        class="record-icon"
+                        .icon=${this.fileIcon(
+                          attachment.filename,
+                          attachment.content_type,
+                        )}
+                      ></ha-icon>
                       <span class="record-copy">
-                        <span class="record-title">${attachment.filename}</span>
+                        <span class="record-title file-name"
+                          >${attachment.filename}</span
+                        >
                         <span class="record-detail"
                           >${this.formatSize(attachment.size)}</span
                         >
@@ -1149,7 +1225,11 @@ class TasksTaskForm extends LitElement {
                           );
                         }}
                       >
-                        ${pending ? t("common.undo") : t("common.remove")}
+                        <ha-icon
+                          .icon=${pending
+                            ? "mdi:undo"
+                            : "mdi:delete-outline"}
+                        ></ha-icon>
                       </button>
                     </li>
                   `;
@@ -1157,8 +1237,12 @@ class TasksTaskForm extends LitElement {
                 ${this.stagedFiles.map(
                   (file, index) => html`
                     <li class="record">
+                      <ha-icon
+                        class="record-icon"
+                        .icon=${this.fileIcon(file.name, file.type)}
+                      ></ha-icon>
                       <span class="record-copy">
-                        <span class="record-title">${file.name}</span>
+                        <span class="record-title file-name">${file.name}</span>
                         <span class="record-detail"
                           >${this.formatSize(file.size)} ·
                           ${t("app.new_file")}</span
@@ -1177,7 +1261,7 @@ class TasksTaskForm extends LitElement {
                           );
                         }}
                       >
-                        ${t("common.remove")}
+                        <ha-icon icon="mdi:delete-outline"></ha-icon>
                       </button>
                     </li>
                   `,
@@ -1229,6 +1313,10 @@ class TasksTaskForm extends LitElement {
               : entry.notes || t("app.no_notes");
           return html`
             <li class="record ${pending ? "pending" : ""}">
+              <ha-icon
+                class="record-icon"
+                icon="mdi:check-circle-outline"
+              ></ha-icon>
               <span class="record-copy">
                 <span class="record-title"
                   >${this.formatDue(entry.completed_at)} ·
@@ -1250,7 +1338,9 @@ class TasksTaskForm extends LitElement {
                   );
                 }}
               >
-                ${pending ? t("common.undo") : t("common.remove")}
+                <ha-icon
+                  .icon=${pending ? "mdi:undo" : "mdi:delete-outline"}
+                ></ha-icon>
               </button>
             </li>
           `;
@@ -1282,32 +1372,14 @@ class TasksTaskForm extends LitElement {
             this.description = event.detail;
           }}
         ></${textFieldTag}>
-        <${selectFieldTag}
-          label=${t("app.status")}
-          .value=${this.status}
-          .options=${statusOptions()}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string>) => {
-            this.status = event.detail as "active" | "inactive";
-          }}
-        ></${selectFieldTag}>
-        <${comboboxFieldTag}
-          label=${t("task.icon")}
-          .value=${this.icon}
-          .options=${iconOptions()}
-          ?disabled=${this.saving}
-          @value-changed=${(event: CustomEvent<string>) => {
-            this.icon = event.detail;
-          }}
-        ></${comboboxFieldTag}>
+        <${expandableTag} heading=${t("task.planning")}>
+          ${this.renderPlanning()}
+        </${expandableTag}>
         <${expandableTag} heading=${t("task.assignment")}>
           ${this.renderAssignment()}
         </${expandableTag}>
         <${expandableTag} heading=${t("task.notification")}>
           ${this.renderNotification()}
-        </${expandableTag}>
-        <${expandableTag} heading=${t("task.planning")} open>
-          ${this.renderPlanning()}
         </${expandableTag}>
         <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}

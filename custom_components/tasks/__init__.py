@@ -5,6 +5,10 @@ from pathlib import Path
 
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components import frontend, panel_custom
+from homeassistant.components.lovelace.const import (
+    LOVELACE_DATA,
+    MODE_STORAGE,
+)
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -49,6 +53,39 @@ async def _frontend_urls(
     )
 
 
+async def _async_register_dashboard_resource(
+    hass: HomeAssistant, card_js_url: str
+) -> None:
+    """Register the dashboard card as a Lovelace module resource."""
+    lovelace = hass.data[LOVELACE_DATA]
+    if lovelace.resource_mode != MODE_STORAGE:
+        return
+
+    resources = lovelace.resources
+    await resources.async_get_info()
+    matches = [
+        resource
+        for resource in resources.async_items()
+        if resource["url"].split("?", 1)[0].startswith(
+            f"{FRONTEND_URL}/"
+        )
+        and resource["url"].split("?", 1)[0].endswith("/card.js")
+    ]
+    resource_data = {"res_type": "module", "url": card_js_url}
+    if not matches:
+        await resources.async_create_item(resource_data)
+        return
+
+    current, *duplicates = matches
+    if (
+        current["url"] != card_js_url
+        or current.get("type") != "module"
+    ):
+        await resources.async_update_item(current["id"], resource_data)
+    for duplicate in duplicates:
+        await resources.async_delete_item(duplicate["id"])
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     task_api.async_register(hass)
     attachment_api.async_register_views(hass)
@@ -84,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _, panel_js_url, card_js_url = await _frontend_urls(hass)
-    frontend.add_extra_js_url(hass, card_js_url)
+    await _async_register_dashboard_resource(hass, card_js_url)
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="tasks-panel",
@@ -101,7 +138,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        _, _, card_js_url = await _frontend_urls(hass)
-        frontend.remove_extra_js_url(hass, card_js_url)
         frontend.async_remove_panel(hass, PANEL_URL.removeprefix("/"))
     return unloaded

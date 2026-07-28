@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
@@ -8,6 +8,7 @@ import {
   loadTaskHistory,
 } from "./api";
 import { errorText, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import type {
   Attachment,
   Completion,
@@ -27,7 +28,7 @@ const expandableTag = unsafeStatic(expandableElementName);
 const pillTag = unsafeStatic(pillElementName);
 const textFieldTag = unsafeStatic(textFieldElementName);
 
-class TasksAttachmentPreview extends LitElement {
+class TasksAttachmentPreview extends LocalizedLitElement {
   static properties = {
     attachment: { attribute: false },
     url: {},
@@ -50,6 +51,10 @@ class TasksAttachmentPreview extends LitElement {
 
     audio {
       width: 100%;
+    }
+
+    iframe {
+      height: 70dvh;
     }
 
     a {
@@ -91,7 +96,7 @@ if (!customElements.get(attachmentPreviewElementName)) {
   );
 }
 
-class TasksTaskViewer extends LitElement {
+class TasksTaskViewer extends LocalizedLitElement {
   static properties = {
     task: { attribute: false },
     attachments: { state: true },
@@ -121,7 +126,16 @@ class TasksTaskViewer extends LitElement {
     .pills {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 4px;
+    }
+
+    .pills > * {
+      margin: 0;
+    }
+
+    .pill-break {
+      flex-basis: 100%;
+      height: 0;
     }
 
     .description,
@@ -179,9 +193,22 @@ class TasksTaskViewer extends LitElement {
     .record {
       display: grid;
       min-width: 0;
-      gap: 2px;
+      grid-template-columns: 32px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
       padding: 8px 0;
       border-bottom: 1px solid var(--divider-color);
+    }
+
+    .record-icon {
+      --mdc-icon-size: 22px;
+      color: var(--secondary-text-color);
+    }
+
+    .record-content {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
     }
 
     button.record {
@@ -339,97 +366,45 @@ class TasksTaskViewer extends LitElement {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  private scheduleText(): string {
-    if (this.task.schedule.type === "sensor") {
-      const entityId = this.task.schedule.entity_id || "";
-      const name =
-        this.hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
-      return name
-        ? `${t("schedule.problem_sensor_description")} (${name})`
-        : t("schedule.problem_sensor_description");
+  private attachmentIcon(attachment: Attachment): string {
+    const type = attachment.content_type.toLowerCase();
+    const extension = attachment.filename.split(".").pop()?.toLowerCase();
+    if (type.startsWith("image/")) {
+      return "mdi:file-image-outline";
     }
-    const interval = Math.max(1, Number(this.task.schedule.interval) || 1);
-    const unit = this.task.schedule.unit || "monthly";
-    const periodKey: Record<string, string> = {
-      daily: "day",
-      weekly: "week",
-      monthly: "month",
-      yearly: "year",
-    };
-    const singular = t(`schedule.period_${periodKey[unit] || "month"}`);
-    const plural = t(`schedule.period_${periodKey[unit] || "month"}s`);
-    if (this.task.schedule.type === "sliding") {
-      return t(
-        interval === 1
-          ? "schedule.after_completion_one"
-          : "schedule.after_completion_many",
-        {
-          schedule_interval: interval,
-          period: interval === 1 ? singular : plural,
-        },
-      );
+    if (type === "application/pdf" || extension === "pdf") {
+      return "mdi:file-pdf-box";
     }
-    const time = this.task.schedule.time || "00:00";
-    if (unit === "weekly") {
-      const names = Array.from({ length: 7 }, (_, index) =>
-        new Intl.DateTimeFormat(this.hass?.locale?.language, {
-          weekday: "long",
-          timeZone: "UTC",
-        }).format(new Date(Date.UTC(2024, 0, index + 1))),
-      );
-      const weekdays = (this.task.schedule.weekdays || [])
-        .map((day) => names[day])
-        .filter(Boolean);
-      const joined =
-        weekdays.length > 1
-          ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
-          : weekdays[0] || "";
-      const description = t(
-        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
-        {
-          schedule_interval: interval,
-          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
-        },
-      );
-      return `${description} ${t("app.at_time", { time })}`;
+    if (type.startsWith("text/") || ["txt", "md", "log"].includes(extension || "")) {
+      return "mdi:file-document-outline";
     }
-    if (unit === "monthly") {
-      const day =
-        this.task.schedule.day === "last"
-          ? t("schedule.on_last_day")
-          : t("schedule.on_day_number", {
-              day: Number(this.task.schedule.day || 1),
-            });
-      const description = t(
-        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
-        { schedule_interval: interval, day },
-      );
-      return `${description} ${t("app.at_time", { time })}`;
+    if (type.startsWith("audio/")) {
+      return "mdi:file-music-outline";
     }
-    if (unit === "yearly") {
-      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
-        month: "long",
-      }).format(new Date(2024, (this.task.schedule.month || 1) - 1, 1));
-      const day =
-        this.task.schedule.day === "last"
-          ? t("schedule.on_last_day_of_month", { month })
-          : t("schedule.on_day_of_month", {
-              day: Number(this.task.schedule.day || 1),
-              month,
-            });
-      const description = t(
-        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
-        { schedule_interval: interval, day },
-      );
-      return `${description} ${t("app.at_time", { time })}`;
+    if (type.startsWith("video/")) {
+      return "mdi:file-video-outline";
     }
-    return `${t(
-      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
-      {
-        schedule_interval: interval,
-        period: interval === 1 ? singular : plural,
-      },
-    )} ${t("app.at_time", { time })}`;
+    if (
+      type.includes("zip") ||
+      type.includes("compressed") ||
+      ["zip", "rar", "7z", "gz"].includes(extension || "")
+    ) {
+      return "mdi:folder-zip-outline";
+    }
+    if (
+      type.includes("spreadsheet") ||
+      type.includes("excel") ||
+      ["csv", "xls", "xlsx", "ods"].includes(extension || "")
+    ) {
+      return "mdi:file-table-outline";
+    }
+    if (
+      type.includes("word") ||
+      ["doc", "docx", "odt", "rtf"].includes(extension || "")
+    ) {
+      return "mdi:file-word-outline";
+    }
+    return "mdi:file-outline";
   }
 
   private renderInline(text: string) {
@@ -528,6 +503,7 @@ class TasksTaskViewer extends LitElement {
     await openTasksDialog({
       heading: attachment.filename,
       content: preview,
+      width: "large",
     });
   }
 
@@ -575,9 +551,6 @@ class TasksTaskViewer extends LitElement {
       <div class="pills">
         <${pillTag}>${this.formatDate(this.task.due)}</${pillTag}>
         <${pillTag}>${assignee}</${pillTag}>
-        <${pillTag} tone=${this.task.active === false ? "muted" : "positive"}>
-          ${this.task.active === false ? t("app.inactive") : t("app.active")}
-        </${pillTag}>
         ${this.attachments.length
           ? staticHtml`<${pillTag}>
               ${t(
@@ -591,6 +564,7 @@ class TasksTaskViewer extends LitElement {
         ${tag
           ? staticHtml`<${pillTag}>NFC: ${tag.name || tag.id}</${pillTag}>`
           : nothing}
+        ${labels.length ? html`<span class="pill-break"></span>` : nothing}
         ${labels.map(
           (label) =>
             staticHtml`<${pillTag}>${label.name}</${pillTag}>`,
@@ -620,10 +594,16 @@ class TasksTaskViewer extends LitElement {
                 ?disabled=${!available}
                 @click=${() => void this.openAttachment(attachment)}
               >
-                <span>${attachment.filename}</span>
-                <span class="secondary"
-                  >${this.formatSize(attachment.size)}</span
-                >
+                <ha-icon
+                  class="record-icon"
+                  .icon=${this.attachmentIcon(attachment)}
+                ></ha-icon>
+                <span class="record-content">
+                  <span>${attachment.filename}</span>
+                  <span class="secondary">
+                    ${this.formatSize(attachment.size)}
+                  </span>
+                </span>
               </button>
             </li>
           `;
@@ -643,15 +623,18 @@ class TasksTaskViewer extends LitElement {
       <ul class="records">
         ${this.history.map((entry) => html`
           <li class="record">
-            <span
-              >${this.formatDate(entry.completed_at)} ·
-              ${entry.user_name || t("common.system")}</span
-            >
-            <span class="secondary"
-              >${entry.notes === "tasks.history.completed_via_nfc"
-                ? t("history.completed_via_nfc")
-                : entry.notes || t("app.no_notes")}</span
-            >
+            <ha-icon class="record-icon" icon="mdi:history"></ha-icon>
+            <span class="record-content">
+              <span>
+                ${this.formatDate(entry.completed_at)} ·
+                ${entry.user_name || t("common.system")}
+              </span>
+              <span class="secondary">
+                ${entry.notes === "tasks.history.completed_via_nfc"
+                  ? t("history.completed_via_nfc")
+                  : entry.notes || t("app.no_notes")}
+              </span>
+            </span>
           </li>
         `)}
       </ul>
@@ -671,14 +654,6 @@ class TasksTaskViewer extends LitElement {
         ${this.assignmentError
           ? html`<p class="error" role="alert">${this.assignmentError}</p>`
           : nothing}
-        <${expandableTag} heading=${t("task.planning")} open>
-          <dl class="planning-details">
-            <dt>${t("task.due")}</dt>
-            <dd>${this.formatDate(this.task.due)}</dd>
-            <dt>${t("app.rule")}</dt>
-            <dd>${this.scheduleText()}</dd>
-          </dl>
-        </${expandableTag}>
         <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}
         </${expandableTag}>

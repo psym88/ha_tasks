@@ -1,15 +1,17 @@
-import { LitElement, css, html } from "lit";
+import { css, html } from "lit";
 
+import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
 export interface ActionMenuItem {
   label: string;
   value: string;
+  icon?: string;
   destructive?: boolean;
   disabled?: boolean;
 }
 
-class TasksActionMenu extends LitElement {
+class TasksActionMenu extends LocalizedLitElement {
   static properties = {
     items: { attribute: false },
     label: {},
@@ -30,13 +32,18 @@ class TasksActionMenu extends LitElement {
     }
 
     .trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 40px;
       height: 40px;
       padding: 0;
       border-radius: 50%;
       color: var(--secondary-text-color);
-      font-size: 24px;
-      line-height: 1;
+    }
+
+    .trigger ha-icon {
+      --mdc-icon-size: 24px;
     }
 
     .trigger:hover,
@@ -57,24 +64,29 @@ class TasksActionMenu extends LitElement {
       max-width: min(280px, calc(100vw - 16px));
       box-sizing: border-box;
       margin: 0;
-      padding: 6px 0;
+      padding: 0;
+      overflow: hidden;
       color: var(--primary-text-color);
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-card-border-radius, 12px);
-      box-shadow: var(
-        --ha-card-box-shadow,
-        0 6px 24px rgba(0, 0, 0, 0.28)
-      );
+      border-radius: var(--ha-border-radius-lg);
+      box-shadow: var(--ha-box-shadow-m, var(--ha-card-box-shadow));
       font-family: var(--ha-font-family-body, sans-serif);
     }
 
     .item {
-      display: block;
+      display: flex;
       width: 100%;
       min-height: 40px;
+      align-items: center;
+      gap: 12px;
       padding: 8px 16px;
       text-align: left;
+    }
+
+    .item ha-icon {
+      --mdc-icon-size: 20px;
+      color: var(--secondary-text-color);
     }
 
     .item:hover:not(:disabled) {
@@ -87,6 +99,11 @@ class TasksActionMenu extends LitElement {
     }
 
     .destructive {
+      color: var(--error-color);
+      border-top: 1px solid var(--divider-color);
+    }
+
+    .destructive ha-icon {
       color: var(--error-color);
     }
   `;
@@ -229,7 +246,7 @@ class TasksActionMenu extends LitElement {
         aria-label=${this.label}
         @click=${(event: Event) => this.toggleMenu(event)}
       >
-        ⋮
+        <ha-icon icon="mdi:dots-vertical"></ha-icon>
       </button>
       <div
         class="menu"
@@ -257,6 +274,9 @@ class TasksActionMenu extends LitElement {
               ?disabled=${item.disabled}
               @click=${(event: Event) => this.choose(event, item)}
             >
+              ${item.icon
+                ? html`<ha-icon .icon=${item.icon}></ha-icon>`
+                : ""}
               ${item.label}
             </button>
           `,

@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 
 import {
@@ -8,6 +8,7 @@ import {
   subscribeTasks,
 } from "./api";
 import { errorText, ready, setLanguage, t } from "./localize";
+import { LocalizedLitElement } from "./localized-element";
 import { openTaskEditor } from "./task-form";
 import { taskActions } from "./task-table";
 import { openTaskViewer } from "./task-viewer";
@@ -118,7 +119,7 @@ const addDays = (value: string, days: number): string => {
     .slice(0, 10);
 };
 
-class TasksDashboardCardEditor extends LitElement {
+class TasksDashboardCardEditor extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     config: { state: true },
@@ -324,7 +325,7 @@ class TasksDashboardCardEditor extends LitElement {
 
 const actionMenuTag = unsafeStatic(actionMenuElementName);
 
-class TasksDashboardCard extends LitElement {
+class TasksDashboardCard extends LocalizedLitElement {
   static properties = {
     hass: { attribute: false },
     config: { state: true },
@@ -345,9 +346,9 @@ class TasksDashboardCard extends LitElement {
     .card {
       overflow: hidden;
       background: var(--ha-card-background, var(--card-background-color));
-      border: var(--ha-card-border-width, 1px) solid
+      border: var(--ha-card-border-width) solid
         var(--ha-card-border-color, var(--divider-color));
-      border-radius: var(--ha-card-border-radius, 12px);
+      border-radius: var(--ha-card-border-radius);
       box-shadow: var(--ha-card-box-shadow);
     }
 
@@ -398,7 +399,7 @@ class TasksDashboardCard extends LitElement {
     .dot {
       width: 10px;
       height: 10px;
-      background: var(--success-color, #43a047);
+      background: var(--success-color);
       border-radius: 50%;
     }
 

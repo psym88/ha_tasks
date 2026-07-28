@@ -1,6 +1,6 @@
-import { LitElement, css, html, nothing } from "lit";
+import { html } from "lit";
 
-import { t } from "../localize";
+import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
 export interface DialogAction {
@@ -14,135 +14,39 @@ export interface DialogOptions {
   heading: string;
   content: unknown;
   actions?: DialogAction[];
+  width?: "small" | "medium" | "large";
 }
 
-class TasksDialog extends LitElement {
+class TasksDialog extends LocalizedLitElement {
   static properties = {
     heading: {},
     content: { attribute: false },
     actions: { attribute: false },
+    width: {},
     open: { type: Boolean },
   };
-
-  static styles = css`
-    dialog {
-      width: min(560px, calc(100vw - 32px));
-      max-height: calc(100dvh - 32px);
-      box-sizing: border-box;
-      padding: 0;
-      overflow: hidden;
-      color: var(--primary-text-color);
-      background: var(--card-background-color);
-      border: 0;
-      border-radius: var(--ha-card-border-radius, 12px);
-      box-shadow: var(
-        --ha-card-box-shadow,
-        0 8px 32px rgba(0, 0, 0, 0.32)
-      );
-      font-family: var(--ha-font-family-body, sans-serif);
-    }
-
-    dialog::backdrop {
-      background: rgba(0, 0, 0, 0.48);
-    }
-
-    article {
-      display: grid;
-      max-height: calc(100dvh - 32px);
-      grid-template-rows: auto minmax(0, 1fr) auto;
-    }
-
-    header,
-    footer {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 20px;
-    }
-
-    header {
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    h2 {
-      flex: 1;
-      margin: 0;
-      font-size: 20px;
-      line-height: 28px;
-    }
-
-    section {
-      padding: 20px;
-      overflow: auto;
-    }
-
-    footer {
-      justify-content: flex-end;
-      border-top: 1px solid var(--divider-color);
-    }
-
-    button {
-      min-height: 40px;
-      padding: 0 16px;
-      color: var(--primary-color);
-      background: transparent;
-      border: 0;
-      border-radius: 20px;
-      font: inherit;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: var(--secondary-background-color);
-    }
-
-    button:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
-    }
-
-    .close {
-      width: 40px;
-      padding: 0;
-      color: var(--secondary-text-color);
-      font-size: 26px;
-      line-height: 1;
-    }
-
-    .destructive {
-      color: var(--error-color);
-    }
-  `;
 
   declare heading: string;
   declare content: unknown;
   declare actions: DialogAction[];
+  declare width: "small" | "medium" | "large";
   declare open: boolean;
+
   private running = false;
+  private closeValue = "";
 
   constructor() {
     super();
     this.heading = "";
     this.content = html``;
     this.actions = [];
+    this.width = "medium";
     this.open = false;
   }
 
-  protected updated(): void {
-    const dialog = this.renderRoot.querySelector("dialog");
-    if (!dialog) {
-      return;
-    }
-    if (this.open && !dialog.open) {
-      dialog.showModal();
-    } else if (!this.open && dialog.open) {
-      dialog.close();
-    }
-  }
-
   private close(value = ""): void {
-    this.renderRoot.querySelector("dialog")?.close(value);
+    this.closeValue = value;
+    this.open = false;
   }
 
   private async run(action: DialogAction): Promise<void> {
@@ -160,54 +64,55 @@ class TasksDialog extends LitElement {
   }
 
   protected render() {
+    const primaryAction = this.actions.at(-1);
+    const secondaryActions = this.actions.slice(0, -1);
     return html`
-      <dialog
-        aria-labelledby="title"
-        @close=${(event: Event) => {
+      <ha-adaptive-dialog
+        width=${this.width}
+        flexcontent
+        header-title=${this.heading}
+        .open=${this.open}
+        @closed=${() => {
           this.open = false;
           this.dispatchEvent(
             new CustomEvent("tasks-dialog-closed", {
               bubbles: true,
               composed: true,
-              detail: (event.currentTarget as HTMLDialogElement).returnValue,
+              detail: this.closeValue,
             }),
           );
         }}
       >
-        <article>
-          <header>
-            <h2 id="title">${this.heading}</h2>
-            <button
-              class="close"
-              type="button"
-              aria-label=${t("common.close")}
-              @click=${() => this.close()}
-            >
-              ×
-            </button>
-          </header>
-          <section>${this.content}</section>
-          ${this.actions.length
-            ? html`
-                <footer>
-                  ${this.actions.map(
-                    (action) => html`
-                      <button
-                        class=${action.destructive
-                          ? "destructive"
-                          : nothing}
-                        type="button"
-                        @click=${() => void this.run(action)}
-                      >
-                        ${action.label}
-                      </button>
-                    `,
-                  )}
-                </footer>
-              `
-            : nothing}
-        </article>
-      </dialog>
+        ${this.content}
+        ${primaryAction
+          ? html`
+              <ha-dialog-footer slot="footer">
+                ${secondaryActions.map(
+                  (action) => html`
+                    <ha-button
+                      slot="secondaryAction"
+                      appearance="plain"
+                      variant=${action.destructive ? "danger" : "neutral"}
+                      ?disabled=${this.running}
+                      @click=${() => void this.run(action)}
+                    >
+                      ${action.label}
+                    </ha-button>
+                  `,
+                )}
+                <ha-button
+                  slot="primaryAction"
+                  appearance="accent"
+                  variant=${primaryAction.destructive ? "danger" : "brand"}
+                  ?disabled=${this.running}
+                  @click=${() => void this.run(primaryAction)}
+                >
+                  ${primaryAction.label}
+                </ha-button>
+              </ha-dialog-footer>
+            `
+          : ""}
+      </ha-adaptive-dialog>
     `;
   }
 }
@@ -222,11 +127,13 @@ export const openTasksDialog = ({
   heading,
   content,
   actions = [],
+  width = "medium",
 }: DialogOptions): Promise<string> => {
   const dialog = document.createElement(dialogElementName) as TasksDialog;
   dialog.heading = heading;
   dialog.content = content;
   dialog.actions = actions;
+  dialog.width = width;
   document.body.append(dialog);
   dialog.open = true;
   return new Promise((resolve) => {

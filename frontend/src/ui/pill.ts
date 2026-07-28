@@ -1,8 +1,9 @@
-import { LitElement, css, html } from "lit";
+import { css, html } from "lit";
 
+import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
-class TasksPill extends LitElement {
+class TasksPill extends LocalizedLitElement {
   static properties = {
     tone: { reflect: true },
   };
