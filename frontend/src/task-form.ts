@@ -10,7 +10,7 @@ import {
   type ScheduleDetails,
 } from "./api";
 import { fileIcon } from "./file-icon";
-import { errorText, t } from "./localize";
+import { errorText, t, timedScheduleText } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
 import { problemSensorStatus } from "./problem-sensor-status";
 import type {
@@ -793,7 +793,7 @@ class TasksTaskForm extends LocalizedLitElement {
           days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
         },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
     if (this.scheduleUnit === "monthly") {
       const day =
@@ -804,7 +804,7 @@ class TasksTaskForm extends LocalizedLitElement {
         interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
         { schedule_interval: interval, day },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
     if (this.scheduleUnit === "yearly") {
       const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
@@ -821,15 +821,15 @@ class TasksTaskForm extends LocalizedLitElement {
         interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
         { schedule_interval: interval, day },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
-    return `${t(
+    return timedScheduleText(t(
       interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
       {
         schedule_interval: interval,
         period: interval === 1 ? singular : plural,
       },
-    )} ${t("app.at_time", { time: this.scheduleTime })}`;
+    ), this.scheduleTime);
   }
 
   async save(): Promise<boolean> {

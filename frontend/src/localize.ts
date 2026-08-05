@@ -60,6 +60,14 @@ export const t = (key: string, variables: Variables = {}): string =>
     (_, name: string) => String(variables[name] ?? `{${name}}`),
   );
 
+export const timedScheduleText = (
+  description: string,
+  time: string,
+): string => t("schedule.with_time", {
+  description,
+  time: t("app.at_time", { time }),
+});
+
 const localizedError = (value: unknown): string | undefined => {
   if (typeof value !== "string" || !value) {
     return undefined;

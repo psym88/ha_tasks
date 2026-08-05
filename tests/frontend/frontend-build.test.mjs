@@ -670,9 +670,17 @@ test("frontend completion requires confirmation and sends trimmed notes", () => 
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
 });
 
-test("frontend viewer renders responsive details without planning", () => {
+test("frontend viewer renders responsive read-only planning details", () => {
   assert.match(taskViewer, /private renderMetadata\(\)/);
-  assert.doesNotMatch(taskViewer, /schedule\.type ===/);
+  assert.match(taskViewer, /private renderPlanning\(\)/);
+  assert.match(taskViewer, /problemSensorStatus\(this\.hass/);
+  assert.match(taskViewer, /\.warning=\$\{this\.planningWarning\(\)\}/);
+  assert.match(taskViewer, /class="planning-details"/);
+  assert.match(taskViewer, /sensorState\.state/);
+  assert.match(taskViewer, /new CustomEvent\("hass-more-info"/);
+  assert.match(taskViewer, /detail: \{ entityId: schedule\.entity_id \}/);
+  assert.match(taskViewer, /color: var\(--primary-text-color\)/);
+  assert.match(taskViewer, /color: var\(--error-color\)/);
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 
