@@ -13,7 +13,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
 - Sidebar panel and configurable dashboard card
-- Assist LLM tools for listing, completing, and creating tasks
+- Task management through LLM-based Assist agents
 - A due-task summary sensor
 - Home Assistant events for task, history, and attachment changes
 - ZIP backup and restore
@@ -43,13 +43,17 @@ Administrators can open **Tasks** in the sidebar. Use **+ Add task** to create a
 
 The task table supports configurable columns, search, sorting, and filters for assignee, labels, notification targets, recurrence calculation, and rhythm.
 
-Task details show the due date and time, assignee, labels, attachments, completion history, and notes in one dialog.
+Task details show the status, planning, due date and time, assignee, labels,
+attachments, completion history, and notes in one dialog.
 
 | Light | Dark |
 | --- | --- |
 | ![Task list with the task viewer open in light mode](docs/images/task-viewer-desktop-light.png) | ![Task list with the task viewer open in dark mode](docs/images/task-viewer-desktop-dark.png) |
 
-Tasks can be triggered by a fixed calendar schedule, from the last completion, or when a binary problem sensor turns on. Files are managed in the task editor and supported formats open in an in-panel preview dialog.
+Tasks can be triggered by a fixed calendar schedule, from the last completion,
+or when a binary problem sensor turns on. Tasks warns you when a configured
+problem sensor is missing or unavailable. Files are managed in the task editor,
+and supported formats open in an in-panel preview dialog.
 
 Select **+ Add task** to open an empty editor:
 
@@ -103,16 +107,14 @@ Paused tasks are hidden from the dashboard card. Resuming a task keeps its store
 
 ### Voice assistants
 
-LLM-based Home Assistant Assist agents can list active tasks, filter them by
-assigned person and the current week, read a selected task's completion
-history, assign or unassign a person, complete a task, and create a recurring
-task. Mutations use the task ID returned by the list tool, so duplicate names
-cannot change an arbitrary task. Creation requires an explicit recurrence and
-time for fixed schedules; the assistant must ask for missing planning details.
-Task-list responses include the current Home Assistant time and an authoritative
-due status; due-task queries include overdue tasks. Permanent deletion requires
-a separate, explicit confirmation for the selected task and expires after five
-minutes if it is not confirmed.
+With an LLM-based Home Assistant Assist agent, you can ask which tasks are open,
+due, overdue, assigned to a person, unassigned, or scheduled for the current
+week. The assistant can also show task details and completion history, assign or
+unassign a person, complete tasks, and create recurring tasks.
+
+When creating a fixed schedule, the assistant asks for missing planning details
+such as the time. Deleting a task always requires a separate confirmation naming
+the task before it is permanently removed.
 
 ### Backup and restore
 
