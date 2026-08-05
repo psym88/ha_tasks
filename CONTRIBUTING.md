@@ -57,6 +57,8 @@ The release process:
 6. Runs the documentation screenshot workflow and accepts only relevant image
    changes.
 7. Creates the immutable version tag and the matching GitHub pre-release.
+8. Waits for the Release asset workflow and verifies that `ha_tasks.zip` is
+   attached before considering the pre-release complete.
 
 Test the pre-release in a representative Home Assistant installation. Problems
 are fixed in a new pre-release; published tags are never moved.
@@ -69,9 +71,13 @@ Promote a tested pre-release by naming its version:
 Promote YYYYMMDD.REVISION to latest.
 ```
 
-The existing tagged commit is integrated into `main`. The same GitHub release
-is changed from pre-release to latest and receives consolidated release notes.
-No replacement version or tag is created.
+The tested pre-release is used as the basis for a new version on `dev`. After
+the complete tests pass, `dev` is merged into `main` with a normal merge commit.
+A new immutable version tag and matching latest GitHub release are created from
+that merge commit with consolidated release notes. The preceding pre-release,
+its tag, and its release remain unchanged.
 
-At promotion, `main`, the selected tag, and the release must point to the same
-tested commit. Development can then continue on `dev`.
+At publication, `main`, the new tag, and the latest release must point to the
+same tested merge commit. Wait for the Release asset workflow and verify that
+`ha_tasks.zip` is attached before considering the latest release complete.
+Then fast-forward `dev` to `main` before continuing development.

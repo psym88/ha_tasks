@@ -88,6 +88,7 @@ Map changes consistently:
 6. Create the immutable `YYYYMMDD.REVISION` tag on that exact commit.
 7. Create a GitHub release titled exactly `YYYYMMDD.REVISION`, mark it as **pre-release**, and ensure it is not **latest**.
 8. Describe only the changes since the immediately preceding published tag. Use the standard release-note headings.
+9. Wait for the `Release asset` workflow to succeed and verify that `ha_tasks.zip` is attached to the GitHub release. The release is not complete until the asset is present.
 
 ## Latest-release workflow
 
@@ -104,3 +105,4 @@ Create a latest release only when explicitly requested.
 9. Preserve the standard heading order, combine related bullets, and remove duplicates. The latest notes must describe the complete user-visible delta since the previous latest release.
 10. Fast-forward `dev` to the new `main` merge commit and push it, so both branches start the next development cycle from the same commit.
 11. Verify that earlier pre-releases remain marked as pre-releases and that no tag was moved, overwritten, deleted, or reused.
+12. Wait for the `Release asset` workflow to succeed and verify that `ha_tasks.zip` is attached to the new latest GitHub release. The release is not complete until the asset is present.
