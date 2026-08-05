@@ -12,6 +12,14 @@
 - Do not use an interactive browser for validation unless the user explicitly requests it. Validate frontend changes with TypeScript, focused and complete frontend tests, a production build, generated-asset checks, and Home Assistant container startup and HTTP/resource checks.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
 
+## Simplicity and extensibility gate
+
+- Before implementing a user request, new feature, or refactoring, examine whether a substantially simpler design can satisfy the underlying need with little loss of functionality. Prefer the smallest solution that preserves the important user outcome and avoids speculative abstractions, configuration, indirection, or compatibility layers.
+- Explain the simpler alternative and any concrete functionality or flexibility it would omit. If accepting that trade-off could materially change the requested behavior, ask the user which option they prefer before writing implementation code.
+- Before implementing any new feature or refactoring, confirm with the user that the proposed scope and design leave the code reasonably extensible for likely follow-up needs. Include the intended extension points and the complexity cost of the design in the question; do not treat maximum flexibility as a goal by itself.
+- Do not begin feature or refactoring implementation while a material scope, simplicity, or extensibility decision is unresolved. Investigation, comparison of alternatives, and narrowly scoped prototypes that do not commit the project to a design are allowed.
+- When the requested solution would add disproportionate complexity, say so explicitly and recommend the simpler option. Proceed with the more complex design only after the user confirms that its additional capability is required.
+
 ## Commit convention
 
 Use an English Conventional Commit subject with one of these prefixes:
