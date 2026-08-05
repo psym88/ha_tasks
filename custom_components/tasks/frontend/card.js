@@ -1425,7 +1425,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
 
     .sensor-warning {
       display: inline-flex;
-      margin-right: 6px;
+      margin-left: 6px;
       color: var(--error-color);
       vertical-align: text-bottom;
     }
@@ -1906,8 +1906,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                             </td>
                           `:d}
                       <td class="task-name">
-                        ${this.problemSensorWarning(c)}
                         ${c.name}
+                        ${this.problemSensorWarning(c)}
                         <span class="mobile-details">
                           ${this.mobileDetails(c)}
                         </span>

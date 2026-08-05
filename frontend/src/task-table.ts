@@ -711,7 +711,7 @@ class TasksTaskTable extends LocalizedLitElement {
 
     .sensor-warning {
       display: inline-flex;
-      margin-right: 6px;
+      margin-left: 6px;
       color: var(--error-color);
       vertical-align: text-bottom;
     }
@@ -2316,8 +2316,8 @@ class TasksTaskTable extends LocalizedLitElement {
                           `
                         : nothing}
                       <td class="task-name">
-                        ${this.problemSensorWarning(task)}
                         ${task.name}
+                        ${this.problemSensorWarning(task)}
                         <span class="mobile-details">
                           ${this.mobileDetails(task)}
                         </span>

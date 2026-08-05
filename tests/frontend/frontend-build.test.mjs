@@ -88,6 +88,10 @@ test("task table signals unavailable problem sensors", () => {
   assert.match(taskTable, /problemSensorWarning\(task\)/);
   assert.match(taskTable, /mdi:alert-circle-outline/);
   assert.match(taskTable, /problem\.sensor_\$\{sensorStatus\}_short/);
+  assert.match(
+    taskTable,
+    /\$\{task\.name\}\s*\$\{this\.problemSensorWarning\(task\)\}/,
+  );
 });
 const dashboardCard = await readFile(
   new URL("../../frontend/src/dashboard-card.ts", import.meta.url),
