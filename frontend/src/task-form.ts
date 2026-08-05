@@ -1528,6 +1528,9 @@ class TasksTaskForm extends LocalizedLitElement {
   }
 
   private planningWarning(): boolean {
+    if (this.scheduleError) {
+      return true;
+    }
     if (
       this.scheduleType !== "sensor" ||
       !this.problemSensor.startsWith("binary_sensor.")

@@ -59,6 +59,7 @@ test("problem sensor availability follows live Home Assistant states", () => {
   assert.match(problemSensorStatus, /state\.state === "unavailable"/);
   assert.match(problemSensorStatus, /state\.state === "unknown"/);
   assert.match(taskForm, /planningWarning\(\)/);
+  assert.match(taskForm, /if \(this\.scheduleError\) \{\s*return true/);
   assert.match(taskForm, /return status !== "available"/);
   assert.doesNotMatch(taskForm, /problem_sensor\.\$\{sensorStatus\}/);
 });
@@ -147,6 +148,7 @@ test("frontend expandable exposes animated disclosure semantics", () => {
   assert.match(expandable, /grid-template-rows: 0fr/);
   assert.match(expandable, /grid-template-rows: 1fr/);
   assert.match(expandable, /mdi:alert-circle-outline/);
+  assert.match(expandable, /t\("app\.section_needs_attention"\)/);
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 

@@ -1,5 +1,6 @@
 import { css, html } from "lit";
 
+import { t } from "../localize";
 import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
@@ -114,6 +115,8 @@ class TasksExpandable extends LocalizedLitElement {
                 <ha-icon
                   class="warning"
                   icon="mdi:alert-circle-outline"
+                  aria-label=${t("app.section_needs_attention")}
+                  title=${t("app.section_needs_attention")}
                 ></ha-icon>
               `
             : null}

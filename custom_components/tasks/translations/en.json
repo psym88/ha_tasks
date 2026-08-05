@@ -185,6 +185,7 @@
     "ui_app_active": "Active",
     "ui_app_paused": "Paused",
     "ui_app_status": "Status",
+    "ui_app_section_needs_attention": "Section needs attention",
     "ui_app_not_scheduled": "Not scheduled",
     "ui_app_no_notes": "No notes",
     "ui_app_open_file": "Open {name}",
