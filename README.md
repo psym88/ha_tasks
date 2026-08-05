@@ -13,6 +13,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 - Home Assistant user and label assignments, notes, history, and attachments
 - Optional NFC tag completion
 - Sidebar panel and configurable dashboard card
+- Assist LLM tools for listing, completing, and creating tasks
 - A due-task summary sensor
 - Home Assistant events for task, history, and attachment changes
 - ZIP backup and restore
@@ -20,7 +21,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 
 ## Installation
 
-Tasks requires Home Assistant 2026.7.0 or newer.
+Tasks requires Home Assistant 2026.8.0 or newer.
 
 1. Use the button above, or add `https://github.com/psym88/ha_tasks` to HACS as an **Integration** repository.
 2. Install Tasks and restart Home Assistant.
@@ -99,6 +100,19 @@ Add the **Tasks** card from the dashboard card picker. Its visual editor control
 | ![Tasks dashboard card on mobile in light mode](docs/images/dashboard-card-mobile-light.png) | ![Tasks dashboard card on mobile in dark mode](docs/images/dashboard-card-mobile-dark.png) |
 
 Paused tasks are hidden from the dashboard card. Resuming a task keeps its stored due value, so an overdue task can immediately appear as due again.
+
+### Voice assistants
+
+LLM-based Home Assistant Assist agents can list active tasks, filter them by
+assigned person and the current week, read a selected task's completion
+history, assign or unassign a person, complete a task, and create a recurring
+task. Mutations use the task ID returned by the list tool, so duplicate names
+cannot change an arbitrary task. Creation requires an explicit recurrence and
+time for fixed schedules; the assistant must ask for missing planning details.
+Task-list responses include the current Home Assistant time and an authoritative
+due status; due-task queries include overdue tasks. Permanent deletion requires
+a separate, explicit confirmation for the selected task and expires after five
+minutes if it is not confirmed.
 
 ### Backup and restore
 

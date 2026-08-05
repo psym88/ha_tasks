@@ -55,6 +55,7 @@ Persistent data is stored in Home Assistant; attachment files live under
 - `notifications.py`: Mobile App and persistent notifications for due tasks
 - `task_api.py`: authenticated commands, subscriptions, bulk operations, and
   atomic editor saves
+- `llm.py`: Assist LLM tools for listing, completing, and creating tasks
 - `attachment_api.py`: authenticated multipart uploads, attachments, and ZIP
   import/export
 - `sensor.py`: due-task summary entity
