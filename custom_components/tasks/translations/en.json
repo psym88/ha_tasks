@@ -31,7 +31,7 @@
     "ui_error_unsupported_store_version": "This stored Tasks data version is not supported.",
     "ui_error_unknown": "An unexpected error occurred.",
     "ui_task_name": "Name",
-    "ui_task_optional_description": "Optional description",
+    "ui_task_optional_description": "Description",
     "ui_task_planning": "Schedule",
     "ui_task_assignment": "Assignment",
     "ui_task_notification": "Notification",

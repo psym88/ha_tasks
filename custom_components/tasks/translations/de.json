@@ -31,7 +31,7 @@
     "ui_error_unsupported_store_version": "Diese gespeicherte Tasks-Datenversion wird nicht unterstützt.",
     "ui_error_unknown": "Ein unerwarteter Fehler ist aufgetreten.",
     "ui_task_name": "Name",
-    "ui_task_optional_description": "Optionale Beschreibung",
+    "ui_task_optional_description": "Beschreibung",
     "ui_task_planning": "Planung",
     "ui_task_assignment": "Zuordnung",
     "ui_task_notification": "Benachrichtigung",

@@ -1041,29 +1041,36 @@ class TasksTaskForm extends LocalizedLitElement {
                 this.scheduleType = event.detail as ScheduleType;
               })}
           ></${selectFieldTag}>
-          <${haFormTag}
-            .hass=${this.hass}
-            .data=${{ problemSensor: this.problemSensor }}
-            .schema=${[
-              {
-                name: "problemSensor",
-                selector: {
-                  entity: { filter: { domain: "binary_sensor" } },
+          <div
+            class="selector-field"
+            role="group"
+            aria-label=${t("task.problem_sensor")}
+          >
+            <span class="selector-label">${t("task.problem_sensor")}</span>
+            <${haFormTag}
+              .hass=${this.hass}
+              .data=${{ problemSensor: this.problemSensor }}
+              .schema=${[
+                {
+                  name: "problemSensor",
+                  selector: {
+                    entity: { filter: { domain: "binary_sensor" } },
+                  },
                 },
-              },
-            ]}
-            .computeLabel=${() => t("task.problem_sensor")}
-            .disabled=${this.saving}
-            @value-changed=${(
-              event: CustomEvent<{
-                value: { problemSensor?: string };
-              }>,
-            ) =>
-              this.scheduleChanged(() => {
-                this.problemSensor =
-                  event.detail.value.problemSensor || "";
-              })}
-          ></${haFormTag}>
+              ]}
+              .computeLabel=${() => ""}
+              .disabled=${this.saving}
+              @value-changed=${(
+                event: CustomEvent<{
+                  value: { problemSensor?: string };
+                }>,
+              ) =>
+                this.scheduleChanged(() => {
+                  this.problemSensor =
+                    event.detail.value.problemSensor || "";
+                })}
+            ></${haFormTag}>
+          </div>
           ${this.scheduleError
             ? html`<p class="error" role="alert">${this.scheduleError}</p>`
             : nothing}

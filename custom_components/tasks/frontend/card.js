@@ -564,14 +564,21 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
             ?disabled=${this.saving}
             @value-changed=${e=>this.scheduleChanged(()=>{this.scheduleType=e.detail})}
           ></${y}>
-          <${$}
-            .hass=${this.hass}
-            .data=${{problemSensor:this.problemSensor}}
-            .schema=${[{name:"problemSensor",selector:{entity:{filter:{domain:"binary_sensor"}}}}]}
-            .computeLabel=${()=>r("task.problem_sensor")}
-            .disabled=${this.saving}
-            @value-changed=${e=>this.scheduleChanged(()=>{this.problemSensor=e.detail.value.problemSensor||""})}
-          ></${$}>
+          <div
+            class="selector-field"
+            role="group"
+            aria-label=${r("task.problem_sensor")}
+          >
+            <span class="selector-label">${r("task.problem_sensor")}</span>
+            <${$}
+              .hass=${this.hass}
+              .data=${{problemSensor:this.problemSensor}}
+              .schema=${[{name:"problemSensor",selector:{entity:{filter:{domain:"binary_sensor"}}}}]}
+              .computeLabel=${()=>""}
+              .disabled=${this.saving}
+              @value-changed=${e=>this.scheduleChanged(()=>{this.problemSensor=e.detail.value.problemSensor||""})}
+            ></${$}>
+          </div>
           ${this.scheduleError?o`<p class="error" role="alert">${this.scheduleError}</p>`:d}
           <p class="hint">
             ${r("schedule.problem_sensor_description")}
