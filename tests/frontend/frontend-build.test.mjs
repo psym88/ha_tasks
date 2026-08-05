@@ -46,6 +46,22 @@ const taskForm = await readFile(
   new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
+const problemSensorStatus = await readFile(
+  new URL("../../frontend/src/problem-sensor-status.ts", import.meta.url),
+  "utf8",
+);
+
+test("problem sensor availability follows live Home Assistant states", () => {
+  assert.match(
+    problemSensorStatus,
+    /hass\?\.states\?\.\[schedule\.entity_id\]/,
+  );
+  assert.match(problemSensorStatus, /state\.state === "unavailable"/);
+  assert.match(problemSensorStatus, /state\.state === "unknown"/);
+  assert.match(taskForm, /planningWarning\(\)/);
+  assert.match(taskForm, /return status !== "available"/);
+  assert.doesNotMatch(taskForm, /problem_sensor\.\$\{sensorStatus\}/);
+});
 
 test("task editor uses Home Assistant selectors for registry-backed fields", () => {
   assert.match(taskForm, /selector: \{ icon: \{\} \}/);
@@ -67,6 +83,12 @@ const taskTable = await readFile(
   new URL("../../frontend/src/task-table.ts", import.meta.url),
   "utf8",
 );
+
+test("task table signals unavailable problem sensors", () => {
+  assert.match(taskTable, /problemSensorWarning\(task\)/);
+  assert.match(taskTable, /mdi:alert-circle-outline/);
+  assert.match(taskTable, /problem\.sensor_\$\{sensorStatus\}_short/);
+});
 const dashboardCard = await readFile(
   new URL("../../frontend/src/dashboard-card.ts", import.meta.url),
   "utf8",
@@ -120,6 +142,7 @@ test("frontend expandable exposes animated disclosure semantics", () => {
   assert.match(expandable, /aria-expanded=/);
   assert.match(expandable, /grid-template-rows: 0fr/);
   assert.match(expandable, /grid-template-rows: 1fr/);
+  assert.match(expandable, /mdi:alert-circle-outline/);
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 

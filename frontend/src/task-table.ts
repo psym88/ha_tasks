@@ -9,6 +9,10 @@ import {
 } from "./api";
 import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import {
+  problemSensorStatus,
+  type ProblemSensorStatus,
+} from "./problem-sensor-status";
 import type {
   HomeAssistant,
   Task,
@@ -705,6 +709,17 @@ class TasksTaskTable extends LocalizedLitElement {
       font-weight: 500;
     }
 
+    .sensor-warning {
+      display: inline-flex;
+      margin-right: 6px;
+      color: var(--error-color);
+      vertical-align: text-bottom;
+    }
+
+    .sensor-warning ha-icon {
+      --mdc-icon-size: 18px;
+    }
+
     .inactive .task-name {
       color: var(--secondary-text-color);
     }
@@ -1101,6 +1116,31 @@ class TasksTaskTable extends LocalizedLitElement {
     return task.active === false ? t("app.paused") : t("app.active");
   }
 
+  private problemSensorStatus(
+    task: Task,
+  ): ProblemSensorStatus | undefined {
+    return task.schedule.type === "sensor"
+      ? problemSensorStatus(this.hass, task.schedule)
+      : undefined;
+  }
+
+  private problemSensorWarning(task: Task) {
+    const status = this.problemSensorStatus(task);
+    if (!status || status === "available") {
+      return nothing;
+    }
+    const label = t(`problem.sensor_${status}`, {
+      entity_id: task.schedule.type === "sensor"
+        ? task.schedule.entity_id
+        : "",
+    });
+    return html`
+      <span class="sensor-warning" title=${label} aria-label=${label}>
+        <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+      </span>
+    `;
+  }
+
   private assignee(task: Task): string {
     return (
       this.users.find((user) => user.id === task.assignee_id)?.name ||
@@ -1288,6 +1328,10 @@ class TasksTaskTable extends LocalizedLitElement {
   private due(task: Task): string {
     const value = this.dueValue(task);
     if (value === undefined) {
+      const sensorStatus = this.problemSensorStatus(task);
+      if (sensorStatus && sensorStatus !== "available") {
+        return t(`problem.sensor_${sensorStatus}_short`);
+      }
       if (
         task.active !== false &&
         task.schedule.type === "sensor" &&
@@ -2272,6 +2316,7 @@ class TasksTaskTable extends LocalizedLitElement {
                           `
                         : nothing}
                       <td class="task-name">
+                        ${this.problemSensorWarning(task)}
                         ${task.name}
                         <span class="mobile-details">
                           ${this.mobileDetails(task)}

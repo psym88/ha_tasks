@@ -12,6 +12,7 @@ import {
 import { fileIcon } from "./file-icon";
 import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import { problemSensorStatus } from "./problem-sensor-status";
 import type {
   Attachment,
   Completion,
@@ -1527,6 +1528,20 @@ class TasksTaskForm extends LocalizedLitElement {
     `;
   }
 
+  private planningWarning(): boolean {
+    if (
+      this.scheduleType !== "sensor" ||
+      !this.problemSensor.startsWith("binary_sensor.")
+    ) {
+      return false;
+    }
+    const status = problemSensorStatus(this.hass, {
+      type: "sensor",
+      entity_id: this.problemSensor,
+    });
+    return status !== "available";
+  }
+
   protected render() {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
@@ -1550,7 +1565,10 @@ class TasksTaskForm extends LocalizedLitElement {
             this.description = event.detail;
           }}
         ></${textFieldTag}>
-        <${expandableTag} heading=${t("task.planning")}>
+        <${expandableTag}
+          heading=${t("task.planning")}
+          .warning=${this.planningWarning()}
+        >
           ${this.renderPlanning()}
         </${expandableTag}>
         <${expandableTag} heading=${t("task.assignment")}>

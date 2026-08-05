@@ -135,6 +135,18 @@ test("every direct frontend translation key exists in English and German", () =>
   }
 });
 
+test("problem sensor status keys match the generated catalog namespace", () => {
+  for (const language of ["en", "de"]) {
+    for (const status of ["missing", "unavailable", "unknown"]) {
+      assert.ok(`problem.sensor_${status}` in languages[language]);
+      assert.ok(`problem.sensor_${status}_short` in languages[language]);
+    }
+  }
+  assert.match(source, /`problem\.sensor_\$\{status\}`/);
+  assert.match(source, /`problem\.sensor_\$\{sensorStatus\}_short`/);
+  assert.doesNotMatch(source, /problem_sensor\.\$\{/);
+});
+
 test("frontend translation values have no surrounding whitespace", () => {
   for (const [language, catalog] of Object.entries(languages)) {
     for (const [key, value] of Object.entries(catalog)) {
