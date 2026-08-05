@@ -8,9 +8,17 @@
 - Generate documentation screenshots only through the `Documentation screenshots` workflow. It validates the documented mobile dashboard card and desktop task viewer and editor states in English, in light and dark mode, against the latest stable Home Assistant release. Review and merge its documentation PR only when the visual diff is relevant.
 - Use `.agents/skills/develop-home-assistant-integration` for Home Assistant integration work. Re-check version-sensitive behavior against current official documentation, version-matched Home Assistant Core source, and the development container instead of relying on static knowledge.
 - Treat persisted Home Assistant store data as user data: every incompatible store-schema change must increment `STORAGE_VERSION`, provide a sequential converter from the immediately preceding version, and add or update versioned migration fixtures and tests. Never remove a published migration path.
-- After integration code changes, ensure the `ha-tasks-dev` container mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
+- After integration code changes, use the available test container running the minimum supported Home Assistant version. Ensure it mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
 - Do not use an interactive browser for validation unless the user explicitly requests it. Validate frontend changes with TypeScript, focused and complete frontend tests, a production build, generated-asset checks, and Home Assistant container startup and HTTP/resource checks.
 - Work on `dev` and update it from `origin/dev` before editing. Do not commit feature or fix work directly to `main`.
+
+## Simplicity and extensibility gate
+
+- Before implementing a user request, new feature, or refactoring, examine whether a substantially simpler design can satisfy the underlying need with little loss of functionality. Prefer the smallest solution that preserves the important user outcome and avoids speculative abstractions, configuration, indirection, or compatibility layers.
+- Explain the simpler alternative and any concrete functionality or flexibility it would omit. If accepting that trade-off could materially change the requested behavior, ask the user which option they prefer before writing implementation code.
+- Before implementing any new feature or refactoring, confirm with the user that the proposed scope and design leave the code reasonably extensible for likely follow-up needs. Include the intended extension points and the complexity cost of the design in the question; do not treat maximum flexibility as a goal by itself.
+- Do not begin feature or refactoring implementation while a material scope, simplicity, or extensibility decision is unresolved. Investigation, comparison of alternatives, and narrowly scoped prototypes that do not commit the project to a design are allowed.
+- When the requested solution would add disproportionate complexity, say so explicitly and recommend the simpler option. Proceed with the more complex design only after the user confirms that its additional capability is required.
 
 ## Commit convention
 

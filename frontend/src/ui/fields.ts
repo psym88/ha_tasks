@@ -151,7 +151,7 @@ class TasksTextField extends TasksField {
   protected render() {
     return html`
       <label>
-        <span>${this.label}${this.required ? " *" : ""}</span>
+        <span>${this.label}</span>
         ${this.multiline
           ? html`
               <textarea
@@ -197,7 +197,7 @@ class TasksSelectField extends TasksField {
   protected render() {
     return html`
       <label>
-        <span>${this.label}${this.required ? " *" : ""}</span>
+        <span>${this.label}</span>
         <select
           .value=${this.value}
           ?required=${this.required}

@@ -9,6 +9,10 @@ import {
 } from "./api";
 import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import {
+  problemSensorStatus,
+  type ProblemSensorStatus,
+} from "./problem-sensor-status";
 import type {
   HomeAssistant,
   Task,
@@ -40,6 +44,7 @@ type BulkAction =
   | "pause"
   | "resume"
   | "assign"
+  | "unassign"
   | "add-label"
   | "remove-label"
   | "add-notification"
@@ -190,11 +195,18 @@ export const taskActions = (task: Task): ActionMenuItem[] => [
   },
 ];
 
-const bulkActions = (): ActionMenuItem[] => [
+const bulkActions = (selected: Task[]): ActionMenuItem[] => [
   { label: t("bulk.complete"), value: "complete", icon: "mdi:check-circle-outline" },
   { label: t("app.pause"), value: "pause", icon: "mdi:pause-circle-outline" },
   { label: t("app.resume"), value: "resume", icon: "mdi:play-circle-outline" },
   { label: t("bulk.assign_person"), value: "assign", icon: "mdi:account-outline" },
+  ...(selected.some((task) => task.assignee_id)
+    ? [{
+        label: t("bulk.remove_assignment"),
+        value: "unassign",
+        icon: "mdi:account-off-outline",
+      }]
+    : []),
   { label: t("app.add_label"), value: "add-label", icon: "mdi:tag-plus-outline" },
   {
     label: t("app.remove_label"),
@@ -705,6 +717,17 @@ class TasksTaskTable extends LocalizedLitElement {
       font-weight: 500;
     }
 
+    .sensor-warning {
+      display: inline-flex;
+      margin-left: 6px;
+      color: var(--error-color);
+      vertical-align: text-bottom;
+    }
+
+    .sensor-warning ha-icon {
+      --mdc-icon-size: 18px;
+    }
+
     .inactive .task-name {
       color: var(--secondary-text-color);
     }
@@ -1101,10 +1124,34 @@ class TasksTaskTable extends LocalizedLitElement {
     return task.active === false ? t("app.paused") : t("app.active");
   }
 
+  private problemSensorStatus(
+    task: Task,
+  ): ProblemSensorStatus | undefined {
+    return task.schedule.type === "sensor"
+      ? problemSensorStatus(this.hass, task.schedule)
+      : undefined;
+  }
+
+  private problemSensorWarning(task: Task) {
+    const status = this.problemSensorStatus(task);
+    if (!status || status === "available") {
+      return nothing;
+    }
+    const label = t(`problem.sensor_${status}`, {
+      entity_id: task.schedule.type === "sensor"
+        ? task.schedule.entity_id
+        : "",
+    });
+    return html`
+      <span class="sensor-warning" title=${label} aria-label=${label}>
+        <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+      </span>
+    `;
+  }
+
   private assignee(task: Task): string {
     return (
-      this.users.find((user) => user.id === task.assignee_id)?.name ||
-      t("task.unassigned")
+      this.users.find((user) => user.id === task.assignee_id)?.name || "—"
     );
   }
 
@@ -1288,6 +1335,10 @@ class TasksTaskTable extends LocalizedLitElement {
   private due(task: Task): string {
     const value = this.dueValue(task);
     if (value === undefined) {
+      const sensorStatus = this.problemSensorStatus(task);
+      if (sensorStatus && sensorStatus !== "available") {
+        return t(`problem.sensor_${sensorStatus}_short`);
+      }
       if (
         task.active !== false &&
         task.schedule.type === "sensor" &&
@@ -1540,13 +1591,10 @@ class TasksTaskTable extends LocalizedLitElement {
 
   private bulkTargets(): FilterOption[] {
     if (this.bulkAction === "assign") {
-      return [
-        { value: "__none__", label: t("task.unassigned") },
-        ...this.users.map((user) => ({
-          value: user.id,
-          label: user.name,
-        })),
-      ];
+      return this.users.map((user) => ({
+        value: user.id,
+        label: user.name,
+      }));
     }
     if (
       this.bulkAction === "add-label" ||
@@ -1602,6 +1650,9 @@ class TasksTaskTable extends LocalizedLitElement {
     }
     if (this.bulkAction === "assign") {
       return t("app.assign");
+    }
+    if (this.bulkAction === "unassign") {
+      return t("bulk.remove_assignment");
     }
     if (
       this.bulkAction === "add-label" ||
@@ -1659,9 +1710,10 @@ class TasksTaskTable extends LocalizedLitElement {
         changes = { active: this.bulkAction === "resume" };
       } else if (this.bulkAction === "assign") {
         changes = {
-          assignee_id:
-            this.bulkTarget === "__none__" ? null : this.bulkTarget,
+          assignee_id: this.bulkTarget,
         };
+      } else if (this.bulkAction === "unassign") {
+        changes = { assignee_id: null };
       } else if (
         this.bulkAction === "add-label" ||
         this.bulkAction === "remove-label"
@@ -1760,7 +1812,7 @@ class TasksTaskTable extends LocalizedLitElement {
 
   private renderBulkMenu(selected: Task[]) {
     const bulkTargets = this.bulkTargets();
-    const actions = bulkActions();
+    const actions = bulkActions(selected);
     const targetIcon = this.bulkTargetIcon();
     const targetOptions = bulkTargets.map((option) => ({
       ...option,
@@ -2273,6 +2325,7 @@ class TasksTaskTable extends LocalizedLitElement {
                         : nothing}
                       <td class="task-name">
                         ${task.name}
+                        ${this.problemSensorWarning(task)}
                         <span class="mobile-details">
                           ${this.mobileDetails(task)}
                         </span>

@@ -46,6 +46,23 @@ const taskForm = await readFile(
   new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
+const problemSensorStatus = await readFile(
+  new URL("../../frontend/src/problem-sensor-status.ts", import.meta.url),
+  "utf8",
+);
+
+test("problem sensor availability follows live Home Assistant states", () => {
+  assert.match(
+    problemSensorStatus,
+    /hass\?\.states\?\.\[schedule\.entity_id\]/,
+  );
+  assert.match(problemSensorStatus, /state\.state === "unavailable"/);
+  assert.match(problemSensorStatus, /state\.state === "unknown"/);
+  assert.match(taskForm, /planningWarning\(\)/);
+  assert.match(taskForm, /if \(this\.scheduleError\) \{\s*return true/);
+  assert.match(taskForm, /return status !== "available"/);
+  assert.doesNotMatch(taskForm, /problem_sensor\.\$\{sensorStatus\}/);
+});
 
 test("task editor uses Home Assistant selectors for registry-backed fields", () => {
   assert.match(taskForm, /selector: \{ icon: \{\} \}/);
@@ -67,6 +84,16 @@ const taskTable = await readFile(
   new URL("../../frontend/src/task-table.ts", import.meta.url),
   "utf8",
 );
+
+test("task table signals unavailable problem sensors", () => {
+  assert.match(taskTable, /problemSensorWarning\(task\)/);
+  assert.match(taskTable, /mdi:alert-circle-outline/);
+  assert.match(taskTable, /problem\.sensor_\$\{sensorStatus\}_short/);
+  assert.match(
+    taskTable,
+    /\$\{task\.name\}\s*\$\{this\.problemSensorWarning\(task\)\}/,
+  );
+});
 const dashboardCard = await readFile(
   new URL("../../frontend/src/dashboard-card.ts", import.meta.url),
   "utf8",
@@ -120,6 +147,8 @@ test("frontend expandable exposes animated disclosure semantics", () => {
   assert.match(expandable, /aria-expanded=/);
   assert.match(expandable, /grid-template-rows: 0fr/);
   assert.match(expandable, /grid-template-rows: 1fr/);
+  assert.match(expandable, /mdi:alert-circle-outline/);
+  assert.match(expandable, /t\("app\.section_needs_attention"\)/);
   assert.doesNotMatch(expandable, /ha-expansion-panel/);
 });
 
@@ -165,6 +194,16 @@ test("frontend owns its remaining text textarea and select controls", () => {
     fields,
     /ha-textfield|ha-selector|ha-combo-box|ha-switch/,
   );
+  assert.doesNotMatch(fields, /this\.required \? " \*"/);
+  assert.match(fields, /\?required=\$\{this\.required\}/);
+});
+
+test("task editor does not add a required marker to the entity selector", () => {
+  assert.doesNotMatch(
+    taskForm,
+    /name: "problemSensor",\s*required: true/,
+  );
+  assert.match(taskForm, /problemSensor\.startsWith\("binary_sensor\."\)/);
 });
 
 test("frontend editor saves task details and planning in one transaction", () => {
@@ -231,6 +270,10 @@ test("frontend task table owns search, fixed due sorting, and responsive rows", 
   assert.doesNotMatch(taskTable, /aria-sort=|sortDirection|sortKey/);
   assert.match(taskTable, /@media \(max-width: 640px\)/);
   assert.match(taskTable, /class="mobile-details"/);
+  assert.match(
+    taskTable,
+    /this\.users\.find\(\(user\) => user\.id === task\.assignee_id\)\?\.name \|\| "—"/,
+  );
   assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
 });
 
@@ -353,6 +396,7 @@ test("frontend bulk actions cover existing assignment and notification behavior"
     "pause",
     "resume",
     "assign",
+    "unassign",
     "add-label",
     "remove-label",
     "add-notification",
@@ -364,6 +408,15 @@ test("frontend bulk actions cover existing assignment and notification behavior"
   assert.match(taskTable, /device_ids:/);
   assert.match(taskTable, /label_ids:/);
   assert.match(taskTable, /assignee_id:/);
+  assert.match(
+    taskTable,
+    /selected\.some\(\(task\) => task\.assignee_id\)[\s\S]*?bulk\.remove_assignment/,
+  );
+  assert.match(taskTable, /this\.bulkAction === "unassign"[\s\S]*?assignee_id: null/);
+  assert.match(
+    taskTable,
+    /if \(this\.bulkAction === "assign"\) \{\s*return this\.users\.map/,
+  );
   assert.match(taskTable, /openTasksDialog/);
 });
 
@@ -499,6 +552,8 @@ test("frontend dashboard card uses the official built-in config form", () => {
 });
 
 test("frontend panel streams archive export and import through the owned backup UI", () => {
+  assert.doesNotMatch(source, /max-width: 960px/);
+  assert.match(source, /main \{\s+padding: 0 var\(--ha-space-6\);/);
   assert.match(source, /openArchive\(this\.hass\)/);
   assert.match(api, /fetchWithAuth\("\/api\/tasks\/archive"/);
   assert.match(api, /method: "POST"/);
@@ -626,6 +681,8 @@ test("frontend task viewer loads assignment history and signed attachments", () 
   assert.match(taskViewer, /loadAttachmentUrls/);
   assert.match(api, /type: "tasks\/attachment\/urls"/);
   assert.match(taskViewer, /this\.signedFiles\[attachment\.id\]/);
+  assert.match(taskViewer, /this\.task\.due\s*\? staticHtml/);
+  assert.match(taskViewer, /\$\{assignee\s*\? staticHtml/);
   assert.match(source, /openTaskViewer/);
 });
 
@@ -647,9 +704,17 @@ test("frontend completion requires confirmation and sends trimmed notes", () => 
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
 });
 
-test("frontend viewer renders responsive details without planning", () => {
+test("frontend viewer renders responsive read-only planning details", () => {
   assert.match(taskViewer, /private renderMetadata\(\)/);
-  assert.doesNotMatch(taskViewer, /schedule\.type ===/);
+  assert.match(taskViewer, /private renderPlanning\(\)/);
+  assert.match(taskViewer, /problemSensorStatus\(this\.hass/);
+  assert.match(taskViewer, /\.warning=\$\{this\.planningWarning\(\)\}/);
+  assert.match(taskViewer, /class="planning-details"/);
+  assert.match(taskViewer, /sensorState\.state/);
+  assert.match(taskViewer, /new CustomEvent\("hass-more-info"/);
+  assert.match(taskViewer, /detail: \{ entityId: schedule\.entity_id \}/);
+  assert.match(taskViewer, /color: var\(--primary-text-color\)/);
+  assert.match(taskViewer, /color: var\(--error-color\)/);
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 

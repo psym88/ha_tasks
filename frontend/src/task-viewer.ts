@@ -8,8 +8,9 @@ import {
   loadTaskHistory,
 } from "./api";
 import { fileIcon } from "./file-icon";
-import { errorText, t } from "./localize";
+import { errorText, t, timedScheduleText } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import { problemSensorStatus } from "./problem-sensor-status";
 import type {
   Attachment,
   Completion,
@@ -240,11 +241,26 @@ class TasksTaskViewer extends LocalizedLitElement {
     }
 
     .planning-details dt {
-      color: var(--secondary-text-color);
+      color: var(--primary-text-color);
     }
 
     .planning-details dd {
       margin: 0;
+    }
+
+    .entity-state {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .entity-state.unavailable,
+    .unavailable {
+      color: var(--error-color);
     }
 
     @media (max-width: 520px) {
@@ -498,19 +514,23 @@ class TasksTaskViewer extends LocalizedLitElement {
   }
 
   private renderMetadata() {
-    const assignee =
-      this.users.find((user) => user.id === this.task.assignee_id)?.name ||
-      (this.assignmentReady
-        ? t("task.unassigned")
-        : t("app.loading_assignments"));
+    const assignee = this.users.find(
+      (user) => user.id === this.task.assignee_id,
+    )?.name;
     const tag = this.tags.find((item) => item.id === this.task.nfc_tag_id);
     const labels = (this.task.label_ids || [])
       .map((id) => this.labels.find((label) => label.label_id === id))
       .filter((label): label is TasksLabel => Boolean(label));
     return staticHtml`
       <div class="pills">
-        <${pillTag}>${this.formatDate(this.task.due)}</${pillTag}>
-        <${pillTag}>${assignee}</${pillTag}>
+        ${this.task.due
+          ? staticHtml`<${pillTag}>
+              ${this.formatDate(this.task.due)}
+            </${pillTag}>`
+          : nothing}
+        ${assignee
+          ? staticHtml`<${pillTag}>${assignee}</${pillTag}>`
+          : nothing}
         ${this.attachments.length
           ? staticHtml`<${pillTag}>
               ${t(
@@ -530,6 +550,147 @@ class TasksTaskViewer extends LocalizedLitElement {
             staticHtml`<${pillTag}>${label.name}</${pillTag}>`,
         )}
       </div>
+    `;
+  }
+
+  private planningWarning(): boolean {
+    return (
+      this.task.schedule.type === "sensor" &&
+      problemSensorStatus(this.hass, this.task.schedule) !== "available"
+    );
+  }
+
+  private scheduleText(): string {
+    const schedule = this.task.schedule;
+    if (schedule.type === "sensor") {
+      return t("schedule.problem_sensor_description");
+    }
+    const interval = Math.max(1, Number(schedule.interval) || 1);
+    const periodKey = {
+      daily: "day",
+      weekly: "week",
+      monthly: "month",
+      yearly: "year",
+    } as const;
+    const singular = t(`schedule.period_${periodKey[schedule.unit]}`);
+    const plural = t(`schedule.period_${periodKey[schedule.unit]}s`);
+    if (schedule.type === "sliding") {
+      return t(
+        interval === 1
+          ? "schedule.after_completion_one"
+          : "schedule.after_completion_many",
+        {
+          schedule_interval: interval,
+          period: interval === 1 ? singular : plural,
+        },
+      );
+    }
+    const time = schedule.time || "09:00";
+    if (schedule.unit === "weekly") {
+      const names = Array.from({ length: 7 }, (_, index) =>
+        new Intl.DateTimeFormat(this.hass?.locale?.language, {
+          weekday: "long",
+          timeZone: "UTC",
+        }).format(new Date(Date.UTC(2024, 0, index + 1))),
+      );
+      const weekdays = (schedule.weekdays || [])
+        .map((day) => names[day])
+        .filter(Boolean);
+      const joined = weekdays.length > 1
+        ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
+        : weekdays[0] || "";
+      const description = t(
+        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
+        {
+          schedule_interval: interval,
+          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
+        },
+      );
+      return timedScheduleText(description, time);
+    }
+    if (schedule.unit === "monthly") {
+      const day = schedule.day === "last"
+        ? t("schedule.on_last_day")
+        : t("schedule.on_day_number", { day: Number(schedule.day || 1) });
+      return timedScheduleText(t(
+        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
+        { schedule_interval: interval, day },
+      ), time);
+    }
+    if (schedule.unit === "yearly") {
+      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
+        month: "long",
+      }).format(new Date(2024, (schedule.month || 1) - 1, 1));
+      const day = schedule.day === "last"
+        ? t("schedule.on_last_day_of_month", { month })
+        : t("schedule.on_day_of_month", {
+            day: Number(schedule.day || 1),
+            month,
+          });
+      return timedScheduleText(t(
+        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
+        { schedule_interval: interval, day },
+      ), time);
+    }
+    return timedScheduleText(t(
+      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
+      {
+        schedule_interval: interval,
+        period: interval === 1 ? singular : plural,
+      },
+    ), time);
+  }
+
+  private renderPlanning() {
+    const schedule = this.task.schedule;
+    const sensorState = schedule.type === "sensor"
+      ? this.hass?.states?.[schedule.entity_id]
+      : undefined;
+    const sensorName = sensorState?.attributes?.friendly_name;
+    const sensorStatus = schedule.type === "sensor"
+      ? problemSensorStatus(this.hass, schedule)
+      : undefined;
+    return html`
+      <dl class="planning-details">
+        <dt>${t("task.recurrence_calculation")}</dt>
+        <dd>${schedule.type === "sensor"
+          ? t("task.problem_sensor")
+          : schedule.type === "fixed"
+            ? t("task.fixed")
+            : t("task.sliding")}</dd>
+        <dt>${t("task.planning")}</dt>
+        <dd>${this.scheduleText()}</dd>
+        ${schedule.type === "sensor"
+          ? html`
+              <dt>${t("task.problem_sensor")}</dt>
+              <dd>
+                ${sensorName ? `${sensorName} · ` : ""}${schedule.entity_id}
+              </dd>
+              <dt>${t("app.status")}</dt>
+              <dd class=${sensorStatus === "available" ? "" : "unavailable"}>
+                ${sensorState
+                  ? html`
+                      <button
+                        class="entity-state ${sensorStatus === "available"
+                          ? ""
+                          : "unavailable"}"
+                        type="button"
+                        @click=${() => this.dispatchEvent(
+                          new CustomEvent("hass-more-info", {
+                            detail: { entityId: schedule.entity_id },
+                            bubbles: true,
+                            composed: true,
+                          }),
+                        )}
+                      >
+                        ${sensorState.state}
+                      </button>
+                    `
+                  : t("problem.sensor_missing_short")}
+              </dd>
+            `
+          : nothing}
+      </dl>
     `;
   }
 
@@ -617,6 +778,12 @@ class TasksTaskViewer extends LocalizedLitElement {
         ${this.assignmentError
           ? html`<p class="error" role="alert">${this.assignmentError}</p>`
           : nothing}
+        <${expandableTag}
+          heading=${t("task.planning")}
+          .warning=${this.planningWarning()}
+        >
+          ${this.renderPlanning()}
+        </${expandableTag}>
         <${expandableTag} heading=${t("task.files")}>
           ${this.renderAttachments()}
         </${expandableTag}>

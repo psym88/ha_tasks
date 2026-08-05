@@ -1,11 +1,13 @@
 import { css, html } from "lit";
 
+import { t } from "../localize";
 import { LocalizedLitElement } from "../localized-element";
 import { elementName } from "../version";
 
 class TasksExpandable extends LocalizedLitElement {
   static properties = {
     heading: {},
+    warning: { type: Boolean },
     open: { type: Boolean },
   };
 
@@ -37,6 +39,11 @@ class TasksExpandable extends LocalizedLitElement {
       margin-inline-start: auto;
       color: var(--secondary-text-color);
       transition: transform 200ms ease;
+    }
+
+    .warning {
+      color: var(--error-color);
+      --mdc-icon-size: 18px;
     }
 
     .expandable.open .chevron {
@@ -81,11 +88,13 @@ class TasksExpandable extends LocalizedLitElement {
   `;
 
   declare heading: string;
+  declare warning: boolean;
   declare open: boolean;
 
   constructor() {
     super();
     this.heading = "";
+    this.warning = false;
     this.open = false;
   }
 
@@ -101,6 +110,16 @@ class TasksExpandable extends LocalizedLitElement {
           }}
         >
           ${this.heading}
+          ${this.warning
+            ? html`
+                <ha-icon
+                  class="warning"
+                  icon="mdi:alert-circle-outline"
+                  aria-label=${t("app.section_needs_attention")}
+                  title=${t("app.section_needs_attention")}
+                ></ha-icon>
+              `
+            : null}
           <ha-icon
             class="chevron"
             icon="mdi:chevron-down"

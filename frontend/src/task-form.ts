@@ -10,8 +10,9 @@ import {
   type ScheduleDetails,
 } from "./api";
 import { fileIcon } from "./file-icon";
-import { errorText, t } from "./localize";
+import { errorText, t, timedScheduleText } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import { problemSensorStatus } from "./problem-sensor-status";
 import type {
   Attachment,
   Completion,
@@ -792,7 +793,7 @@ class TasksTaskForm extends LocalizedLitElement {
           days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
         },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
     if (this.scheduleUnit === "monthly") {
       const day =
@@ -803,7 +804,7 @@ class TasksTaskForm extends LocalizedLitElement {
         interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
         { schedule_interval: interval, day },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
     if (this.scheduleUnit === "yearly") {
       const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
@@ -820,15 +821,15 @@ class TasksTaskForm extends LocalizedLitElement {
         interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
         { schedule_interval: interval, day },
       );
-      return `${description} ${t("app.at_time", { time: this.scheduleTime })}`;
+      return timedScheduleText(description, this.scheduleTime);
     }
-    return `${t(
+    return timedScheduleText(t(
       interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
       {
         schedule_interval: interval,
         period: interval === 1 ? singular : plural,
       },
-    )} ${t("app.at_time", { time: this.scheduleTime })}`;
+    ), this.scheduleTime);
   }
 
   async save(): Promise<boolean> {
@@ -1040,30 +1041,36 @@ class TasksTaskForm extends LocalizedLitElement {
                 this.scheduleType = event.detail as ScheduleType;
               })}
           ></${selectFieldTag}>
-          <${haFormTag}
-            .hass=${this.hass}
-            .data=${{ problemSensor: this.problemSensor }}
-            .schema=${[
-              {
-                name: "problemSensor",
-                required: true,
-                selector: {
-                  entity: { filter: { domain: "binary_sensor" } },
+          <div
+            class="selector-field"
+            role="group"
+            aria-label=${t("task.problem_sensor")}
+          >
+            <span class="selector-label">${t("task.problem_sensor")}</span>
+            <${haFormTag}
+              .hass=${this.hass}
+              .data=${{ problemSensor: this.problemSensor }}
+              .schema=${[
+                {
+                  name: "problemSensor",
+                  selector: {
+                    entity: { filter: { domain: "binary_sensor" } },
+                  },
                 },
-              },
-            ]}
-            .computeLabel=${() => t("task.problem_sensor")}
-            .disabled=${this.saving}
-            @value-changed=${(
-              event: CustomEvent<{
-                value: { problemSensor?: string };
-              }>,
-            ) =>
-              this.scheduleChanged(() => {
-                this.problemSensor =
-                  event.detail.value.problemSensor || "";
-              })}
-          ></${haFormTag}>
+              ]}
+              .computeLabel=${() => ""}
+              .disabled=${this.saving}
+              @value-changed=${(
+                event: CustomEvent<{
+                  value: { problemSensor?: string };
+                }>,
+              ) =>
+                this.scheduleChanged(() => {
+                  this.problemSensor =
+                    event.detail.value.problemSensor || "";
+                })}
+            ></${haFormTag}>
+          </div>
           ${this.scheduleError
             ? html`<p class="error" role="alert">${this.scheduleError}</p>`
             : nothing}
@@ -1527,6 +1534,23 @@ class TasksTaskForm extends LocalizedLitElement {
     `;
   }
 
+  private planningWarning(): boolean {
+    if (this.scheduleError) {
+      return true;
+    }
+    if (
+      this.scheduleType !== "sensor" ||
+      !this.problemSensor.startsWith("binary_sensor.")
+    ) {
+      return false;
+    }
+    const status = problemSensorStatus(this.hass, {
+      type: "sensor",
+      entity_id: this.problemSensor,
+    });
+    return status !== "available";
+  }
+
   protected render() {
     return staticHtml`
       <form @submit=${(event: Event) => event.preventDefault()}>
@@ -1550,7 +1574,10 @@ class TasksTaskForm extends LocalizedLitElement {
             this.description = event.detail;
           }}
         ></${textFieldTag}>
-        <${expandableTag} heading=${t("task.planning")}>
+        <${expandableTag}
+          heading=${t("task.planning")}
+          .warning=${this.planningWarning()}
+        >
           ${this.renderPlanning()}
         </${expandableTag}>
         <${expandableTag} heading=${t("task.assignment")}>
