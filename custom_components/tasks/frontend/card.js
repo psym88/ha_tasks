@@ -210,7 +210,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
 
 `,j=class extends f{static properties={label:{},value:{},required:{type:Boolean},disabled:{type:Boolean},error:{}};static styles=bs;constructor(){super(),this.label="",this.value="",this.required=!1,this.disabled=!1,this.error=""}change(e){this.value=e,this.error="",this.dispatchEvent(new CustomEvent("value-changed",{bubbles:!0,composed:!0,detail:e}))}errorMessage(){return this.error?o`<span class="error" role="alert">${this.error}</span>`:null}},Ue=class extends j{static properties={...j.properties,multiline:{type:Boolean},inputType:{attribute:"input-type"},min:{type:Number}};constructor(){super(),this.multiline=!1,this.inputType="text",this.min=void 0}render(){return o`
       <label>
-        <span>${this.label}${this.required?" *":""}</span>
+        <span>${this.label}</span>
         ${this.multiline?o`
               <textarea
                 .value=${this.value}
@@ -234,7 +234,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
       </label>
     `}},ze=class extends j{static properties={...j.properties,options:{attribute:!1}};constructor(){super(),this.options=[]}render(){return o`
       <label>
-        <span>${this.label}${this.required?" *":""}</span>
+        <span>${this.label}</span>
         <select
           .value=${this.value}
           ?required=${this.required}
@@ -565,7 +565,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           <${$}
             .hass=${this.hass}
             .data=${{problemSensor:this.problemSensor}}
-            .schema=${[{name:"problemSensor",required:!0,selector:{entity:{filter:{domain:"binary_sensor"}}}}]}
+            .schema=${[{name:"problemSensor",selector:{entity:{filter:{domain:"binary_sensor"}}}}]}
             .computeLabel=${()=>r("task.problem_sensor")}
             .disabled=${this.saving}
             @value-changed=${e=>this.scheduleChanged(()=>{this.problemSensor=e.detail.value.problemSensor||""})}

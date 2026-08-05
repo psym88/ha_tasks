@@ -1047,7 +1047,6 @@ class TasksTaskForm extends LocalizedLitElement {
             .schema=${[
               {
                 name: "problemSensor",
-                required: true,
                 selector: {
                   entity: { filter: { domain: "binary_sensor" } },
                 },

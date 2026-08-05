@@ -188,6 +188,16 @@ test("frontend owns its remaining text textarea and select controls", () => {
     fields,
     /ha-textfield|ha-selector|ha-combo-box|ha-switch/,
   );
+  assert.doesNotMatch(fields, /this\.required \? " \*"/);
+  assert.match(fields, /\?required=\$\{this\.required\}/);
+});
+
+test("task editor does not add a required marker to the entity selector", () => {
+  assert.doesNotMatch(
+    taskForm,
+    /name: "problemSensor",\s*required: true/,
+  );
+  assert.match(taskForm, /problemSensor\.startsWith\("binary_sensor\."\)/);
 });
 
 test("frontend editor saves task details and planning in one transaction", () => {
