@@ -2403,7 +2403,7 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     }
 
     main {
-      padding: var(--ha-space-6);
+      padding: 0 var(--ha-space-6);
       padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
     }
 
@@ -2474,7 +2474,7 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
       }
 
       main {
-        padding: var(--ha-space-4) var(--ha-space-2) var(--ha-space-6);
+        padding: 0 var(--ha-space-2) var(--ha-space-6);
         padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
       }
 

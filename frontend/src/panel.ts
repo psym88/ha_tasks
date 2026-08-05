@@ -37,7 +37,7 @@ class TasksPanel extends LocalizedLitElement {
     }
 
     main {
-      padding: var(--ha-space-6);
+      padding: 0 var(--ha-space-6);
       padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
     }
 
@@ -108,7 +108,7 @@ class TasksPanel extends LocalizedLitElement {
       }
 
       main {
-        padding: var(--ha-space-4) var(--ha-space-2) var(--ha-space-6);
+        padding: 0 var(--ha-space-2) var(--ha-space-6);
         padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
       }
 
