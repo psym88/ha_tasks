@@ -552,6 +552,7 @@ test("frontend dashboard card uses the official built-in config form", () => {
 });
 
 test("frontend panel streams archive export and import through the owned backup UI", () => {
+  assert.doesNotMatch(source, /max-width: 960px/);
   assert.match(source, /openArchive\(this\.hass\)/);
   assert.match(api, /fetchWithAuth\("\/api\/tasks\/archive"/);
   assert.match(api, /method: "POST"/);

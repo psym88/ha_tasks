@@ -2403,8 +2403,6 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     }
 
     main {
-      max-width: 960px;
-      margin: 0 auto;
       padding: var(--ha-space-6);
       padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
     }

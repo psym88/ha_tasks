@@ -37,8 +37,6 @@ class TasksPanel extends LocalizedLitElement {
     }
 
     main {
-      max-width: 960px;
-      margin: 0 auto;
       padding: var(--ha-space-6);
       padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
     }
