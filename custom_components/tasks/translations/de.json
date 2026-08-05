@@ -80,6 +80,7 @@
     "ui_task_time": "Uhrzeit",
     "ui_task_last_day": "Letzter Tag",
     "ui_bulk_assign_person": "Person zuweisen",
+    "ui_bulk_remove_assignment": "Zuweisung entfernen",
     "ui_bulk_actions": "Aktionen",
     "ui_bulk_complete": "Erledigen",
     "ui_bulk_delete": "Löschen",

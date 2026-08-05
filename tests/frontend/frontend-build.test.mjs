@@ -270,6 +270,10 @@ test("frontend task table owns search, fixed due sorting, and responsive rows", 
   assert.doesNotMatch(taskTable, /aria-sort=|sortDirection|sortKey/);
   assert.match(taskTable, /@media \(max-width: 640px\)/);
   assert.match(taskTable, /class="mobile-details"/);
+  assert.match(
+    taskTable,
+    /this\.users\.find\(\(user\) => user\.id === task\.assignee_id\)\?\.name \|\| "—"/,
+  );
   assert.doesNotMatch(taskTable, /tanstack|vaadin|ha-data-table/);
 });
 
@@ -392,6 +396,7 @@ test("frontend bulk actions cover existing assignment and notification behavior"
     "pause",
     "resume",
     "assign",
+    "unassign",
     "add-label",
     "remove-label",
     "add-notification",
@@ -403,6 +408,15 @@ test("frontend bulk actions cover existing assignment and notification behavior"
   assert.match(taskTable, /device_ids:/);
   assert.match(taskTable, /label_ids:/);
   assert.match(taskTable, /assignee_id:/);
+  assert.match(
+    taskTable,
+    /selected\.some\(\(task\) => task\.assignee_id\)[\s\S]*?bulk\.remove_assignment/,
+  );
+  assert.match(taskTable, /this\.bulkAction === "unassign"[\s\S]*?assignee_id: null/);
+  assert.match(
+    taskTable,
+    /if \(this\.bulkAction === "assign"\) \{\s*return this\.users\.map/,
+  );
   assert.match(taskTable, /openTasksDialog/);
 });
 
@@ -665,6 +679,8 @@ test("frontend task viewer loads assignment history and signed attachments", () 
   assert.match(taskViewer, /loadAttachmentUrls/);
   assert.match(api, /type: "tasks\/attachment\/urls"/);
   assert.match(taskViewer, /this\.signedFiles\[attachment\.id\]/);
+  assert.match(taskViewer, /this\.task\.due\s*\? staticHtml/);
+  assert.match(taskViewer, /\$\{assignee\s*\? staticHtml/);
   assert.match(source, /openTaskViewer/);
 });
 

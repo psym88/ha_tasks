@@ -44,6 +44,7 @@ type BulkAction =
   | "pause"
   | "resume"
   | "assign"
+  | "unassign"
   | "add-label"
   | "remove-label"
   | "add-notification"
@@ -194,11 +195,18 @@ export const taskActions = (task: Task): ActionMenuItem[] => [
   },
 ];
 
-const bulkActions = (): ActionMenuItem[] => [
+const bulkActions = (selected: Task[]): ActionMenuItem[] => [
   { label: t("bulk.complete"), value: "complete", icon: "mdi:check-circle-outline" },
   { label: t("app.pause"), value: "pause", icon: "mdi:pause-circle-outline" },
   { label: t("app.resume"), value: "resume", icon: "mdi:play-circle-outline" },
   { label: t("bulk.assign_person"), value: "assign", icon: "mdi:account-outline" },
+  ...(selected.some((task) => task.assignee_id)
+    ? [{
+        label: t("bulk.remove_assignment"),
+        value: "unassign",
+        icon: "mdi:account-off-outline",
+      }]
+    : []),
   { label: t("app.add_label"), value: "add-label", icon: "mdi:tag-plus-outline" },
   {
     label: t("app.remove_label"),
@@ -1143,8 +1151,7 @@ class TasksTaskTable extends LocalizedLitElement {
 
   private assignee(task: Task): string {
     return (
-      this.users.find((user) => user.id === task.assignee_id)?.name ||
-      t("task.unassigned")
+      this.users.find((user) => user.id === task.assignee_id)?.name || "—"
     );
   }
 
@@ -1584,13 +1591,10 @@ class TasksTaskTable extends LocalizedLitElement {
 
   private bulkTargets(): FilterOption[] {
     if (this.bulkAction === "assign") {
-      return [
-        { value: "__none__", label: t("task.unassigned") },
-        ...this.users.map((user) => ({
-          value: user.id,
-          label: user.name,
-        })),
-      ];
+      return this.users.map((user) => ({
+        value: user.id,
+        label: user.name,
+      }));
     }
     if (
       this.bulkAction === "add-label" ||
@@ -1646,6 +1650,9 @@ class TasksTaskTable extends LocalizedLitElement {
     }
     if (this.bulkAction === "assign") {
       return t("app.assign");
+    }
+    if (this.bulkAction === "unassign") {
+      return t("bulk.remove_assignment");
     }
     if (
       this.bulkAction === "add-label" ||
@@ -1703,9 +1710,10 @@ class TasksTaskTable extends LocalizedLitElement {
         changes = { active: this.bulkAction === "resume" };
       } else if (this.bulkAction === "assign") {
         changes = {
-          assignee_id:
-            this.bulkTarget === "__none__" ? null : this.bulkTarget,
+          assignee_id: this.bulkTarget,
         };
+      } else if (this.bulkAction === "unassign") {
+        changes = { assignee_id: null };
       } else if (
         this.bulkAction === "add-label" ||
         this.bulkAction === "remove-label"
@@ -1804,7 +1812,7 @@ class TasksTaskTable extends LocalizedLitElement {
 
   private renderBulkMenu(selected: Task[]) {
     const bulkTargets = this.bulkTargets();
-    const actions = bulkActions();
+    const actions = bulkActions(selected);
     const targetIcon = this.bulkTargetIcon();
     const targetOptions = bulkTargets.map((option) => ({
       ...option,

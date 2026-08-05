@@ -80,6 +80,7 @@
     "ui_task_time": "Time",
     "ui_task_last_day": "Last day",
     "ui_bulk_assign_person": "Assign person",
+    "ui_bulk_remove_assignment": "Remove assignment",
     "ui_bulk_actions": "Actions",
     "ui_bulk_complete": "Complete",
     "ui_bulk_delete": "Delete",

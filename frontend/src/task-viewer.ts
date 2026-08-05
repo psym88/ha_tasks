@@ -514,19 +514,23 @@ class TasksTaskViewer extends LocalizedLitElement {
   }
 
   private renderMetadata() {
-    const assignee =
-      this.users.find((user) => user.id === this.task.assignee_id)?.name ||
-      (this.assignmentReady
-        ? t("task.unassigned")
-        : t("app.loading_assignments"));
+    const assignee = this.users.find(
+      (user) => user.id === this.task.assignee_id,
+    )?.name;
     const tag = this.tags.find((item) => item.id === this.task.nfc_tag_id);
     const labels = (this.task.label_ids || [])
       .map((id) => this.labels.find((label) => label.label_id === id))
       .filter((label): label is TasksLabel => Boolean(label));
     return staticHtml`
       <div class="pills">
-        <${pillTag}>${this.formatDate(this.task.due)}</${pillTag}>
-        <${pillTag}>${assignee}</${pillTag}>
+        ${this.task.due
+          ? staticHtml`<${pillTag}>
+              ${this.formatDate(this.task.due)}
+            </${pillTag}>`
+          : nothing}
+        ${assignee
+          ? staticHtml`<${pillTag}>${assignee}</${pillTag}>`
+          : nothing}
         ${this.attachments.length
           ? staticHtml`<${pillTag}>
               ${t(
