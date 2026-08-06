@@ -6,6 +6,7 @@ import { chromium } from "@playwright/test";
 const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8122").replace(/\/$/, "");
 const outputDir = path.resolve(process.env.HA_SCREENSHOT_OUTPUT || ".artifacts/screenshots");
 const authOutput = process.env.HA_SCREENSHOT_AUTH_OUTPUT;
+const captureScreenshots = process.env.HA_TASKS_CAPTURE_SCREENSHOTS !== "0";
 const clientId = `${baseUrl}/`;
 const username = "alex";
 const password = "alex";
@@ -769,4 +770,6 @@ try {
 } finally {
   socket.close();
 }
-await captureMatrix(tokens);
+if (captureScreenshots) {
+  await captureMatrix(tokens);
+}

@@ -10,6 +10,14 @@ const betaWorkflow = readFileSync(
   new URL("../../.github/workflows/beta-tests.yml", import.meta.url),
   "utf8",
 );
+const runtimeScript = readFileSync(
+  new URL("../../scripts/test-runtime.sh", import.meta.url),
+  "utf8",
+);
+const captureScript = readFileSync(
+  new URL("../screenshots/capture.mjs", import.meta.url),
+  "utf8",
+);
 
 test("Tests and Beta Tests are separate manually runnable actions", () => {
   assert.match(testsWorkflow, /^name: Tests$/m);
@@ -60,6 +68,15 @@ test("main pull requests and Beta Tests compare screenshots", () => {
     ),
     false,
   );
+  assert.match(
+    testsWorkflow,
+    /HA_TASKS_COMPARE_SCREENSHOTS:.*inputs\.compare_screenshots.*pull_request.*main/,
+  );
+  assert.match(
+    runtimeScript,
+    /HA_TASKS_CAPTURE_SCREENSHOTS="\$\{HA_TASKS_COMPARE_SCREENSHOTS:-1\}"/,
+  );
+  assert.match(captureScript, /if \(captureScreenshots\) \{\s*await captureMatrix/);
 });
 
 test("beta failures own one digest issue and newer successes close it", () => {

@@ -43,6 +43,7 @@ services:
       HA_SCREENSHOT_BASE_URL: http://runtime:8123
       HA_SCREENSHOT_OUTPUT: /workspace/.artifacts/runtime/screenshots
       HA_SCREENSHOT_AUTH_OUTPUT: /workspace/.artifacts/runtime/auth.json
+      HA_TASKS_CAPTURE_SCREENSHOTS: ${HA_TASKS_CAPTURE_SCREENSHOTS:-1}
     volumes:
       - .:/workspace
       - pnpm-store:/pnpm/store
