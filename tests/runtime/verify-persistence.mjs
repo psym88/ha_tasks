@@ -94,3 +94,4 @@ for (const path of [
 }
 
 console.log("Runtime restart, persistence, WebSocket, and frontend resources verified");
+process.exit(0);

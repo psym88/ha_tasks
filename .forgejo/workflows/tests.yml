@@ -1,5 +1,8 @@
 name: Tests
 
+env:
+  HA_TASKS_FORGEJO_CI: "1"
+
 on:
   push:
     branches:
@@ -24,12 +27,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: https://data.forgejo.org/actions/checkout@v4
+      - name: Prepare shared container workspace
+        run: bash scripts/forgejo-workspace.sh prepare
       - name: Run backend validation
         run: bash scripts/test-backend.sh
       - name: Run frontend validation
         run: bash scripts/test-frontend.sh
       - name: Run runtime and visual validation
         run: bash scripts/test-runtime.sh
+      - name: Export container test artifacts
+        if: always()
+        run: bash scripts/forgejo-workspace.sh export-artifacts
       - name: Upload test results, logs, and screenshot differences
         if: always()
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4

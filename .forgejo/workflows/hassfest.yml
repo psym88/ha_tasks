@@ -1,5 +1,8 @@
 name: Hassfest
 
+env:
+  HA_TASKS_FORGEJO_CI: "1"
+
 on:
   push:
     branches:
@@ -19,5 +22,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: https://data.forgejo.org/actions/checkout@v4
+      - name: Prepare shared container workspace
+        run: bash scripts/forgejo-workspace.sh prepare
       - name: Run Hassfest
-        uses: https://github.com/home-assistant/actions/hassfest@master
+        run: >-
+          docker run --rm
+          --volume ha-tasks-forgejo-workspace:/github/workspace
+          ghcr.io/home-assistant/hassfest:latest

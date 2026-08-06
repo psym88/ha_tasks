@@ -4,7 +4,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" != "--inside-container" ]]; then
-  exec docker compose -f compose.test.yaml run --rm backend
+  compose=(docker compose -f compose.test.yaml)
+  if [[ "${HA_TASKS_FORGEJO_CI:-}" == "1" ]]; then
+    compose+=(-f compose.forgejo.yaml)
+  fi
+  exec "${compose[@]}" run --rm backend
 fi
 
 mkdir -p .artifacts/test-results
