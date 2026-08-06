@@ -33,12 +33,12 @@ class TaskChange:
         return self.resource_type in {"task", "archive"}
 
 
-def get_manager(hass: HomeAssistant):
+def get_manager(hass: HomeAssistant) -> TaskManager | None:
     """Return the loaded Tasks application service."""
     entries = hass.config_entries.async_entries(DOMAIN)
     if not entries or not hasattr(entries[0], "runtime_data"):
         return None
-    return getattr(entries[0].runtime_data, "manager", None)
+    return entries[0].runtime_data
 
 
 class TaskManager:

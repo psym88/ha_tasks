@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+test("local runtime provisions the shared Alex test account", () => {
+  const source = readFileSync(
+    new URL("../screenshots/capture.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const username = "alex";/);
+  assert.match(source, /const password = "alex";/);
+  assert.match(source, /name: "Alex"/);
+});
+
 test("documentation screenshots exclude transient Home Assistant notifications", () => {
   const source = readFileSync(
     new URL("../screenshots/capture.mjs", import.meta.url),
@@ -58,4 +69,5 @@ test("documentation dashboard card uses its production defaults", () => {
     source,
     /show_action_menu|secondary_info|due_days|assignee_ids/,
   );
+  assert.match(source, /title: "Tasks card",\s*show_in_sidebar: true/);
 });

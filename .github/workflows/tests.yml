@@ -1,15 +1,23 @@
 name: Tests
+run-name: Tests
 
 on:
-  push:
-    branches:
-      - dev
-      - main
   pull_request:
     branches:
-      - dev
       - main
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ha_version:
+        description: Home Assistant image tag used by backend and runtime tests
+        required: false
+        type: string
+        default: "2026.8.0"
+      compare_screenshots:
+        description: Compare generated screenshots with documentation baselines
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,46 +30,61 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
+    env:
+      HA_VERSION: ${{ inputs.ha_version || '2026.8.0' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-
-      - name: Run Python tests
-        run: >-
-          docker run --rm
-          --volume "${{ github.workspace }}:/workspace"
-          --workdir /workspace
-          ghcr.io/home-assistant/home-assistant:stable
-          python -m pytest -q -p no:cacheprovider
+      - name: Run backend validation
+        run: bash scripts/test-backend.sh
 
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Run frontend validation
+        run: bash scripts/test-frontend.sh
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+  runtime:
+    name: Home Assistant runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HA_VERSION: ${{ inputs.ha_version || '2026.8.0' }}
+      HA_TASKS_COMPARE_SCREENSHOTS: ${{ (inputs.compare_screenshots || (github.event_name == 'pull_request' && github.base_ref == 'main')) && '1' || '0' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Run runtime validation
+        run: bash scripts/test-runtime.sh
+      - name: Upload runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          node-version: 24
+          name: runtime-validation
+          path: .artifacts/runtime
+          retention-days: 14
+          if-no-files-found: warn
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+  hassfest:
+    name: Validate integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Run Hassfest
+        uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: Validate repository
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: HACS validation
+        uses: hacs/action@main
         with:
-          version: 11.9.0
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build and type-check frontend
-        run: |
-          pnpm typecheck:frontend
-          pnpm build:frontend
-
-      - name: Run frontend tests
-        run: pnpm test:frontend
+          category: integration

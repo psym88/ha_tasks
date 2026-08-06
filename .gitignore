@@ -1,7 +1,10 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
+.coverage
 .venv/
 .artifacts/
 .tmp/
 node_modules/
+.pnpm-store/

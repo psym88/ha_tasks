@@ -93,3 +93,37 @@ def test_attachment_upload_rejects_oversize_file_and_removes_partial_file(
     asyncio.run(run())
     assert uploads.files == {}
     assert list(tmp_path.iterdir()) == []
+
+
+def test_temporary_upload_cleanup_schedules_executor_job_directly(
+    tmp_path, monkeypatch
+):
+    """Shutdown cleanup does not wrap an executor Future as a coroutine."""
+    listeners = []
+    jobs = []
+    monkeypatch.setattr(attachment_api.tempfile, "gettempdir", lambda: tmp_path)
+
+    class Hass:
+        bus = SimpleNamespace(
+            async_listen_once=lambda _event, listener: listeners.append(listener)
+        )
+
+        def async_add_executor_job(self, target, *args):
+            jobs.append((target, args))
+            return asyncio.get_running_loop().run_in_executor(
+                None, target, *args
+            )
+
+        def async_create_task(self, _target):
+            pytest.fail("executor Future was passed to async_create_task")
+
+    async def run():
+        uploads = await TemporaryUploads.async_create(Hass())
+        listeners[0](None)
+        await asyncio.sleep(0)
+        return uploads
+
+    uploads = asyncio.run(run())
+
+    assert uploads.root == tmp_path / "home-assistant-tasks-upload"
+    assert jobs[-1] == (attachment_api.shutil.rmtree, (uploads.root, True))

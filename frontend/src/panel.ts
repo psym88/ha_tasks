@@ -112,10 +112,6 @@ class TasksPanel extends LocalizedLitElement {
         padding-bottom: calc(var(--ha-space-12) + var(--ha-space-12));
       }
 
-      .header-actions > span {
-        display: none;
-      }
-
       .fab {
         right: calc(var(--ha-space-4) + var(--safe-area-inset-right, 0px));
         bottom: calc(var(--ha-space-4) + var(--safe-area-inset-bottom, 0px));
@@ -138,7 +134,7 @@ class TasksPanel extends LocalizedLitElement {
     }
     if (this.hass?.locale?.language !== this.language) {
       this.language = this.hass?.locale?.language;
-      void setLanguage(this.language).then(() => this.requestUpdate());
+      void setLanguage(this.language);
     }
   }
 

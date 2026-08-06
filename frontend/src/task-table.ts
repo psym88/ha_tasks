@@ -28,14 +28,13 @@ import {
 import { openTasksDialog } from "./ui/dialog";
 import { elementName } from "./version";
 
-type TaskFilterKey =
+type FilterKey =
   | "assignee"
   | "labels"
   | "notifications"
   | "trigger"
   | "status"
   | "due";
-type FilterKey = TaskFilterKey;
 type Filters = Record<FilterKey, string[]>;
 export type TaskConfiguredFilters = Partial<Filters>;
 type BulkAction =
@@ -59,15 +58,12 @@ export type TaskColumnKey =
   | "notifications"
   | "trigger"
   | "status";
-type ColumnKey = TaskColumnKey;
-type ColumnVisibility = Record<ColumnKey, boolean>;
+type ColumnVisibility = Record<TaskColumnKey, boolean>;
 
 export interface TaskTableOption<T extends string = string> {
   value: T;
   label: string;
 }
-
-type FilterOption = TaskTableOption;
 
 const localStorageKey = "tasks-table-state-v2";
 const sessionStorageKey = "tasks-table-session-v1";
@@ -83,7 +79,7 @@ export const taskColumnOptions: TaskTableOption<TaskColumnKey>[] = [
 ];
 const columnLabels = Object.fromEntries(
   taskColumnOptions.map((option) => [option.value, option.label]),
-) as Record<ColumnKey, string>;
+) as Record<TaskColumnKey, string>;
 const filterLabels: Record<FilterKey, string> = {
   assignee: "task.assignment",
   labels: "task.labels",
@@ -691,8 +687,7 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     th {
-      color: var(--secondary-text-color);
-      font-size: 13px;
+      color: var(--primary-text-color);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -714,7 +709,25 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     .task-name {
+      color: var(--primary-text-color);
       font-weight: 500;
+    }
+
+    .inactive .task-name {
+      color: var(--secondary-text-color);
+    }
+
+    td:is(
+        .due-column,
+        .assignee-column,
+        .files-column,
+        .nfc-column,
+        .labels-column,
+        .notifications-column,
+        .trigger-column,
+        .status-column
+      ) {
+      color: var(--secondary-text-color);
     }
 
     .sensor-warning {
@@ -726,14 +739,6 @@ class TasksTaskTable extends LocalizedLitElement {
 
     .sensor-warning ha-icon {
       --mdc-icon-size: 18px;
-    }
-
-    .inactive .task-name {
-      color: var(--secondary-text-color);
-    }
-
-    .inactive td {
-      color: var(--secondary-text-color);
     }
 
     .inactive {
@@ -949,7 +954,7 @@ class TasksTaskTable extends LocalizedLitElement {
   declare showFilters: boolean;
   declare configuredFilters?: TaskConfiguredFilters;
   declare showColumns: boolean;
-  declare configuredColumns?: ColumnKey[];
+  declare configuredColumns?: TaskColumnKey[];
   declare now?: string;
   declare showSearch: boolean;
   declare showActionMenu: boolean;
@@ -1031,7 +1036,7 @@ class TasksTaskTable extends LocalizedLitElement {
         ? (local.columns as Record<string, unknown>)
         : {};
     this.columns = Object.fromEntries(
-      (Object.keys(defaultColumns) as ColumnKey[]).map((key) => [
+      (Object.keys(defaultColumns) as TaskColumnKey[]).map((key) => [
         key,
         typeof storedColumns[key] === "boolean"
           ? storedColumns[key]
@@ -1060,18 +1065,6 @@ class TasksTaskTable extends LocalizedLitElement {
   disconnectedCallback(): void {
     document.removeEventListener("click", this.closePanels);
     super.disconnectedCallback();
-  }
-
-  protected willUpdate(changed: Map<PropertyKey, unknown>): void {
-    if (changed.has("configuredColumns") && this.configuredColumns) {
-      const visible = new Set(this.configuredColumns);
-      this.columns = Object.fromEntries(
-        (Object.keys(columnLabels) as ColumnKey[]).map((key) => [
-          key,
-          visible.has(key),
-        ]),
-      ) as ColumnVisibility;
-    }
   }
 
   protected updated(): void {
@@ -1286,7 +1279,7 @@ class TasksTaskTable extends LocalizedLitElement {
     return option ? t(option.label) : value;
   }
 
-  private filterOptions(key: FilterKey): FilterOption[] {
+  private filterOptions(key: FilterKey): TaskTableOption[] {
     if (key === "due") {
       return taskDueFilterOptions.map((option) => ({
         value: option.value,
@@ -1444,7 +1437,7 @@ class TasksTaskTable extends LocalizedLitElement {
     this.storeSessionView();
   }
 
-  private toggleColumn(key: ColumnKey, visible: boolean): void {
+  private toggleColumn(key: TaskColumnKey, visible: boolean): void {
     this.columns = { ...this.columns, [key]: visible };
     this.storeLocalView();
   }
@@ -1452,7 +1445,7 @@ class TasksTaskTable extends LocalizedLitElement {
   private resetColumns(): void {
     this.columns = this.configuredColumns
       ? Object.fromEntries(
-          (Object.keys(columnLabels) as ColumnKey[]).map((key) => [
+          (Object.keys(columnLabels) as TaskColumnKey[]).map((key) => [
             key,
             this.configuredColumns!.includes(key),
           ]),
@@ -1488,7 +1481,7 @@ class TasksTaskTable extends LocalizedLitElement {
     }
   }
 
-  private columnText(task: Task, key: ColumnKey): string {
+  private columnText(task: Task, key: TaskColumnKey): string {
     if (key === "due") {
       return this.due(task);
     }
@@ -1510,7 +1503,7 @@ class TasksTaskTable extends LocalizedLitElement {
     return key === "trigger" ? this.trigger(task) : this.status(task);
   }
 
-  private columnValue(task: Task, key: ColumnKey) {
+  private columnValue(task: Task, key: TaskColumnKey) {
     const value = this.columnText(task, key);
     if (key === "due" && value !== "—" && this.hass && task.due) {
       return html`
@@ -1539,11 +1532,11 @@ class TasksTaskTable extends LocalizedLitElement {
     );
   }
 
-  private visibleColumnKeys(): ColumnKey[] {
-    return (
-      this.configuredColumns ??
-      (Object.keys(this.columns) as ColumnKey[])
-    ).filter((key) => this.columns[key]);
+  private visibleColumnKeys(): TaskColumnKey[] {
+    return this.configuredColumns ??
+      (Object.keys(this.columns) as TaskColumnKey[]).filter(
+        (key) => this.columns[key],
+      );
   }
 
   private visibleColumnCount(): number {
@@ -1589,7 +1582,7 @@ class TasksTaskTable extends LocalizedLitElement {
     this.selectedIds = [...ids];
   }
 
-  private bulkTargets(): FilterOption[] {
+  private bulkTargets(): TaskTableOption[] {
     if (this.bulkAction === "assign") {
       return this.users.map((user) => ({
         value: user.id,
@@ -2023,13 +2016,13 @@ class TasksTaskTable extends LocalizedLitElement {
     );
   }
 
-  private columnHeader(key: ColumnKey) {
+  private columnHeader(key: TaskColumnKey) {
     return html`
       <th class=${`${key}-column`}>${t(columnLabels[key])}</th>
     `;
   }
 
-  private columnCell(task: Task, key: ColumnKey) {
+  private columnCell(task: Task, key: TaskColumnKey) {
     return html`
       <td class=${`${key}-column`}>
         ${this.columnValue(task, key)}
@@ -2192,7 +2185,7 @@ class TasksTaskTable extends LocalizedLitElement {
                         ? html`
                             <div class="popover-panel column-panel">
                               <div class="column-options">
-                                ${(Object.keys(columnLabels) as ColumnKey[]).map(
+                                ${(Object.keys(columnLabels) as TaskColumnKey[]).map(
                                   (key) => html`
                                     <button
                                       class=${this.columns[key]

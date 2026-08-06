@@ -30,6 +30,7 @@ from .const import (
 )
 from .manager import get_manager
 from .migrations import upgrade_store_data
+from .repository import valid_attachment_id
 
 ONE_MEGABYTE: Final = 1024 * 1024
 MAX_ATTACHMENT_SIZE: Final = 100 * ONE_MEGABYTE
@@ -70,11 +71,7 @@ class TemporaryUploads:
 
         @callback
         def cleanup(_event) -> None:
-            hass.async_create_task(
-                hass.async_add_executor_job(
-                    shutil.rmtree, root, True
-                )
-            )
+            hass.async_add_executor_job(shutil.rmtree, root, True)
 
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, cleanup)
         return uploads
@@ -98,7 +95,10 @@ class TemporaryUploads:
         await self.hass.async_add_executor_job(directory.mkdir)
         size = 0
         try:
-            with path.open("xb") as output:
+            output = await self.hass.async_add_executor_job(
+                path.open, "xb"
+            )
+            try:
                 while chunk := await upload.read_chunk(ONE_MEGABYTE):
                     size += len(chunk)
                     if size > MAX_ATTACHMENT_SIZE:
@@ -109,6 +109,8 @@ class TemporaryUploads:
                     await self.hass.async_add_executor_job(
                         output.write, chunk
                     )
+            finally:
+                await self.hass.async_add_executor_job(output.close)
         except Exception:
             await self.hass.async_add_executor_job(
                 shutil.rmtree, directory, True
@@ -225,12 +227,7 @@ def _parse_archive_file(
             if not item.filename.startswith("attachments/") or item.is_dir():
                 continue
             file_id = item.filename.removeprefix("attachments/")
-            if (
-                not file_id
-                or file_id in {".", ".."}
-                or "/" in file_id
-                or "\\" in file_id
-            ):
+            if not valid_attachment_id(file_id):
                 raise ValueError("invalid_archive")
             target = staging_dir / str(index)
             with archive.open(item) as source, target.open("xb") as output:

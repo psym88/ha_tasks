@@ -82,6 +82,17 @@ const fieldStyles = css`
     color: var(--error-color);
   }
 
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
 `;
 
 abstract class TasksField extends LocalizedLitElement {
@@ -132,17 +143,23 @@ abstract class TasksField extends LocalizedLitElement {
 class TasksTextField extends TasksField {
   static properties = {
     ...TasksField.properties,
+    placeholder: {},
+    hideLabel: { attribute: "hide-label", type: Boolean },
     multiline: { type: Boolean },
     inputType: { attribute: "input-type" },
     min: { type: Number },
   };
 
+  declare placeholder: string;
+  declare hideLabel: boolean;
   declare multiline: boolean;
   declare inputType: "text" | "number" | "time";
   declare min?: number;
 
   constructor() {
     super();
+    this.placeholder = "";
+    this.hideLabel = false;
     this.multiline = false;
     this.inputType = "text";
     this.min = undefined;
@@ -151,11 +168,14 @@ class TasksTextField extends TasksField {
   protected render() {
     return html`
       <label>
-        <span>${this.label}</span>
+        <span class=${this.hideLabel ? "visually-hidden" : ""}>
+          ${this.label}
+        </span>
         ${this.multiline
           ? html`
               <textarea
                 .value=${this.value}
+                .placeholder=${this.placeholder}
                 ?required=${this.required}
                 ?disabled=${this.disabled}
                 aria-invalid=${Boolean(this.error)}
@@ -168,6 +188,7 @@ class TasksTextField extends TasksField {
                 type=${this.inputType}
                 min=${this.min ?? ""}
                 .value=${this.value}
+                .placeholder=${this.placeholder}
                 ?required=${this.required}
                 ?disabled=${this.disabled}
                 aria-invalid=${Boolean(this.error)}

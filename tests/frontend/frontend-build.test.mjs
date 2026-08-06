@@ -46,6 +46,14 @@ const taskForm = await readFile(
   new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
+const scheduleText = await readFile(
+  new URL("../../frontend/src/schedule-text.ts", import.meta.url),
+  "utf8",
+);
+const fileIcon = await readFile(
+  new URL("../../frontend/src/file-icon.ts", import.meta.url),
+  "utf8",
+);
 const problemSensorStatus = await readFile(
   new URL("../../frontend/src/problem-sensor-status.ts", import.meta.url),
   "utf8",
@@ -92,6 +100,26 @@ test("task table signals unavailable problem sensors", () => {
   assert.match(
     taskTable,
     /\$\{task\.name\}\s*\$\{this\.problemSensorWarning\(task\)\}/,
+  );
+});
+
+test("task table uses the Home Assistant text color hierarchy", () => {
+  assert.match(
+    taskTable,
+    /th \{\s*color: var\(--primary-text-color\);\s*font-weight:/,
+  );
+  assert.doesNotMatch(taskTable, /th \{[^}]*font-size:/);
+  assert.match(
+    taskTable,
+    /\.task-name \{\s*color: var\(--primary-text-color\);/,
+  );
+  assert.match(
+    taskTable,
+    /\.inactive \.task-name \{\s*color: var\(--secondary-text-color\);/,
+  );
+  assert.match(
+    taskTable,
+    /td:is\([\s\S]*?\.due-column,[\s\S]*?\.status-column[\s\S]*?\) \{\s*color: var\(--secondary-text-color\);/,
   );
 });
 const dashboardCard = await readFile(
@@ -196,6 +224,13 @@ test("frontend owns its remaining text textarea and select controls", () => {
   );
   assert.doesNotMatch(fields, /this\.required \? " \*"/);
   assert.match(fields, /\?required=\$\{this\.required\}/);
+  assert.match(fields, /\.placeholder=\$\{this\.placeholder\}/);
+  assert.match(fields, /this\.hideLabel \? "visually-hidden"/);
+  assert.match(taskForm, /\.placeholder=\$\{t\("task\.name"\)\}/);
+  assert.match(
+    taskForm,
+    /\.placeholder=\$\{t\("task\.optional_description"\)\}/,
+  );
 });
 
 test("task editor does not add a required marker to the entity selector", () => {
@@ -219,10 +254,20 @@ test("frontend editor saves task details and planning in one transaction", () =>
 
 test("frontend editor describes the configured recurrence", () => {
   assert.match(taskForm, /private scheduleText\(\): string/);
-  assert.match(taskForm, /"schedule\.weekly_one"/);
-  assert.match(taskForm, /"schedule\.monthly_one"/);
-  assert.match(taskForm, /"schedule\.yearly_one"/);
+  assert.match(taskForm, /return scheduleText\(/);
+  assert.match(scheduleText, /"schedule\.weekly_one"/);
+  assert.match(scheduleText, /"schedule\.monthly_one"/);
+  assert.match(scheduleText, /"schedule\.yearly_one"/);
   assert.match(taskForm, /<p class="hint">\$\{this\.scheduleText\(\)\}<\/p>/);
+});
+
+test("frontend shares schedule and file-size formatting", () => {
+  assert.match(taskViewer, /return scheduleText\(this\.task\.schedule/);
+  assert.match(taskForm, /formatFileSize\(attachment\.size\)/);
+  assert.match(taskViewer, /formatFileSize\(attachment\.size\)/);
+  assert.match(fileIcon, /export const formatFileSize/);
+  assert.doesNotMatch(taskForm, /private formatSize/);
+  assert.doesNotMatch(taskViewer, /private formatSize/);
 });
 
 test("frontend creates tasks through the shared editor with complete defaults", () => {
@@ -352,7 +397,7 @@ test("frontend task filters combine dimensions and values without grouping", () 
 });
 
 test("frontend table owns optional column visibility without grouping", () => {
-  assert.match(taskTable, /type ColumnKey =/);
+  assert.match(taskTable, /export type TaskColumnKey =/);
   assert.match(taskTable, /labels: false/);
   assert.match(taskTable, /notifications: false/);
   assert.match(taskTable, /this\.toggleColumn/);
@@ -545,7 +590,7 @@ test("frontend dashboard card uses the official built-in config form", () => {
   assert.match(dashboardCard, /\.configuredColumns=\$\{this\.config\.columns\}/);
   assert.match(
     taskTable,
-    /private visibleColumnKeys\(\): ColumnKey\[\]/,
+    /private visibleColumnKeys\(\): TaskColumnKey\[\]/,
   );
   assert.match(taskTable, /const keys = this\.visibleColumnKeys\(\)\.filter/);
   assert.match(taskTable, /const visibleColumns = this\.visibleColumnKeys\(\)/);
@@ -702,6 +747,7 @@ test("frontend completion requires confirmation and sends trimmed notes", () => 
   assert.match(taskViewer, /if \(result !== "complete"\)/);
   assert.match(taskViewer, /await completeTask/);
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
+  assert.match(taskViewer, /\.placeholder=\$\{t\("task\.completion_notes"\)\}/);
 });
 
 test("frontend viewer renders responsive read-only planning details", () => {
@@ -710,7 +756,7 @@ test("frontend viewer renders responsive read-only planning details", () => {
   assert.match(taskViewer, /problemSensorStatus\(this\.hass/);
   assert.match(taskViewer, /\.warning=\$\{this\.planningWarning\(\)\}/);
   assert.match(taskViewer, /class="planning-details"/);
-  assert.match(taskViewer, /sensorState\.state/);
+  assert.match(taskViewer, /formatEntityState\(sensorState\)/);
   assert.match(taskViewer, /new CustomEvent\("hass-more-info"/);
   assert.match(taskViewer, /detail: \{ entityId: schedule\.entity_id \}/);
   assert.match(taskViewer, /color: var\(--primary-text-color\)/);
@@ -718,8 +764,27 @@ test("frontend viewer renders responsive read-only planning details", () => {
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 
+test("frontend viewer identifies metadata pills with icons", () => {
+  for (const icon of [
+    "mdi:calendar",
+    "mdi:account-outline",
+    "mdi:paperclip",
+    "mdi:nfc",
+    "mdi:tag-outline",
+  ]) {
+    assert.match(taskViewer, new RegExp(`icon=["']${icon}["']`));
+  }
+  assert.doesNotMatch(taskViewer, /NFC:/);
+});
+
 test("frontend viewer preserves safe common markdown without HA internals", () => {
   assert.match(taskViewer, /renderDescription\(\)/);
+  assert.match(
+    taskViewer,
+    /heading=\$\{t\("task\.optional_description"\)\}[\s\S]*\.open=\$\{true\}/,
+  );
+  assert.match(taskViewer, /\.description > :not\(:last-child\)/);
+  assert.doesNotMatch(taskViewer, /white-space: pre-wrap/);
   assert.match(taskViewer, /<strong>/);
   assert.match(taskViewer, /<em>/);
   assert.match(taskViewer, /<code>/);

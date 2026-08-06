@@ -1,16 +1,24 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { chromium } from "@playwright/test";
 
-const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8123").replace(/\/$/, "");
+const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8122").replace(/\/$/, "");
 const outputDir = path.resolve(process.env.HA_SCREENSHOT_OUTPUT || ".artifacts/screenshots");
+const authOutput = process.env.HA_SCREENSHOT_AUTH_OUTPUT;
+const captureScreenshots = process.env.HA_TASKS_CAPTURE_SCREENSHOTS !== "0";
 const clientId = `${baseUrl}/`;
-const username = "documentation";
-const password = "tasks-screenshot-password";
+const username = "alex";
+const password = "alex";
 const targetTaskName = "Review emergency contacts";
 const uiWaitTimeout = Number(process.env.HA_SCREENSHOT_UI_TIMEOUT || "60000");
-const referenceNow = "2026-07-26T10:00:00+00:00";
+const systemNow = new Date();
+const referenceNow = new Date(Date.UTC(
+  systemNow.getUTCFullYear(),
+  systemNow.getUTCMonth(),
+  systemNow.getUTCDate(),
+  10,
+)).toISOString();
 
 const desktop = { viewport: { width: 1440, height: 1000 } };
 const mobile = { viewport: { width: 390, height: 844 }, isMobile: true };
@@ -145,7 +153,7 @@ async function completeOnboarding() {
   const user = await requestJson("/api/onboarding/users", {
     method: "POST",
     body: {
-      name: "Marco",
+      name: "Alex",
       username,
       password,
       client_id: clientId,
@@ -174,7 +182,7 @@ async function completeOnboarding() {
 
 async function seedUsers(socket) {
   const users = await socket.call({ type: "config/auth/list" });
-  for (const name of ["Jill", "Alex"]) {
+  for (const name of ["Marco", "Jill"]) {
     if (!users.some((user) => user.name === name)) {
       await socket.call({ type: "config/auth/create", name });
     }
@@ -213,6 +221,22 @@ async function waitForTasks(socket) {
     }
   }
   throw new Error(`Tasks did not load: ${lastError}`);
+}
+
+async function waitForConfigEntriesSettled(socket) {
+  const deadline = Date.now() + 90_000;
+  let pending = [];
+  while (Date.now() < deadline) {
+    const entries = await socket.call({ type: "config_entries/get" });
+    pending = entries.filter((entry) =>
+      ["setup_in_progress", "migration_in_progress"].includes(entry.state),
+    );
+    if (!pending.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `Config entries did not finish setup: ${pending.map((entry) => entry.domain).join(", ")}`,
+  );
 }
 
 async function uploadAttachment(token) {
@@ -407,8 +431,8 @@ async function seedData(socket, token) {
     type: "lovelace/dashboards/create",
     require_admin: false,
     icon: "mdi:clipboard-check-outline",
-    title: "Tasks documentation",
-    show_in_sidebar: false,
+    title: "Tasks card",
+    show_in_sidebar: true,
     url_path: "tasks-docs",
     mode: "storage",
   });
@@ -749,13 +773,20 @@ async function captureMatrix(tokens) {
 await mkdir(outputDir, { recursive: true });
 await waitForHomeAssistant();
 const tokens = await completeOnboarding();
+if (authOutput) {
+  await mkdir(path.dirname(authOutput), { recursive: true });
+  await writeFile(authOutput, JSON.stringify(tokens), "utf8");
+}
 await setupTasksIntegration(tokens.access_token);
 const socket = new HomeAssistantSocket(tokens.access_token);
 await socket.connect();
 try {
   await seedUsers(socket);
   await seedData(socket, tokens.access_token);
+  await waitForConfigEntriesSettled(socket);
 } finally {
   socket.close();
 }
-await captureMatrix(tokens);
+if (captureScreenshots) {
+  await captureMatrix(tokens);
+}

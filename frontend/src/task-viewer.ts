@@ -7,10 +7,11 @@ import {
   loadAttachmentUrls,
   loadTaskHistory,
 } from "./api";
-import { fileIcon } from "./file-icon";
-import { errorText, t, timedScheduleText } from "./localize";
+import { fileIcon, formatFileSize } from "./file-icon";
+import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
 import { problemSensorStatus } from "./problem-sensor-status";
+import { scheduleText } from "./schedule-text";
 import type {
   Attachment,
   Completion,
@@ -147,13 +148,15 @@ class TasksTaskViewer extends LocalizedLitElement {
     }
 
     .description {
-      display: grid;
-      gap: 8px;
-      white-space: pre-wrap;
+      line-height: 1.45;
     }
 
     .description :is(p, h3, h4, ul, ol, blockquote) {
       margin: 0;
+    }
+
+    .description > :not(:last-child) {
+      margin-bottom: 8px;
     }
 
     .description :is(ul, ol) {
@@ -373,16 +376,6 @@ class TasksTaskViewer extends LocalizedLitElement {
     }).format(date);
   }
 
-  private formatSize(size: number): string {
-    if (size < 1024) {
-      return `${size} B`;
-    }
-    if (size < 1024 * 1024) {
-      return `${Math.round(size / 1024)} KB`;
-    }
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   private renderInline(text: string) {
     const parts: unknown[] = [];
     const pattern =
@@ -525,29 +518,42 @@ class TasksTaskViewer extends LocalizedLitElement {
       <div class="pills">
         ${this.task.due
           ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:calendar"></ha-icon>
               ${this.formatDate(this.task.due)}
             </${pillTag}>`
           : nothing}
         ${assignee
-          ? staticHtml`<${pillTag}>${assignee}</${pillTag}>`
+          ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:account-outline"></ha-icon>
+              ${assignee}
+            </${pillTag}>`
           : nothing}
         ${this.attachments.length
-          ? staticHtml`<${pillTag}>
-              ${t(
+          ? staticHtml`<${pillTag}
+              title=${t(
                 this.attachments.length === 1
                   ? "app.file_count_one"
                   : "app.file_count_many",
                 { count: this.attachments.length },
               )}
+            >
+              <ha-icon icon="mdi:paperclip"></ha-icon>
+              ${this.attachments.length}
             </${pillTag}>`
           : nothing}
         ${tag
-          ? staticHtml`<${pillTag}>NFC: ${tag.name || tag.id}</${pillTag}>`
+          ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:nfc"></ha-icon>
+              ${tag.name || tag.id}
+            </${pillTag}>`
           : nothing}
         ${labels.length ? html`<span class="pill-break"></span>` : nothing}
         ${labels.map(
           (label) =>
-            staticHtml`<${pillTag}>${label.name}</${pillTag}>`,
+            staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:tag-outline"></ha-icon>
+              ${label.name}
+            </${pillTag}>`,
         )}
       </div>
     `;
@@ -561,84 +567,7 @@ class TasksTaskViewer extends LocalizedLitElement {
   }
 
   private scheduleText(): string {
-    const schedule = this.task.schedule;
-    if (schedule.type === "sensor") {
-      return t("schedule.problem_sensor_description");
-    }
-    const interval = Math.max(1, Number(schedule.interval) || 1);
-    const periodKey = {
-      daily: "day",
-      weekly: "week",
-      monthly: "month",
-      yearly: "year",
-    } as const;
-    const singular = t(`schedule.period_${periodKey[schedule.unit]}`);
-    const plural = t(`schedule.period_${periodKey[schedule.unit]}s`);
-    if (schedule.type === "sliding") {
-      return t(
-        interval === 1
-          ? "schedule.after_completion_one"
-          : "schedule.after_completion_many",
-        {
-          schedule_interval: interval,
-          period: interval === 1 ? singular : plural,
-        },
-      );
-    }
-    const time = schedule.time || "09:00";
-    if (schedule.unit === "weekly") {
-      const names = Array.from({ length: 7 }, (_, index) =>
-        new Intl.DateTimeFormat(this.hass?.locale?.language, {
-          weekday: "long",
-          timeZone: "UTC",
-        }).format(new Date(Date.UTC(2024, 0, index + 1))),
-      );
-      const weekdays = (schedule.weekdays || [])
-        .map((day) => names[day])
-        .filter(Boolean);
-      const joined = weekdays.length > 1
-        ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
-        : weekdays[0] || "";
-      const description = t(
-        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
-        {
-          schedule_interval: interval,
-          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
-        },
-      );
-      return timedScheduleText(description, time);
-    }
-    if (schedule.unit === "monthly") {
-      const day = schedule.day === "last"
-        ? t("schedule.on_last_day")
-        : t("schedule.on_day_number", { day: Number(schedule.day || 1) });
-      return timedScheduleText(t(
-        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
-        { schedule_interval: interval, day },
-      ), time);
-    }
-    if (schedule.unit === "yearly") {
-      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
-        month: "long",
-      }).format(new Date(2024, (schedule.month || 1) - 1, 1));
-      const day = schedule.day === "last"
-        ? t("schedule.on_last_day_of_month", { month })
-        : t("schedule.on_day_of_month", {
-            day: Number(schedule.day || 1),
-            month,
-          });
-      return timedScheduleText(t(
-        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
-        { schedule_interval: interval, day },
-      ), time);
-    }
-    return timedScheduleText(t(
-      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
-      {
-        schedule_interval: interval,
-        period: interval === 1 ? singular : plural,
-      },
-    ), time);
+    return scheduleText(this.task.schedule, this.hass?.locale?.language);
   }
 
   private renderPlanning() {
@@ -683,7 +612,8 @@ class TasksTaskViewer extends LocalizedLitElement {
                           }),
                         )}
                       >
-                        ${sensorState.state}
+                        ${this.hass?.formatEntityState(sensorState) ??
+                        sensorState.state}
                       </button>
                     `
                   : t("problem.sensor_missing_short")}
@@ -725,7 +655,7 @@ class TasksTaskViewer extends LocalizedLitElement {
                 <span class="record-content">
                   <span>${attachment.filename}</span>
                   <span class="secondary">
-                    ${this.formatSize(attachment.size)}
+                    ${formatFileSize(attachment.size)}
                   </span>
                 </span>
               </button>
@@ -769,7 +699,12 @@ class TasksTaskViewer extends LocalizedLitElement {
     return staticHtml`
       <div class="content">
         ${this.renderMetadata()}
-        <div class="description">${this.renderDescription()}</div>
+        <${expandableTag}
+          heading=${t("task.optional_description")}
+          .open=${true}
+        >
+          <div class="description">${this.renderDescription()}</div>
+        </${expandableTag}>
         ${this.loading
           ? html`<p class="hint" aria-live="polite">
               ${t("app.loading_details")}
@@ -792,6 +727,8 @@ class TasksTaskViewer extends LocalizedLitElement {
         </${expandableTag}>
         <${textFieldTag}
           label=${t("task.completion_notes")}
+          .placeholder=${t("task.completion_notes")}
+          .hideLabel=${true}
           multiline
           .value=${this.completionNotes}
           ?disabled=${this.completing}

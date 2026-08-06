@@ -15,6 +15,17 @@ from .const import STORAGE_KEY, STORAGE_VERSION
 from .migrations import upgrade_store_data
 
 
+def valid_attachment_id(file_id: object) -> bool:
+    """Return whether a value is a safe attachment ID."""
+    return (
+        isinstance(file_id, str)
+        and bool(file_id)
+        and file_id not in {".", ".."}
+        and "/" not in file_id
+        and "\\" not in file_id
+    )
+
+
 class _TasksDataStore(Store[dict[str, Any]]):
     """Home Assistant store with Tasks schema migrations."""
 
@@ -127,12 +138,6 @@ class TasksRepository:
 
     def file_path(self, file_id: str) -> Path:
         """Return the validated local path for an attachment ID."""
-        if (
-            not isinstance(file_id, str)
-            or not file_id
-            or file_id in {".", ".."}
-            or "/" in file_id
-            or "\\" in file_id
-        ):
+        if not valid_attachment_id(file_id):
             raise ValueError("invalid_attachment_id")
         return self.upload_dir / file_id

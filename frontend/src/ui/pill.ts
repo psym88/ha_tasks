@@ -28,6 +28,12 @@ class TasksPill extends LocalizedLitElement {
       line-height: 20px;
     }
 
+    ::slotted(ha-icon) {
+      --mdc-icon-size: 16px;
+
+      margin-right: 6px;
+    }
+
     :host([tone="positive"]) span {
       color: var(--success-color);
       border-color: var(--success-color);
