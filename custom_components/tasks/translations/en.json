@@ -103,6 +103,8 @@
     "ui_problem_sensor_unavailable_short": "Sensor unavailable",
     "ui_problem_sensor_unknown_short": "Sensor state unknown",
     "ui_problem_sensor_available_short": "Sensor available",
+    "ui_problem_sensor_on": "Problem",
+    "ui_problem_sensor_off": "OK",
     "ui_schedule_weekly_one": "Occurs every week{days}",
     "ui_schedule_weekly_many": "Occurs every {schedule_interval} weeks{days}",
     "ui_schedule_monthly_one": "Occurs every month {day}",

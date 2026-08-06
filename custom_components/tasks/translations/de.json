@@ -103,6 +103,8 @@
     "ui_problem_sensor_unavailable_short": "Sensor nicht verfügbar",
     "ui_problem_sensor_unknown_short": "Sensorzustand unbekannt",
     "ui_problem_sensor_available_short": "Sensor verfügbar",
+    "ui_problem_sensor_on": "Fehler",
+    "ui_problem_sensor_off": "OK",
     "ui_schedule_weekly_one": "Findet jede Woche{days}",
     "ui_schedule_weekly_many": "Findet alle {schedule_interval} Wochen{days}",
     "ui_schedule_monthly_one": "Findet jeden Monat {day}",

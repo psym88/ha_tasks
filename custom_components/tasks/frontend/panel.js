@@ -2311,7 +2311,7 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
                         type="button"
                         @click=${()=>this.dispatchEvent(new CustomEvent("hass-more-info",{detail:{entityId:e.entity_id},bubbles:!0,composed:!0}))}
                       >
-                        ${t.state}
+                        ${t.state==="on"?a("problem.sensor_on"):t.state==="off"?a("problem.sensor_off"):t.state}
                       </button>
                     `:a("problem.sensor_missing_short")}
               </dd>
