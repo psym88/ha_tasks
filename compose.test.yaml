@@ -1,0 +1,69 @@
+name: ha-tasks-tests
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        HA_VERSION: ${HA_VERSION:-2026.8.0}
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - pytest-cache:/workspace/.pytest_cache
+    command: scripts/test-backend.sh --inside-container
+
+  frontend:
+    image: node:24-bookworm-slim
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - pnpm-store:/pnpm/store
+    command: >-
+      bash -lc "corepack enable &&
+      scripts/test-frontend.sh --inside-container"
+
+  runtime:
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-2026.8.0}
+    environment:
+      TZ: Europe/Zurich
+    ports:
+      - "${HA_TEST_PORT:-18123}:8123"
+    volumes:
+      - runtime-config:/config
+      - ./tests/runtime/configuration.yaml:/config/configuration.yaml:ro
+      - ./custom_components/tasks:/config/custom_components/tasks:ro
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.62.0-noble
+    working_dir: /workspace
+    environment:
+      HA_SCREENSHOT_BASE_URL: http://runtime:8123
+      HA_SCREENSHOT_OUTPUT: /workspace/.artifacts/runtime/screenshots
+      HA_SCREENSHOT_AUTH_OUTPUT: /workspace/.artifacts/runtime/auth.json
+    volumes:
+      - .:/workspace
+      - pnpm-store:/pnpm/store
+    depends_on:
+      - runtime
+    command: >-
+      bash -lc "corepack enable &&
+      pnpm install --frozen-lockfile &&
+      node tests/screenshots/capture.mjs"
+
+  verify-runtime:
+    image: node:24-bookworm-slim
+    working_dir: /workspace
+    environment:
+      HA_RUNTIME_BASE_URL: http://runtime:8123
+      HA_RUNTIME_AUTH: /workspace/.artifacts/runtime/auth.json
+    volumes:
+      - .:/workspace
+    depends_on:
+      - runtime
+    command: node tests/runtime/verify-persistence.mjs
+
+volumes:
+  pytest-cache:
+  runtime-config:
+  pnpm-store:

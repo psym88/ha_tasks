@@ -70,11 +70,7 @@ class TemporaryUploads:
 
         @callback
         def cleanup(_event) -> None:
-            hass.async_create_task(
-                hass.async_add_executor_job(
-                    shutil.rmtree, root, True
-                )
-            )
+            hass.async_add_executor_job(shutil.rmtree, root, True)
 
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, cleanup)
         return uploads
@@ -98,7 +94,10 @@ class TemporaryUploads:
         await self.hass.async_add_executor_job(directory.mkdir)
         size = 0
         try:
-            with path.open("xb") as output:
+            output = await self.hass.async_add_executor_job(
+                path.open, "xb"
+            )
+            try:
                 while chunk := await upload.read_chunk(ONE_MEGABYTE):
                     size += len(chunk)
                     if size > MAX_ATTACHMENT_SIZE:
@@ -109,6 +108,8 @@ class TemporaryUploads:
                     await self.hass.async_add_executor_job(
                         output.write, chunk
                     )
+            finally:
+                await self.hass.async_add_executor_job(output.close)
         except Exception:
             await self.hass.async_add_executor_job(
                 shutil.rmtree, directory, True

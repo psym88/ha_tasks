@@ -25,6 +25,41 @@ Feature and fix work starts on `dev`, never directly on `main`.
 After integration changes, restart the container and confirm that Home
 Assistant and the Tasks integration load successfully.
 
+## Automated tests
+
+The complete local test suite uses Docker so it runs against the declared
+minimum Home Assistant version without requiring a local Python or Node.js
+toolchain:
+
+```bash
+scripts/test-all.sh
+```
+
+The checks can also be run separately:
+
+```bash
+scripts/test-backend.sh
+scripts/test-frontend.sh
+scripts/test-runtime.sh
+```
+
+`test-backend.sh` runs Ruff, the unit and Home Assistant fixture tests,
+branch coverage, and JUnit reporting in the pinned Home Assistant image.
+`test-frontend.sh` type-checks, builds, and tests the production frontend in
+a Node.js container. `test-runtime.sh` starts a clean Home Assistant instance,
+completes onboarding, loads Tasks through its config flow, exercises the
+production panel and card, restarts Home Assistant, and verifies persisted
+tasks, the due sensor, WebSocket access, frontend resources, and runtime logs.
+
+Reports, Home Assistant logs, and generated runtime screenshots are written to
+`.artifacts/`. Set `HA_VERSION` to validate another supported Home Assistant
+image, for example:
+
+```bash
+HA_VERSION=stable scripts/test-backend.sh
+HA_VERSION=stable scripts/test-runtime.sh
+```
+
 ## Commit and push
 
 Ask the AI agent to create and publish the reviewed change:

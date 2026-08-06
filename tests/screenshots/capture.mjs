@@ -1,10 +1,11 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { chromium } from "@playwright/test";
 
 const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8123").replace(/\/$/, "");
 const outputDir = path.resolve(process.env.HA_SCREENSHOT_OUTPUT || ".artifacts/screenshots");
+const authOutput = process.env.HA_SCREENSHOT_AUTH_OUTPUT;
 const clientId = `${baseUrl}/`;
 const username = "documentation";
 const password = "tasks-screenshot-password";
@@ -749,6 +750,10 @@ async function captureMatrix(tokens) {
 await mkdir(outputDir, { recursive: true });
 await waitForHomeAssistant();
 const tokens = await completeOnboarding();
+if (authOutput) {
+  await mkdir(path.dirname(authOutput), { recursive: true });
+  await writeFile(authOutput, JSON.stringify(tokens), "utf8");
+}
 await setupTasksIntegration(tokens.access_token);
 const socket = new HomeAssistantSocket(tokens.access_token);
 await socket.connect();
