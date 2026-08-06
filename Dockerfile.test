@@ -1,7 +1,0 @@
-ARG HA_VERSION=2026.8.0
-FROM ghcr.io/home-assistant/home-assistant:${HA_VERSION}
-
-COPY requirements-test.txt /tmp/requirements-test.txt
-RUN python -m pip install --no-cache-dir --requirement /tmp/requirements-test.txt
-
-WORKDIR /workspace
