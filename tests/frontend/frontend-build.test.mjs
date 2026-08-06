@@ -102,6 +102,22 @@ test("task table signals unavailable problem sensors", () => {
     /\$\{task\.name\}\s*\$\{this\.problemSensorWarning\(task\)\}/,
   );
 });
+
+test("task table uses the Home Assistant text color hierarchy", () => {
+  assert.match(
+    taskTable,
+    /th \{\s*color: var\(--primary-text-color\);\s*font-weight:/,
+  );
+  assert.doesNotMatch(taskTable, /th \{[^}]*font-size:/);
+  assert.match(
+    taskTable,
+    /\.task-name \{\s*color: var\(--primary-text-color\);/,
+  );
+  assert.match(
+    taskTable,
+    /td:is\([\s\S]*?\.due-column,[\s\S]*?\.status-column[\s\S]*?\) \{\s*color: var\(--secondary-text-color\);/,
+  );
+});
 const dashboardCard = await readFile(
   new URL("../../frontend/src/dashboard-card.ts", import.meta.url),
   "utf8",
@@ -204,6 +220,13 @@ test("frontend owns its remaining text textarea and select controls", () => {
   );
   assert.doesNotMatch(fields, /this\.required \? " \*"/);
   assert.match(fields, /\?required=\$\{this\.required\}/);
+  assert.match(fields, /\.placeholder=\$\{this\.placeholder\}/);
+  assert.match(fields, /this\.hideLabel \? "visually-hidden"/);
+  assert.match(taskForm, /\.placeholder=\$\{t\("task\.name"\)\}/);
+  assert.match(
+    taskForm,
+    /\.placeholder=\$\{t\("task\.optional_description"\)\}/,
+  );
 });
 
 test("task editor does not add a required marker to the entity selector", () => {
@@ -720,6 +743,7 @@ test("frontend completion requires confirmation and sends trimmed notes", () => 
   assert.match(taskViewer, /if \(result !== "complete"\)/);
   assert.match(taskViewer, /await completeTask/);
   assert.match(taskViewer, /label=\$\{t\("task\.completion_notes"\)\}/);
+  assert.match(taskViewer, /\.placeholder=\$\{t\("task\.completion_notes"\)\}/);
 });
 
 test("frontend viewer renders responsive read-only planning details", () => {

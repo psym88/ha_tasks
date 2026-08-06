@@ -727,6 +727,8 @@ class TasksTaskViewer extends LocalizedLitElement {
         </${expandableTag}>
         <${textFieldTag}
           label=${t("task.completion_notes")}
+          .placeholder=${t("task.completion_notes")}
+          .hideLabel=${true}
           multiline
           .value=${this.completionNotes}
           ?disabled=${this.completing}

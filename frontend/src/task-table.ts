@@ -687,8 +687,7 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     th {
-      color: var(--secondary-text-color);
-      font-size: 13px;
+      color: var(--primary-text-color);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -710,7 +709,21 @@ class TasksTaskTable extends LocalizedLitElement {
     }
 
     .task-name {
+      color: var(--primary-text-color);
       font-weight: 500;
+    }
+
+    td:is(
+        .due-column,
+        .assignee-column,
+        .files-column,
+        .nfc-column,
+        .labels-column,
+        .notifications-column,
+        .trigger-column,
+        .status-column
+      ) {
+      color: var(--secondary-text-color);
     }
 
     .sensor-warning {
@@ -722,14 +735,6 @@ class TasksTaskTable extends LocalizedLitElement {
 
     .sensor-warning ha-icon {
       --mdc-icon-size: 18px;
-    }
-
-    .inactive .task-name {
-      color: var(--secondary-text-color);
-    }
-
-    .inactive td {
-      color: var(--secondary-text-color);
     }
 
     .inactive {

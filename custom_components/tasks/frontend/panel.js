@@ -321,12 +321,26 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     color: var(--error-color);
   }
 
-`,j=class extends f{static properties={label:{},value:{},required:{type:Boolean},disabled:{type:Boolean},error:{}};static styles=yi;constructor(){super(),this.label="",this.value="",this.required=!1,this.disabled=!1,this.error=""}change(e){this.value=e,this.error="",this.dispatchEvent(new CustomEvent("value-changed",{bubbles:!0,composed:!0,detail:e}))}errorMessage(){return this.error?n`<span class="error" role="alert">${this.error}</span>`:null}},Re=class extends j{static properties={...j.properties,multiline:{type:Boolean},inputType:{attribute:"input-type"},min:{type:Number}};constructor(){super(),this.multiline=!1,this.inputType="text",this.min=void 0}render(){return n`
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+`,j=class extends f{static properties={label:{},value:{},required:{type:Boolean},disabled:{type:Boolean},error:{}};static styles=yi;constructor(){super(),this.label="",this.value="",this.required=!1,this.disabled=!1,this.error=""}change(e){this.value=e,this.error="",this.dispatchEvent(new CustomEvent("value-changed",{bubbles:!0,composed:!0,detail:e}))}errorMessage(){return this.error?n`<span class="error" role="alert">${this.error}</span>`:null}},Re=class extends j{static properties={...j.properties,placeholder:{},hideLabel:{attribute:"hide-label",type:Boolean},multiline:{type:Boolean},inputType:{attribute:"input-type"},min:{type:Number}};constructor(){super(),this.placeholder="",this.hideLabel=!1,this.multiline=!1,this.inputType="text",this.min=void 0}render(){return n`
       <label>
-        <span>${this.label}</span>
+        <span class=${this.hideLabel?"visually-hidden":""}>
+          ${this.label}
+        </span>
         ${this.multiline?n`
               <textarea
                 .value=${this.value}
+                .placeholder=${this.placeholder}
                 ?required=${this.required}
                 ?disabled=${this.disabled}
                 aria-invalid=${!!this.error}
@@ -337,6 +351,7 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
                 type=${this.inputType}
                 min=${this.min??""}
                 .value=${this.value}
+                .placeholder=${this.placeholder}
                 ?required=${this.required}
                 ?disabled=${this.disabled}
                 aria-invalid=${!!this.error}
@@ -935,6 +950,8 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
       <form @submit=${e=>e.preventDefault()}>
         <${I}
           label=${a("task.name")}
+          .placeholder=${a("task.name")}
+          .hideLabel=${!0}
           required
           .value=${this.name}
           .error=${this.nameError}
@@ -943,6 +960,8 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
         ></${I}>
         <${I}
           label=${a("task.optional_description")}
+          .placeholder=${a("task.optional_description")}
+          .hideLabel=${!0}
           multiline
           .value=${this.description}
           ?disabled=${this.saving}
@@ -1517,8 +1536,7 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     }
 
     th {
-      color: var(--secondary-text-color);
-      font-size: 13px;
+      color: var(--primary-text-color);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -1540,7 +1558,21 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     }
 
     .task-name {
+      color: var(--primary-text-color);
       font-weight: 500;
+    }
+
+    td:is(
+        .due-column,
+        .assignee-column,
+        .files-column,
+        .nfc-column,
+        .labels-column,
+        .notifications-column,
+        .trigger-column,
+        .status-column
+      ) {
+      color: var(--secondary-text-color);
     }
 
     .sensor-warning {
@@ -1552,14 +1584,6 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
 
     .sensor-warning ha-icon {
       --mdc-icon-size: 18px;
-    }
-
-    .inactive .task-name {
-      color: var(--secondary-text-color);
-    }
-
-    .inactive td {
-      color: var(--secondary-text-color);
     }
 
     .inactive {
@@ -2406,6 +2430,8 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
         </${L}>
         <${Qt}
           label=${a("task.completion_notes")}
+          .placeholder=${a("task.completion_notes")}
+          .hideLabel=${!0}
           multiline
           .value=${this.completionNotes}
           ?disabled=${this.completing}

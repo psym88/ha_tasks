@@ -1474,6 +1474,8 @@ class TasksTaskForm extends LocalizedLitElement {
       <form @submit=${(event: Event) => event.preventDefault()}>
         <${textFieldTag}
           label=${t("task.name")}
+          .placeholder=${t("task.name")}
+          .hideLabel=${true}
           required
           .value=${this.name}
           .error=${this.nameError}
@@ -1485,6 +1487,8 @@ class TasksTaskForm extends LocalizedLitElement {
         ></${textFieldTag}>
         <${textFieldTag}
           label=${t("task.optional_description")}
+          .placeholder=${t("task.optional_description")}
+          .hideLabel=${true}
           multiline
           .value=${this.description}
           ?disabled=${this.saving}
