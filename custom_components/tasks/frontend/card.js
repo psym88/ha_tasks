@@ -2041,7 +2041,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
 
     .description {
       padding: 10px 12px;
-      background: var(--primary-background-color);
+      border: 1px solid var(--divider-color);
       border-radius: var(--ha-border-radius-lg);
       line-height: 1.45;
     }

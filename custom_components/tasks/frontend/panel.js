@@ -2152,7 +2152,7 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
 
     .description {
       padding: 10px 12px;
-      background: var(--primary-background-color);
+      border: 1px solid var(--divider-color);
       border-radius: var(--ha-border-radius-lg);
       line-height: 1.45;
     }
