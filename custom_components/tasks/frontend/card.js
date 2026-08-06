@@ -1451,6 +1451,10 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
       font-weight: 500;
     }
 
+    .inactive .task-name {
+      color: var(--secondary-text-color);
+    }
+
     td:is(
         .due-column,
         .assignee-column,

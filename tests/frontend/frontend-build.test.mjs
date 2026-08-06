@@ -115,6 +115,10 @@ test("task table uses the Home Assistant text color hierarchy", () => {
   );
   assert.match(
     taskTable,
+    /\.inactive \.task-name \{\s*color: var\(--secondary-text-color\);/,
+  );
+  assert.match(
+    taskTable,
     /td:is\([\s\S]*?\.due-column,[\s\S]*?\.status-column[\s\S]*?\) \{\s*color: var\(--secondary-text-color\);/,
   );
 });
