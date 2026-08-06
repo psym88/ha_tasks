@@ -21,6 +21,9 @@ const captureScript = readFileSync(
 
 test("Tests and Beta Tests are separate manually runnable actions", () => {
   assert.match(testsWorkflow, /^name: Tests$/m);
+  assert.doesNotMatch(testsWorkflow, /^\s*push:/m);
+  assert.match(testsWorkflow, /pull_request:\s*\n\s*branches:\s*\n\s*- main/);
+  assert.doesNotMatch(testsWorkflow, /pull_request:[\s\S]*?branches:[\s\S]*?- dev/);
   assert.match(testsWorkflow, /workflow_dispatch:/);
   assert.match(testsWorkflow, /workflow_call:/);
   assert.doesNotMatch(testsWorkflow, /schedule:/);

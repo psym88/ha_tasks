@@ -12,7 +12,8 @@ and release rules are maintained in `AGENTS.md`.
    `scripts/user-test-environment.sh start`. It runs the runtime validation and
    remains available at `http://localhost:8122` for manual testing with
    `alex` / `alex`.
-4. Push the tested commits to `dev` and wait for the GitHub `Tests` workflow.
+4. Push the locally tested commits to `dev`. This push does not start GitHub
+   Actions.
 5. Create an immutable pre-release from the successfully tested `dev` commit.
 6. To publish a stable release, open a pull request from `dev` to `main`. The
    test suite validates the backend, frontend, Home Assistant runtime,
@@ -122,10 +123,13 @@ commit push
 ```
 
 The agent creates an English Conventional Commit and pushes it to `dev`.
-GitHub Actions then runs the complete test suites and Hassfest validation.
+Because every `dev` push must already be tested locally, it does not trigger
+GitHub Actions. The complete `Tests` workflow runs for pull requests targeting
+`main`, can be started manually, and is reused by `Beta Tests`.
 
-If a check fails, correct the issue on `dev`, test it again, and push a new
-commit.
+If a local check fails, correct the issue on `dev` and test it again before
+pushing a new commit. If a pull-request check fails, correct it on `dev`, rerun
+the local tests, and push the fix to update the pull request.
 
 ## Pre-release
 
@@ -141,11 +145,9 @@ The release process:
 2. Runs the complete backend and frontend tests.
 3. Validates the integration in the Home Assistant container.
 4. Pushes the tested version to `dev`.
-5. Waits for the Tests workflow in GitHub Actions. Documentation screenshots
-   are validated when opening a pull request to `main` and by every executed
-   Beta Tests run.
-6. Creates the immutable version tag and the matching GitHub pre-release.
-7. Waits for the Release asset workflow and verifies that `ha_tasks.zip` is
+5. Creates the immutable version tag and the matching GitHub pre-release from
+   the locally tested `dev` commit. A `dev` push does not run GitHub Tests.
+6. Waits for the Release asset workflow and verifies that `ha_tasks.zip` is
    attached before considering the pre-release complete.
 
 Test the pre-release in a representative Home Assistant installation. Problems

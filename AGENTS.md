@@ -6,6 +6,7 @@
 - Add focused tests for recurrence and problem-sensor trigger changes, and for important regressions.
 - Put Python tests in `tests/` using Pytest's `test_*.py` convention and frontend tests in `tests/frontend/` as `*.test.mjs`; GitHub Actions discovers them automatically.
 - Generate and review documentation screenshots locally through `scripts/test-runtime.sh`. GitHub validates them for pull requests targeting `main` and in every executed `Beta Tests` run, so Home Assistant beta UI changes are reported against the stable baseline.
+- Run the complete relevant local test suite before every push to `dev`; pushes do not trigger the GitHub `Tests` workflow. GitHub runs `Tests` only for pull requests targeting `main`, manual dispatches, and calls from `Beta Tests`.
 - Use `.agents/skills/develop-home-assistant-integration` for Home Assistant integration work. Re-check version-sensitive behavior against current official documentation, version-matched Home Assistant Core source, and the development container instead of relying on static knowledge.
 - Treat persisted Home Assistant store data as user data: every incompatible store-schema change must increment `STORAGE_VERSION`, provide a sequential converter from the immediately preceding version, and add or update versioned migration fixtures and tests. Never remove a published migration path.
 - After integration code changes, use the available test container running the minimum supported Home Assistant version. Ensure it mounts this workspace's `custom_components/tasks`, restart it, and verify that Home Assistant and the Tasks integration load successfully.
@@ -96,7 +97,7 @@ Create a latest release only when explicitly requested.
 1. Select the tested pre-release that will be the basis for the stable release. Keep that pre-release, its tag, and its release unchanged.
 2. Update `dev` from `origin/dev`, choose the next unused version, and update `manifest.json`.
 3. Run the complete backend and frontend test suites, commit the version change, and push `dev`.
-4. Open a pull request from `dev` to the protected `main` branch. Wait for the required `Backend`, `Frontend`, and `Validate integration` jobs in the `Tests` workflow to pass.
+4. Open a pull request from `dev` to the protected `main` branch. Wait for the complete `Tests` workflow: `Backend`, `Frontend`, `Home Assistant runtime`, `Validate integration`, and `Validate repository`.
 5. Merge the pull request with a normal merge commit. Do not squash or rebase it, so `dev` remains an ancestor of `main`.
 6. Create the new immutable `YYYYMMDD.REVISION` tag on the resulting `main` merge commit. `main`, the new tag, and the release target must resolve to that same commit.
 7. Create a new GitHub release with the same title as the new tag, mark it as **latest**, and do not mark it as a pre-release.
