@@ -113,6 +113,16 @@ export interface HomeAssistantConnection {
   sendMessagePromise<T>(message: Record<string, unknown>): Promise<T>;
 }
 
+export interface HomeAssistantState {
+  entity_id: string;
+  state: string;
+  attributes?: {
+    friendly_name?: string;
+    user_id?: string;
+    device_class?: string;
+  };
+}
+
 export interface HomeAssistant {
   connection: HomeAssistantConnection;
   user?: {
@@ -128,15 +138,6 @@ export interface HomeAssistant {
   locale?: {
     language?: string;
   };
-  states?: Record<
-    string,
-    {
-      entity_id: string;
-      state: string;
-      attributes?: {
-        friendly_name?: string;
-        user_id?: string;
-      };
-    }
-  >;
+  states?: Record<string, HomeAssistantState>;
+  formatEntityState(stateObj: HomeAssistantState, state?: string): string;
 }

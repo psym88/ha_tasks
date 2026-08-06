@@ -597,11 +597,8 @@ class TasksTaskViewer extends LocalizedLitElement {
                           }),
                         )}
                       >
-                        ${sensorState.state === "on"
-                          ? t("problem.sensor_on")
-                          : sensorState.state === "off"
-                            ? t("problem.sensor_off")
-                            : sensorState.state}
+                        ${this.hass?.formatEntityState(sensorState) ??
+                        sensorState.state}
                       </button>
                     `
                   : t("problem.sensor_missing_short")}
