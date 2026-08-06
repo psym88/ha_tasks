@@ -24,9 +24,12 @@ case "$action" in
     export_dir=.artifacts/forgejo-container
     rm -rf "$export_dir"
     mkdir -p "$export_dir"
-    docker run --rm --volume "$volume:/workspace:ro" alpine:3.22 \
-      sh -c 'if [ -d /workspace/.artifacts ]; then tar -C /workspace/.artifacts -cf - .; fi' \
-      | tar -xf - -C "$export_dir"
+    if docker run --rm --volume "$volume:/workspace:ro" alpine:3.22 \
+      test -d /workspace/.artifacts; then
+      docker run --rm --volume "$volume:/workspace:ro" alpine:3.22 \
+        tar -C /workspace/.artifacts -cf - . \
+        | tar -xf - -C "$export_dir"
+    fi
     ;;
   *)
     echo "Usage: $0 {prepare|export-artifacts}" >&2

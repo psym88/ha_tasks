@@ -11,7 +11,7 @@ services:
     volumes:
       - .:/workspace
       - pytest-cache:/workspace/.pytest_cache
-    command: scripts/test-backend.sh --inside-container
+    command: bash scripts/test-backend.sh --inside-container
 
   frontend:
     image: node:24-bookworm-slim
@@ -21,7 +21,7 @@ services:
       - pnpm-store:/pnpm/store
     command: >-
       bash -lc "corepack enable &&
-      scripts/test-frontend.sh --inside-container"
+      bash scripts/test-frontend.sh --inside-container"
 
   runtime:
     image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-2026.8.0}
