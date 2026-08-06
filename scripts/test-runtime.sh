@@ -14,7 +14,9 @@ trap cleanup EXIT
 "${compose[@]}" down --volumes --remove-orphans
 "${compose[@]}" up --detach runtime
 "${compose[@]}" run --rm e2e
-"${compose[@]}" run --rm compare-screenshots
+if [[ "${HA_TASKS_COMPARE_SCREENSHOTS:-1}" == "1" ]]; then
+  "${compose[@]}" run --rm compare-screenshots
+fi
 "${compose[@]}" restart runtime
 "${compose[@]}" run --rm verify-runtime
 

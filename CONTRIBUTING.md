@@ -4,6 +4,20 @@ This guide is for maintainers and collaborators with write access. It describes
 the usual path from a local change to a Tasks release. Detailed implementation
 and release rules are maintained in `AGENTS.md`.
 
+## Short workflow
+
+1. Switch to `dev` and pull the latest changes from `origin/dev`.
+2. Create one Conventional Commit for each completed change or related topic.
+3. Start the local test container with
+   `scripts/user-test-environment.sh start`. It runs the runtime validation and
+   remains available at `http://localhost:8122` for manual testing with
+   `alex` / `alex`.
+4. Push the tested commits to `dev` and wait for the GitHub `Tests` workflow.
+5. Create an immutable pre-release from the successfully tested `dev` commit.
+6. To publish a stable release, open a pull request from `dev` to `main`. The
+   test suite validates the backend, frontend, Home Assistant runtime,
+   documentation screenshots, Hassfest, and HACS before the merge.
+
 ## Branches
 
 - `dev` contains ongoing development and pre-releases.
@@ -15,7 +29,8 @@ Feature and fix work starts on `dev`, never directly on `main`.
 ## Local development
 
 1. Switch to `dev` and update it from `origin/dev`.
-2. Start the `ha-tasks-dev` Home Assistant container.
+2. Start the shared Home Assistant test container with
+   `scripts/user-test-environment.sh start`.
 3. Verify that the container mounts this checkout's
    `custom_components/tasks` directory.
 4. Describe the requested change to the AI agent.
@@ -93,6 +108,10 @@ scripts/user-test-environment.sh reset
 ```
 
 Automatic runtime tests reset this same local test container before seeding it.
+The separate `Beta Tests` action can be started manually at any time. Its daily
+run executes only when the Home Assistant `beta` image digest changes. A failed
+digest opens one `beta-compatibility` issue; the issue closes automatically
+after a newer beta image passes the same complete test suite.
 
 ## Commit and push
 
@@ -122,11 +141,11 @@ The release process:
 2. Runs the complete backend and frontend tests.
 3. Validates the integration in the Home Assistant container.
 4. Pushes the tested version to `dev`.
-5. Waits for Tests and Hassfest in GitHub Actions.
-6. Runs the documentation screenshot workflow and accepts only relevant image
-   changes.
-7. Creates the immutable version tag and the matching GitHub pre-release.
-8. Waits for the Release asset workflow and verifies that `ha_tasks.zip` is
+5. Waits for the Tests workflow in GitHub Actions. Documentation screenshots
+   are validated when opening a pull request to `main` and by every executed
+   Beta Tests run.
+6. Creates the immutable version tag and the matching GitHub pre-release.
+7. Waits for the Release asset workflow and verifies that `ha_tasks.zip` is
    attached before considering the pre-release complete.
 
 Test the pre-release in a representative Home Assistant installation. Problems
