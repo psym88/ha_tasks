@@ -11,11 +11,12 @@ jobs:
   start:
     name: Start Home Assistant on port 8122
     runs-on: ubuntu-latest
+    container: ghcr.io/catthehacker/ubuntu:act-22.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: https://data.forgejo.org/actions/checkout@v4
       - name: Start or update user test environment
-        run: scripts/user-test-environment.sh start
+        run: bash scripts/user-test-environment.sh start
       - name: Show environment status
-        run: scripts/user-test-environment.sh status
+        run: bash scripts/user-test-environment.sh status

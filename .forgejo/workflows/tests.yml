@@ -19,16 +19,17 @@ jobs:
   validate:
     name: Backend, frontend, runtime, and screenshots
     runs-on: ubuntu-latest
+    container: ghcr.io/catthehacker/ubuntu:act-22.04
     timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: https://data.forgejo.org/actions/checkout@v4
       - name: Run backend validation
-        run: scripts/test-backend.sh
+        run: bash scripts/test-backend.sh
       - name: Run frontend validation
-        run: scripts/test-frontend.sh
+        run: bash scripts/test-frontend.sh
       - name: Run runtime and visual validation
-        run: scripts/test-runtime.sh
+        run: bash scripts/test-runtime.sh
       - name: Upload test results, logs, and screenshot differences
         if: always()
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4

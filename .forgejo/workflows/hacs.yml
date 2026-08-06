@@ -9,10 +9,10 @@ on:
 
 jobs:
   validate:
-    name: Validate repository
+    name: Validate local HACS metadata
     runs-on: ubuntu-latest
     steps:
-      - name: HACS validation
-        uses: https://github.com/hacs/action@main
-        with:
-          category: integration
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@v4
+      - name: Validate local HACS metadata
+        run: node scripts/validate-hacs-metadata.mjs

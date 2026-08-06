@@ -11,9 +11,10 @@ jobs:
   reset:
     name: Remove user test configuration
     runs-on: ubuntu-latest
+    container: ghcr.io/catthehacker/ubuntu:act-22.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: https://data.forgejo.org/actions/checkout@v4
       - name: Reset user test environment and named volume
-        run: scripts/user-test-environment.sh reset
+        run: bash scripts/user-test-environment.sh reset
