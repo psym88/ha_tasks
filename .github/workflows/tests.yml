@@ -27,7 +27,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
       - name: Run backend validation
-        run: scripts/test-backend.sh
+        run: bash scripts/test-backend.sh
 
   frontend:
     name: Frontend
@@ -37,7 +37,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
       - name: Run frontend validation
-        run: scripts/test-frontend.sh
+        run: bash scripts/test-frontend.sh
 
   runtime:
     name: Home Assistant runtime and screenshots
@@ -47,7 +47,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
       - name: Run runtime and visual validation
-        run: scripts/test-runtime.sh
+        run: bash scripts/test-runtime.sh
       - name: Upload runtime logs and screenshot differences
         if: always()
         uses: actions/upload-artifact@v4

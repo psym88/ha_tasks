@@ -91,7 +91,6 @@ network, and `ha-tasks-user-test-config` volume:
 scripts/user-test-environment.sh reset
 ```
 
-Forgejo provides matching manually triggered Start, Stop, and Reset workflows.
 Automatic runtime tests continue to use port `8123` and separate named volumes.
 
 ## Commit and push

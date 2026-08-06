@@ -4,9 +4,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 compose=(docker compose -f compose.user-test.yaml)
-if [[ "${HA_TASKS_FORGEJO_CI:-}" == "1" ]]; then
-  compose+=(-f compose.user-test.forgejo.yaml)
-fi
 action="${1:-status}"
 
 case "$action" in
