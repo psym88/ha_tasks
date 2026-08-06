@@ -425,7 +425,7 @@ class TasksDashboardCard extends LocalizedLitElement {
     }
     if (this.hass?.locale?.language !== this.language) {
       this.language = this.hass?.locale?.language;
-      void setLanguage(this.language).then(() => this.requestUpdate());
+      void setLanguage(this.language);
     }
   }
 

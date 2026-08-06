@@ -7,10 +7,11 @@ import {
   loadAttachmentUrls,
   loadTaskHistory,
 } from "./api";
-import { fileIcon } from "./file-icon";
-import { errorText, t, timedScheduleText } from "./localize";
+import { fileIcon, formatFileSize } from "./file-icon";
+import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
 import { problemSensorStatus } from "./problem-sensor-status";
+import { scheduleText } from "./schedule-text";
 import type {
   Attachment,
   Completion,
@@ -373,16 +374,6 @@ class TasksTaskViewer extends LocalizedLitElement {
     }).format(date);
   }
 
-  private formatSize(size: number): string {
-    if (size < 1024) {
-      return `${size} B`;
-    }
-    if (size < 1024 * 1024) {
-      return `${Math.round(size / 1024)} KB`;
-    }
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   private renderInline(text: string) {
     const parts: unknown[] = [];
     const pattern =
@@ -561,84 +552,7 @@ class TasksTaskViewer extends LocalizedLitElement {
   }
 
   private scheduleText(): string {
-    const schedule = this.task.schedule;
-    if (schedule.type === "sensor") {
-      return t("schedule.problem_sensor_description");
-    }
-    const interval = Math.max(1, Number(schedule.interval) || 1);
-    const periodKey = {
-      daily: "day",
-      weekly: "week",
-      monthly: "month",
-      yearly: "year",
-    } as const;
-    const singular = t(`schedule.period_${periodKey[schedule.unit]}`);
-    const plural = t(`schedule.period_${periodKey[schedule.unit]}s`);
-    if (schedule.type === "sliding") {
-      return t(
-        interval === 1
-          ? "schedule.after_completion_one"
-          : "schedule.after_completion_many",
-        {
-          schedule_interval: interval,
-          period: interval === 1 ? singular : plural,
-        },
-      );
-    }
-    const time = schedule.time || "09:00";
-    if (schedule.unit === "weekly") {
-      const names = Array.from({ length: 7 }, (_, index) =>
-        new Intl.DateTimeFormat(this.hass?.locale?.language, {
-          weekday: "long",
-          timeZone: "UTC",
-        }).format(new Date(Date.UTC(2024, 0, index + 1))),
-      );
-      const weekdays = (schedule.weekdays || [])
-        .map((day) => names[day])
-        .filter(Boolean);
-      const joined = weekdays.length > 1
-        ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
-        : weekdays[0] || "";
-      const description = t(
-        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
-        {
-          schedule_interval: interval,
-          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
-        },
-      );
-      return timedScheduleText(description, time);
-    }
-    if (schedule.unit === "monthly") {
-      const day = schedule.day === "last"
-        ? t("schedule.on_last_day")
-        : t("schedule.on_day_number", { day: Number(schedule.day || 1) });
-      return timedScheduleText(t(
-        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
-        { schedule_interval: interval, day },
-      ), time);
-    }
-    if (schedule.unit === "yearly") {
-      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
-        month: "long",
-      }).format(new Date(2024, (schedule.month || 1) - 1, 1));
-      const day = schedule.day === "last"
-        ? t("schedule.on_last_day_of_month", { month })
-        : t("schedule.on_day_of_month", {
-            day: Number(schedule.day || 1),
-            month,
-          });
-      return timedScheduleText(t(
-        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
-        { schedule_interval: interval, day },
-      ), time);
-    }
-    return timedScheduleText(t(
-      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
-      {
-        schedule_interval: interval,
-        period: interval === 1 ? singular : plural,
-      },
-    ), time);
+    return scheduleText(this.task.schedule, this.hass?.locale?.language);
   }
 
   private renderPlanning() {
@@ -725,7 +639,7 @@ class TasksTaskViewer extends LocalizedLitElement {
                 <span class="record-content">
                   <span>${attachment.filename}</span>
                   <span class="secondary">
-                    ${this.formatSize(attachment.size)}
+                    ${formatFileSize(attachment.size)}
                   </span>
                 </span>
               </button>

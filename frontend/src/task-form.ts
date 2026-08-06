@@ -9,9 +9,10 @@ import {
   saveTaskDetails,
   type ScheduleDetails,
 } from "./api";
-import { fileIcon } from "./file-icon";
-import { errorText, t, timedScheduleText } from "./localize";
+import { fileIcon, formatFileSize } from "./file-icon";
+import { errorText, t } from "./localize";
 import { LocalizedLitElement } from "./localized-element";
+import { scheduleText } from "./schedule-text";
 import { problemSensorStatus } from "./problem-sensor-status";
 import type {
   Attachment,
@@ -744,92 +745,19 @@ class TasksTaskForm extends LocalizedLitElement {
   }
 
   private scheduleText(): string {
-    if (this.scheduleType === "sensor") {
-      const name =
-        this.hass?.states?.[this.problemSensor]?.attributes?.friendly_name ||
-        this.problemSensor;
-      return name
-        ? `${t("schedule.problem_sensor_description")} (${name})`
-        : t("schedule.problem_sensor_description");
-    }
-    const interval = Math.max(1, Number(this.scheduleInterval) || 1);
-    const periodKey: Record<ScheduleUnit, string> = {
-      daily: "day",
-      weekly: "week",
-      monthly: "month",
-      yearly: "year",
-    };
-    const singular = t(`schedule.period_${periodKey[this.scheduleUnit]}`);
-    const plural = t(`schedule.period_${periodKey[this.scheduleUnit]}s`);
-    if (this.scheduleType === "sliding") {
-      return t(
-        interval === 1
-          ? "schedule.after_completion_one"
-          : "schedule.after_completion_many",
-        {
-          schedule_interval: interval,
-          period: interval === 1 ? singular : plural,
-        },
-      );
-    }
-    if (this.scheduleUnit === "weekly") {
-      const names = Array.from({ length: 7 }, (_, index) =>
-        new Intl.DateTimeFormat(this.hass?.locale?.language, {
-          weekday: "long",
-          timeZone: "UTC",
-        }).format(new Date(Date.UTC(2024, 0, index + 1))),
-      );
-      const weekdays = this.scheduleWeekdays
-        .map((day) => names[day])
-        .filter(Boolean);
-      const joined =
-        weekdays.length > 1
-          ? `${weekdays.slice(0, -1).join(", ")} ${t("schedule.and")} ${weekdays.at(-1)}`
-          : weekdays[0] || "";
-      const description = t(
-        interval === 1 ? "schedule.weekly_one" : "schedule.weekly_many",
-        {
-          schedule_interval: interval,
-          days: joined ? ` ${t("schedule.on_days", { days: joined })}` : "",
-        },
-      );
-      return timedScheduleText(description, this.scheduleTime);
-    }
-    if (this.scheduleUnit === "monthly") {
-      const day =
-        this.scheduleDay === "last"
-          ? t("schedule.on_last_day")
-          : t("schedule.on_day_number", { day: Number(this.scheduleDay || 1) });
-      const description = t(
-        interval === 1 ? "schedule.monthly_one" : "schedule.monthly_many",
-        { schedule_interval: interval, day },
-      );
-      return timedScheduleText(description, this.scheduleTime);
-    }
-    if (this.scheduleUnit === "yearly") {
-      const month = new Intl.DateTimeFormat(this.hass?.locale?.language, {
-        month: "long",
-      }).format(new Date(2024, this.scheduleMonth - 1, 1));
-      const day =
-        this.scheduleDay === "last"
-          ? t("schedule.on_last_day_of_month", { month })
-          : t("schedule.on_day_of_month", {
-              day: Number(this.scheduleDay || 1),
-              month,
-            });
-      const description = t(
-        interval === 1 ? "schedule.yearly_one" : "schedule.yearly_many",
-        { schedule_interval: interval, day },
-      );
-      return timedScheduleText(description, this.scheduleTime);
-    }
-    return timedScheduleText(t(
-      interval === 1 ? "schedule.fixed_one" : "schedule.fixed_many",
-      {
-        schedule_interval: interval,
-        period: interval === 1 ? singular : plural,
-      },
-    ), this.scheduleTime);
+    const sensorName =
+      this.hass?.states?.[this.problemSensor]?.attributes?.friendly_name ||
+      this.problemSensor;
+    return scheduleText({
+      type: this.scheduleType,
+      unit: this.scheduleUnit,
+      interval: this.scheduleInterval,
+      weekdays: this.scheduleWeekdays,
+      day: this.scheduleDay,
+      month: this.scheduleMonth,
+      time: this.scheduleTime,
+      sensorName,
+    }, this.hass?.locale?.language);
   }
 
   async save(): Promise<boolean> {
@@ -1316,16 +1244,6 @@ class TasksTaskForm extends LocalizedLitElement {
     `;
   }
 
-  private formatSize(size: number): string {
-    if (size < 1024) {
-      return `${size} B`;
-    }
-    if (size < 1024 * 1024) {
-      return `${Math.round(size / 1024)} KB`;
-    }
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   private toggleId(id: string, values: string[]): string[] {
     return values.includes(id)
       ? values.filter((value) => value !== id)
@@ -1363,7 +1281,7 @@ class TasksTaskForm extends LocalizedLitElement {
                           >${attachment.filename}</span
                         >
                         <span class="record-detail"
-                          >${this.formatSize(attachment.size)}</span
+                          >${formatFileSize(attachment.size)}</span
                         >
                       </span>
                       <button
@@ -1402,7 +1320,7 @@ class TasksTaskForm extends LocalizedLitElement {
                       <span class="record-copy">
                         <span class="record-title file-name">${file.name}</span>
                         <span class="record-detail"
-                          >${this.formatSize(file.size)} ·
+                          >${formatFileSize(file.size)} ·
                           ${t("app.new_file")}</span
                         >
                       </span>

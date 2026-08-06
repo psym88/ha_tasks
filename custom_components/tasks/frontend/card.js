@@ -1,6 +1,6 @@
-var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,$e=Symbol(),it=new WeakMap,q=class{constructor(e,t,s){if(this._$cssResult$=!0,s!==$e)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o,t=this.t;if(ie&&e===void 0){let s=t!==void 0&&t.length===1;s&&(e=it.get(t)),e===void 0&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),s&&it.set(t,e))}return e}toString(){return this.cssText}},rt=a=>new q(typeof a=="string"?a:a+"",void 0,$e),b=(a,...e)=>{let t=a.length===1?a[0]:e.reduce((s,i,n)=>s+(l=>{if(l._$cssResult$===!0)return l.cssText;if(typeof l=="number")return l;throw Error("Value passed to 'css' function must be a 'css' function result: "+l+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+a[n+1],a[0]);return new q(t,a,$e)},at=(a,e)=>{if(ie)a.adoptedStyleSheets=e.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(let t of e){let s=document.createElement("style"),i=se.litNonce;i!==void 0&&s.setAttribute("nonce",i),s.textContent=t.cssText,a.appendChild(s)}},ke=ie?a=>a:a=>a instanceof CSSStyleSheet?(e=>{let t="";for(let s of e.cssRules)t+=s.cssText;return rt(t)})(a):a;var{is:Yt,defineProperty:es,getOwnPropertyDescriptor:ts,getOwnPropertyNames:ss,getOwnPropertySymbols:is,getPrototypeOf:rs}=Object,re=globalThis,nt=re.trustedTypes,as=nt?nt.emptyScript:"",ns=re.reactiveElementPolyfillSupport,G=(a,e)=>a,_e={toAttribute(a,e){switch(e){case Boolean:a=a?as:null;break;case Object:case Array:a=a==null?a:JSON.stringify(a)}return a},fromAttribute(a,e){let t=a;switch(e){case Boolean:t=a!==null;break;case Number:t=a===null?null:Number(a);break;case Object:case Array:try{t=JSON.parse(a)}catch{t=null}}return t}},lt=(a,e)=>!Yt(a,e),ot={attribute:!0,type:String,converter:_e,reflect:!1,useDefault:!1,hasChanged:lt};Symbol.metadata??=Symbol("metadata"),re.litPropertyMetadata??=new WeakMap;var S=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=ot){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){let s=Symbol(),i=this.getPropertyDescriptor(e,s,t);i!==void 0&&es(this.prototype,e,i)}}static getPropertyDescriptor(e,t,s){let{get:i,set:n}=ts(this.prototype,e)??{get(){return this[t]},set(l){this[t]=l}};return{get:i,set(l){let u=i?.call(this);n?.call(this,l),this.requestUpdate(e,u,s)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??ot}static _$Ei(){if(this.hasOwnProperty(G("elementProperties")))return;let e=rs(this);e.finalize(),e.l!==void 0&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(G("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(G("properties"))){let t=this.properties,s=[...ss(t),...is(t)];for(let i of s)this.createProperty(i,t[i])}let e=this[Symbol.metadata];if(e!==null){let t=litPropertyMetadata.get(e);if(t!==void 0)for(let[s,i]of t)this.elementProperties.set(s,i)}this._$Eh=new Map;for(let[t,s]of this.elementProperties){let i=this._$Eu(t,s);i!==void 0&&this._$Eh.set(i,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){let t=[];if(Array.isArray(e)){let s=new Set(e.flat(1/0).reverse());for(let i of s)t.unshift(ke(i))}else e!==void 0&&t.push(ke(e));return t}static _$Eu(e,t){let s=t.attribute;return s===!1?void 0:typeof s=="string"?s:typeof e=="string"?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),this.renderRoot!==void 0&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){let e=new Map,t=this.constructor.elementProperties;for(let s of t.keys())this.hasOwnProperty(s)&&(e.set(s,this[s]),delete this[s]);e.size>0&&(this._$Ep=e)}createRenderRoot(){let e=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return at(e,this.constructor.elementStyles),e}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,s){this._$AK(e,s)}_$ET(e,t){let s=this.constructor.elementProperties.get(e),i=this.constructor._$Eu(e,s);if(i!==void 0&&s.reflect===!0){let n=(s.converter?.toAttribute!==void 0?s.converter:_e).toAttribute(t,s.type);this._$Em=e,n==null?this.removeAttribute(i):this.setAttribute(i,n),this._$Em=null}}_$AK(e,t){let s=this.constructor,i=s._$Eh.get(e);if(i!==void 0&&this._$Em!==i){let n=s.getPropertyOptions(i),l=typeof n.converter=="function"?{fromAttribute:n.converter}:n.converter?.fromAttribute!==void 0?n.converter:_e;this._$Em=i;let u=l.fromAttribute(t,n.type);this[i]=u??this._$Ej?.get(i)??u,this._$Em=null}}requestUpdate(e,t,s,i=!1,n){if(e!==void 0){let l=this.constructor;if(i===!1&&(n=this[e]),s??=l.getPropertyOptions(e),!((s.hasChanged??lt)(n,t)||s.useDefault&&s.reflect&&n===this._$Ej?.get(e)&&!this.hasAttribute(l._$Eu(e,s))))return;this.C(e,t,s)}this.isUpdatePending===!1&&(this._$ES=this._$EP())}C(e,t,{useDefault:s,reflect:i,wrapped:n},l){s&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,l??t??this[e]),n!==!0||l!==void 0)||(this._$AL.has(e)||(this.hasUpdated||s||(t=void 0),this._$AL.set(e,t)),i===!0&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}let e=this.scheduleUpdate();return e!=null&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(let[i,n]of this._$Ep)this[i]=n;this._$Ep=void 0}let s=this.constructor.elementProperties;if(s.size>0)for(let[i,n]of s){let{wrapped:l}=n,u=this[i];l!==!0||this._$AL.has(i)||u===void 0||this.C(i,void 0,n,u)}}let e=!1,t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(s=>s.hostUpdate?.()),this.update(t)):this._$EM()}catch(s){throw e=!1,this._$EM(),s}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(e){}firstUpdated(e){}};S.elementStyles=[],S.shadowRootOptions={mode:"open"},S[G("elementProperties")]=new Map,S[G("finalized")]=new Map,ns?.({ReactiveElement:S}),(re.reactiveElementVersions??=[]).push("2.1.2");var Ce=globalThis,ct=a=>a,ae=Ce.trustedTypes,dt=ae?ae.createPolicy("lit-html",{createHTML:a=>a}):void 0,ft="$lit$",C=`lit$${Math.random().toFixed(9).slice(2)}$`,bt="?"+C,os=`<${bt}>`,M=document,J=()=>M.createComment(""),Q=a=>a===null||typeof a!="object"&&typeof a!="function",De=Array.isArray,ls=a=>De(a)||typeof a?.[Symbol.iterator]=="function",we=`[ 	
-\f\r]`,Z=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,ht=/-->/g,ut=/>/g,L=RegExp(`>|${we}(?:([^\\s"'>=/]+)(${we}*=${we}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`,"g"),pt=/'/g,mt=/"/g,vt=/^(?:script|style|textarea|title)$/i,Pe=a=>(e,...t)=>({_$litType$:a,strings:e,values:t}),o=Pe(1),yt=Pe(2),$t=Pe(3),N=Symbol.for("lit-noChange"),d=Symbol.for("lit-nothing"),gt=new WeakMap,F=M.createTreeWalker(M,129);function kt(a,e){if(!De(a)||!a.hasOwnProperty("raw"))throw Error("invalid template strings array");return dt!==void 0?dt.createHTML(e):e}var cs=(a,e)=>{let t=a.length-1,s=[],i,n=e===2?"<svg>":e===3?"<math>":"",l=Z;for(let u=0;u<t;u++){let h=a[u],p,c,m=-1,k=0;for(;k<h.length&&(l.lastIndex=k,c=l.exec(h),c!==null);)k=l.lastIndex,l===Z?c[1]==="!--"?l=ht:c[1]!==void 0?l=ut:c[2]!==void 0?(vt.test(c[2])&&(i=RegExp("</"+c[2],"g")),l=L):c[3]!==void 0&&(l=L):l===L?c[0]===">"?(l=i??Z,m=-1):c[1]===void 0?m=-2:(m=l.lastIndex-c[2].length,p=c[1],l=c[3]===void 0?L:c[3]==='"'?mt:pt):l===mt||l===pt?l=L:l===ht||l===ut?l=Z:(l=L,i=void 0);let w=l===L&&a[u+1].startsWith("/>")?" ":"";n+=l===Z?h+os:m>=0?(s.push(p),h.slice(0,m)+ft+h.slice(m)+C+w):h+C+(m===-2?u:w)}return[kt(a,n+(a[t]||"<?>")+(e===2?"</svg>":e===3?"</math>":"")),s]},X=class a{constructor({strings:e,_$litType$:t},s){let i;this.parts=[];let n=0,l=0,u=e.length-1,h=this.parts,[p,c]=cs(e,t);if(this.el=a.createElement(p,s),F.currentNode=this.el.content,t===2||t===3){let m=this.el.content.firstChild;m.replaceWith(...m.childNodes)}for(;(i=F.nextNode())!==null&&h.length<u;){if(i.nodeType===1){if(i.hasAttributes())for(let m of i.getAttributeNames())if(m.endsWith(ft)){let k=c[l++],w=i.getAttribute(m).split(C),H=/([.?@])?(.*)/.exec(k);h.push({type:1,index:n,name:H[2],strings:w,ctor:H[1]==="."?Te:H[1]==="?"?Ee:H[1]==="@"?Ae:U}),i.removeAttribute(m)}else m.startsWith(C)&&(h.push({type:6,index:n}),i.removeAttribute(m));if(vt.test(i.tagName)){let m=i.textContent.split(C),k=m.length-1;if(k>0){i.textContent=ae?ae.emptyScript:"";for(let w=0;w<k;w++)i.append(m[w],J()),F.nextNode(),h.push({type:2,index:++n});i.append(m[k],J())}}}else if(i.nodeType===8)if(i.data===bt)h.push({type:2,index:n});else{let m=-1;for(;(m=i.data.indexOf(C,m+1))!==-1;)h.push({type:7,index:n}),m+=C.length-1}n++}}static createElement(e,t){let s=M.createElement("template");return s.innerHTML=e,s}};function R(a,e,t=a,s){if(e===N)return e;let i=s!==void 0?t._$Co?.[s]:t._$Cl,n=Q(e)?void 0:e._$litDirective$;return i?.constructor!==n&&(i?._$AO?.(!1),n===void 0?i=void 0:(i=new n(a),i._$AT(a,t,s)),s!==void 0?(t._$Co??=[])[s]=i:t._$Cl=i),i!==void 0&&(e=R(a,i._$AS(a,e.values),i,s)),e}var xe=class{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){let{el:{content:t},parts:s}=this._$AD,i=(e?.creationScope??M).importNode(t,!0);F.currentNode=i;let n=F.nextNode(),l=0,u=0,h=s[0];for(;h!==void 0;){if(l===h.index){let p;h.type===2?p=new Y(n,n.nextSibling,this,e):h.type===1?p=new h.ctor(n,h.name,h.strings,this,e):h.type===6&&(p=new Se(n,this,e)),this._$AV.push(p),h=s[++u]}l!==h?.index&&(n=F.nextNode(),l++)}return F.currentNode=M,i}p(e){let t=0;for(let s of this._$AV)s!==void 0&&(s.strings!==void 0?(s._$AI(e,s,t),t+=s.strings.length-2):s._$AI(e[t])),t++}},Y=class a{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,s,i){this.type=2,this._$AH=d,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=s,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode,t=this._$AM;return t!==void 0&&e?.nodeType===11&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=R(this,e,t),Q(e)?e===d||e==null||e===""?(this._$AH!==d&&this._$AR(),this._$AH=d):e!==this._$AH&&e!==N&&this._(e):e._$litType$!==void 0?this.$(e):e.nodeType!==void 0?this.T(e):ls(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==d&&Q(this._$AH)?this._$AA.nextSibling.data=e:this.T(M.createTextNode(e)),this._$AH=e}$(e){let{values:t,_$litType$:s}=e,i=typeof s=="number"?this._$AC(e):(s.el===void 0&&(s.el=X.createElement(kt(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===i)this._$AH.p(t);else{let n=new xe(i,this),l=n.u(this.options);n.p(t),this.T(l),this._$AH=n}}_$AC(e){let t=gt.get(e.strings);return t===void 0&&gt.set(e.strings,t=new X(e)),t}k(e){De(this._$AH)||(this._$AH=[],this._$AR());let t=this._$AH,s,i=0;for(let n of e)i===t.length?t.push(s=new a(this.O(J()),this.O(J()),this,this.options)):s=t[i],s._$AI(n),i++;i<t.length&&(this._$AR(s&&s._$AB.nextSibling,i),t.length=i)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){let s=ct(e).nextSibling;ct(e).remove(),e=s}}setConnected(e){this._$AM===void 0&&(this._$Cv=e,this._$AP?.(e))}},U=class{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,s,i,n){this.type=1,this._$AH=d,this._$AN=void 0,this.element=e,this.name=t,this._$AM=i,this.options=n,s.length>2||s[0]!==""||s[1]!==""?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=d}_$AI(e,t=this,s,i){let n=this.strings,l=!1;if(n===void 0)e=R(this,e,t,0),l=!Q(e)||e!==this._$AH&&e!==N,l&&(this._$AH=e);else{let u=e,h,p;for(e=n[0],h=0;h<n.length-1;h++)p=R(this,u[s+h],t,h),p===N&&(p=this._$AH[h]),l||=!Q(p)||p!==this._$AH[h],p===d?e=d:e!==d&&(e+=(p??"")+n[h+1]),this._$AH[h]=p}l&&!i&&this.j(e)}j(e){e===d?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}},Te=class extends U{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===d?void 0:e}},Ee=class extends U{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==d)}},Ae=class extends U{constructor(e,t,s,i,n){super(e,t,s,i,n),this.type=5}_$AI(e,t=this){if((e=R(this,e,t,0)??d)===N)return;let s=this._$AH,i=e===d&&s!==d||e.capture!==s.capture||e.once!==s.once||e.passive!==s.passive,n=e!==d&&(s===d||i);i&&this.element.removeEventListener(this.name,this,s),n&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){typeof this._$AH=="function"?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}},Se=class{constructor(e,t,s){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=s}get _$AU(){return this._$AM._$AU}_$AI(e){R(this,e)}};var ds=Ce.litHtmlPolyfillSupport;ds?.(X,Y),(Ce.litHtmlVersions??=[]).push("3.3.3");var _t=(a,e,t)=>{let s=t?.renderBefore??e,i=s._$litPart$;if(i===void 0){let n=t?.renderBefore??null;s._$litPart$=i=new Y(e.insertBefore(J(),n),n,void 0,t??{})}return i._$AI(a),i};var Ie=globalThis,D=class extends S{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){let e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){let t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=_t(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return N}};D._$litElement$=!0,D.finalized=!0,Ie.litElementHydrateSupport?.({LitElement:D});var hs=Ie.litElementPolyfillSupport;hs?.({LitElement:D});(Ie.litElementVersions??=[]).push("4.2.2");var xt=Symbol.for(""),us=a=>{if(a?.r===xt)return a?._$litStatic$},_=a=>({_$litStatic$:a,r:xt});var wt=new Map,Le=a=>(e,...t)=>{let s=t.length,i,n,l=[],u=[],h,p=0,c=!1;for(;p<s;){for(h=e[p];p<s&&(n=t[p],(i=us(n))!==void 0);)h+=i+e[++p],c=!0;p!==s&&u.push(n),l.push(h),p++}if(p===s&&l.push(e[s]),c){let m=l.join("$$lit$$");(e=wt.get(m))===void 0&&(l.raw=l,wt.set(m,e=l)),t=u}return a(e,...t)},g=Le(o),Bs=Le(yt),js=Le($t);var Tt=(a,e)=>a.connection.subscribeMessage(e,{type:"tasks/subscribe"}),Et=a=>{if(a.type==="sensor")return{type:a.type,entity_id:a.problemSensor.trim()};let e={type:a.type,unit:a.unit,interval:a.interval};return a.type==="fixed"&&(e.time=a.time,a.unit==="weekly"?e.weekdays=a.weekdays:a.unit==="monthly"?e.day=a.day:a.unit==="yearly"&&(e.day=a.day,e.month=a.month)),e},ps=async(a,e)=>{let t=new FormData;t.append("file",e);let s=await a.fetchWithAuth("/api/tasks/upload",{method:"POST",body:t});if(!s.ok)throw new Error(`File upload failed (${s.status})`);return(await s.json()).file_id};var At=async(a,e,t)=>{let s=await Promise.all((t.files?.staged||[]).map(i=>ps(a,i)));return a.connection.sendMessagePromise({type:"tasks/task/save",...e?{task_id:e.id}:{},name:t.name.trim(),description:t.description.trim()||null,icon:t.icon.trim()||null,active:t.active,...t.schedule?{schedule:Et(t.schedule)}:e?{schedule:e.schedule}:{},...t.assignment?{assignee_id:t.assignment.assigneeId||null,label_ids:t.assignment.labelIds,nfc_tag_id:t.assignment.nfcTagId||null}:{},...t.notification?{notification:{device_ids:t.notification.deviceIds,persistent:t.notification.persistent,critical:t.notification.critical,route:t.notification.route.trim()||null}}:{},file_ids:s,deleted_attachment_ids:t.files?.deletedAttachmentIds||[],deleted_history_entry_ids:t.files?.deletedHistoryEntryIds||[]})},z=async a=>{let[e,t,s]=await Promise.all([a.connection.sendMessagePromise({type:"tasks/list"}),a.connection.sendMessagePromise({type:"tag/list"}).catch(()=>[]),a.connection.sendMessagePromise({type:"config/label_registry/list"}).catch(()=>[])]);return{users:e.users||[],tags:Array.isArray(t)?t:[],labels:Array.isArray(s)?s:[]}},ne=async a=>{let e=await a.connection.sendMessagePromise({type:"config/device_registry/list"});return(Array.isArray(e)?e:[]).filter(t=>t.identifiers?.some(s=>s?.[0]==="mobile_app"))},St=(a,e)=>a.connection.sendMessagePromise({type:"tasks/task/bulk",operations:e}),oe=(a,e)=>a.connection.sendMessagePromise({type:"tasks/history/list",task_id:e}),Ct=(a,e)=>a.connection.sendMessagePromise({type:"tasks/attachment/urls",task_id:e}),Dt=(a,e,t)=>a.connection.sendMessagePromise({type:"tasks/task/complete",task_id:e,notes:t.trim()||null}),Pt=(a,e)=>a.connection.sendMessagePromise({type:"tasks/task/delete",task_id:e}),It=(a,e,t)=>a.connection.sendMessagePromise({type:"tasks/task/update",task_id:e,active:t}),Lt=(a,e,t)=>a.connection.sendMessagePromise({type:"tasks/task/preview_next_due",schedule:Et(e),...t?{due:t}:{}});var Ft=new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1],ms=Ft?`?v=${encodeURIComponent(decodeURIComponent(Ft))}`:"",Ht={},Mt="",Nt="",Fe=new Map,Me=new Set,gs=a=>{let e=String(a||"en").toLowerCase().split(/[-_]/)[0];return/^[a-z]{2,3}$/.test(e)?e:"en"},fs=a=>Object.fromEntries(Object.entries(a.common||{}).filter(([e])=>e.startsWith("ui_")).map(([e,t])=>{let s=e.indexOf("_",3);return[`${e.slice(3,s)}.${e.slice(s+1)}`,t]})),Ot=a=>{if(!Fe.has(a)){let e=a==="en"?"/tasks_strings.json":`/tasks_translations/${a}.json`;Fe.set(a,fetch(`${e}${ms}`).then(async t=>t.ok?t.json():{}).then(fs).catch(()=>({})))}return Fe.get(a)},r=(a,e={})=>String(Ht[a]??a).replace(/\{(\w+)\}/g,(t,s)=>String(e[s]??`{${s}}`)),x=(a,e)=>r("schedule.with_time",{description:a,time:r("app.at_time",{time:e})}),le=a=>{if(typeof a!="string"||!a)return;let e=`error.${a}`,t=r(e);return t===e?void 0:t},P=a=>{if(a&&typeof a=="object"){let e=a,t=le(e.code);if(t)return t;let s=le(e.message);if(s)return s;if(typeof e.message=="string"&&e.message)return e.message}return a instanceof Error?le(a.message)||a.message:typeof a=="string"&&a?le(a)||a:r("error.unknown")};async function Ne(a){let e=gs(a);Nt=e;let t=await Ot("en"),s=e==="en"?t:await Ot(e);if(Nt===e&&Mt!==e){Mt=e,Ht={...t,...s};for(let i of Me)i()}}var Rt=a=>(Me.add(a),()=>Me.delete(a)),Ut=Ne(globalThis.navigator?.language);var f=class extends D{unsubscribeLanguage;connectedCallback(){this.unsubscribeLanguage?.(),this.unsubscribeLanguage=Rt(()=>this.requestUpdate()),super.connectedCallback()}disconnectedCallback(){this.unsubscribeLanguage?.(),this.unsubscribeLanguage=void 0,super.disconnectedCallback()}};var ee=(a,e)=>{let t=e.toLowerCase(),s=a.split(".").pop()?.toLowerCase();return t.startsWith("image/")?"mdi:file-image-outline":t==="application/pdf"||s==="pdf"?"mdi:file-pdf-box":t.startsWith("text/")||["txt","md","log"].includes(s||"")?"mdi:file-document-outline":t.startsWith("audio/")?"mdi:file-music-outline":t.startsWith("video/")?"mdi:file-video-outline":t.includes("zip")||t.includes("compressed")||["zip","rar","7z","gz"].includes(s||"")?"mdi:folder-zip-outline":t.includes("spreadsheet")||t.includes("excel")||["csv","xls","xlsx","ods"].includes(s||"")?"mdi:file-table-outline":t.includes("word")||["doc","docx","odt","rtf"].includes(s||"")?"mdi:file-word-outline":"mdi:file-outline"};var O=(a,e)=>{let t=a?.states?.[e.entity_id];return t?t.state==="unavailable"||t.state==="unknown"?t.state:"available":"missing"};var v=a=>`ha-tasks-${a}`,ei=decodeURIComponent(new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1]||"");var Oe=class extends f{static properties={heading:{},content:{attribute:!1},actions:{attribute:!1},width:{},open:{type:Boolean}};running=!1;closeValue="";constructor(){super(),this.heading="",this.content=o``,this.actions=[],this.width="medium",this.open=!1}close(e=""){this.closeValue=e,this.open=!1}async run(e){if(!this.running){this.running=!0;try{await e.run?.()!==!1&&this.close(e.value)}finally{this.running=!1}}}render(){let e=this.actions.at(-1),t=this.actions.slice(0,-1);return o`
+var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,_e=Symbol(),at=new WeakMap,K=class{constructor(e,t,s){if(this._$cssResult$=!0,s!==_e)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o,t=this.t;if(ie&&e===void 0){let s=t!==void 0&&t.length===1;s&&(e=at.get(t)),e===void 0&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),s&&at.set(t,e))}return e}toString(){return this.cssText}},nt=r=>new K(typeof r=="string"?r:r+"",void 0,_e),b=(r,...e)=>{let t=r.length===1?r[0]:e.reduce((s,i,n)=>s+(l=>{if(l._$cssResult$===!0)return l.cssText;if(typeof l=="number")return l;throw Error("Value passed to 'css' function must be a 'css' function result: "+l+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+r[n+1],r[0]);return new K(t,r,_e)},ot=(r,e)=>{if(ie)r.adoptedStyleSheets=e.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(let t of e){let s=document.createElement("style"),i=se.litNonce;i!==void 0&&s.setAttribute("nonce",i),s.textContent=t.cssText,r.appendChild(s)}},we=ie?r=>r:r=>r instanceof CSSStyleSheet?(e=>{let t="";for(let s of e.cssRules)t+=s.cssText;return nt(t)})(r):r;var{is:ss,defineProperty:is,getOwnPropertyDescriptor:rs,getOwnPropertyNames:as,getOwnPropertySymbols:ns,getPrototypeOf:os}=Object,re=globalThis,lt=re.trustedTypes,ls=lt?lt.emptyScript:"",cs=re.reactiveElementPolyfillSupport,q=(r,e)=>r,xe={toAttribute(r,e){switch(e){case Boolean:r=r?ls:null;break;case Object:case Array:r=r==null?r:JSON.stringify(r)}return r},fromAttribute(r,e){let t=r;switch(e){case Boolean:t=r!==null;break;case Number:t=r===null?null:Number(r);break;case Object:case Array:try{t=JSON.parse(r)}catch{t=null}}return t}},dt=(r,e)=>!ss(r,e),ct={attribute:!0,type:String,converter:xe,reflect:!1,useDefault:!1,hasChanged:dt};Symbol.metadata??=Symbol("metadata"),re.litPropertyMetadata??=new WeakMap;var A=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=ct){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){let s=Symbol(),i=this.getPropertyDescriptor(e,s,t);i!==void 0&&is(this.prototype,e,i)}}static getPropertyDescriptor(e,t,s){let{get:i,set:n}=rs(this.prototype,e)??{get(){return this[t]},set(l){this[t]=l}};return{get:i,set(l){let u=i?.call(this);n?.call(this,l),this.requestUpdate(e,u,s)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??ct}static _$Ei(){if(this.hasOwnProperty(q("elementProperties")))return;let e=os(this);e.finalize(),e.l!==void 0&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(q("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(q("properties"))){let t=this.properties,s=[...as(t),...ns(t)];for(let i of s)this.createProperty(i,t[i])}let e=this[Symbol.metadata];if(e!==null){let t=litPropertyMetadata.get(e);if(t!==void 0)for(let[s,i]of t)this.elementProperties.set(s,i)}this._$Eh=new Map;for(let[t,s]of this.elementProperties){let i=this._$Eu(t,s);i!==void 0&&this._$Eh.set(i,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){let t=[];if(Array.isArray(e)){let s=new Set(e.flat(1/0).reverse());for(let i of s)t.unshift(we(i))}else e!==void 0&&t.push(we(e));return t}static _$Eu(e,t){let s=t.attribute;return s===!1?void 0:typeof s=="string"?s:typeof e=="string"?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),this.renderRoot!==void 0&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){let e=new Map,t=this.constructor.elementProperties;for(let s of t.keys())this.hasOwnProperty(s)&&(e.set(s,this[s]),delete this[s]);e.size>0&&(this._$Ep=e)}createRenderRoot(){let e=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return ot(e,this.constructor.elementStyles),e}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,s){this._$AK(e,s)}_$ET(e,t){let s=this.constructor.elementProperties.get(e),i=this.constructor._$Eu(e,s);if(i!==void 0&&s.reflect===!0){let n=(s.converter?.toAttribute!==void 0?s.converter:xe).toAttribute(t,s.type);this._$Em=e,n==null?this.removeAttribute(i):this.setAttribute(i,n),this._$Em=null}}_$AK(e,t){let s=this.constructor,i=s._$Eh.get(e);if(i!==void 0&&this._$Em!==i){let n=s.getPropertyOptions(i),l=typeof n.converter=="function"?{fromAttribute:n.converter}:n.converter?.fromAttribute!==void 0?n.converter:xe;this._$Em=i;let u=l.fromAttribute(t,n.type);this[i]=u??this._$Ej?.get(i)??u,this._$Em=null}}requestUpdate(e,t,s,i=!1,n){if(e!==void 0){let l=this.constructor;if(i===!1&&(n=this[e]),s??=l.getPropertyOptions(e),!((s.hasChanged??dt)(n,t)||s.useDefault&&s.reflect&&n===this._$Ej?.get(e)&&!this.hasAttribute(l._$Eu(e,s))))return;this.C(e,t,s)}this.isUpdatePending===!1&&(this._$ES=this._$EP())}C(e,t,{useDefault:s,reflect:i,wrapped:n},l){s&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,l??t??this[e]),n!==!0||l!==void 0)||(this._$AL.has(e)||(this.hasUpdated||s||(t=void 0),this._$AL.set(e,t)),i===!0&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}let e=this.scheduleUpdate();return e!=null&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(let[i,n]of this._$Ep)this[i]=n;this._$Ep=void 0}let s=this.constructor.elementProperties;if(s.size>0)for(let[i,n]of s){let{wrapped:l}=n,u=this[i];l!==!0||this._$AL.has(i)||u===void 0||this.C(i,void 0,n,u)}}let e=!1,t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(s=>s.hostUpdate?.()),this.update(t)):this._$EM()}catch(s){throw e=!1,this._$EM(),s}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(e){}firstUpdated(e){}};A.elementStyles=[],A.shadowRootOptions={mode:"open"},A[q("elementProperties")]=new Map,A[q("finalized")]=new Map,cs?.({ReactiveElement:A}),(re.reactiveElementVersions??=[]).push("2.1.2");var Pe=globalThis,ht=r=>r,ae=Pe.trustedTypes,ut=ae?ae.createPolicy("lit-html",{createHTML:r=>r}):void 0,vt="$lit$",S=`lit$${Math.random().toFixed(9).slice(2)}$`,yt="?"+S,ds=`<${yt}>`,F=document,Z=()=>F.createComment(""),J=r=>r===null||typeof r!="object"&&typeof r!="function",Ie=Array.isArray,hs=r=>Ie(r)||typeof r?.[Symbol.iterator]=="function",Te=`[ 	
+\f\r]`,G=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,pt=/-->/g,mt=/>/g,I=RegExp(`>|${Te}(?:([^\\s"'>=/]+)(${Te}*=${Te}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`,"g"),gt=/'/g,ft=/"/g,$t=/^(?:script|style|textarea|title)$/i,Le=r=>(e,...t)=>({_$litType$:r,strings:e,values:t}),o=Le(1),kt=Le(2),_t=Le(3),N=Symbol.for("lit-noChange"),d=Symbol.for("lit-nothing"),bt=new WeakMap,L=F.createTreeWalker(F,129);function wt(r,e){if(!Ie(r)||!r.hasOwnProperty("raw"))throw Error("invalid template strings array");return ut!==void 0?ut.createHTML(e):e}var us=(r,e)=>{let t=r.length-1,s=[],i,n=e===2?"<svg>":e===3?"<math>":"",l=G;for(let u=0;u<t;u++){let h=r[u],p,c,m=-1,_=0;for(;_<h.length&&(l.lastIndex=_,c=l.exec(h),c!==null);)_=l.lastIndex,l===G?c[1]==="!--"?l=pt:c[1]!==void 0?l=mt:c[2]!==void 0?($t.test(c[2])&&(i=RegExp("</"+c[2],"g")),l=I):c[3]!==void 0&&(l=I):l===I?c[0]===">"?(l=i??G,m=-1):c[1]===void 0?m=-2:(m=l.lastIndex-c[2].length,p=c[1],l=c[3]===void 0?I:c[3]==='"'?ft:gt):l===ft||l===gt?l=I:l===pt||l===mt?l=G:(l=I,i=void 0);let w=l===I&&r[u+1].startsWith("/>")?" ":"";n+=l===G?h+ds:m>=0?(s.push(p),h.slice(0,m)+vt+h.slice(m)+S+w):h+S+(m===-2?u:w)}return[wt(r,n+(r[t]||"<?>")+(e===2?"</svg>":e===3?"</math>":"")),s]},Q=class r{constructor({strings:e,_$litType$:t},s){let i;this.parts=[];let n=0,l=0,u=e.length-1,h=this.parts,[p,c]=us(e,t);if(this.el=r.createElement(p,s),L.currentNode=this.el.content,t===2||t===3){let m=this.el.content.firstChild;m.replaceWith(...m.childNodes)}for(;(i=L.nextNode())!==null&&h.length<u;){if(i.nodeType===1){if(i.hasAttributes())for(let m of i.getAttributeNames())if(m.endsWith(vt)){let _=c[l++],w=i.getAttribute(m).split(S),H=/([.?@])?(.*)/.exec(_);h.push({type:1,index:n,name:H[2],strings:w,ctor:H[1]==="."?Ae:H[1]==="?"?Se:H[1]==="@"?Ce:R}),i.removeAttribute(m)}else m.startsWith(S)&&(h.push({type:6,index:n}),i.removeAttribute(m));if($t.test(i.tagName)){let m=i.textContent.split(S),_=m.length-1;if(_>0){i.textContent=ae?ae.emptyScript:"";for(let w=0;w<_;w++)i.append(m[w],Z()),L.nextNode(),h.push({type:2,index:++n});i.append(m[_],Z())}}}else if(i.nodeType===8)if(i.data===yt)h.push({type:2,index:n});else{let m=-1;for(;(m=i.data.indexOf(S,m+1))!==-1;)h.push({type:7,index:n}),m+=S.length-1}n++}}static createElement(e,t){let s=F.createElement("template");return s.innerHTML=e,s}};function O(r,e,t=r,s){if(e===N)return e;let i=s!==void 0?t._$Co?.[s]:t._$Cl,n=J(e)?void 0:e._$litDirective$;return i?.constructor!==n&&(i?._$AO?.(!1),n===void 0?i=void 0:(i=new n(r),i._$AT(r,t,s)),s!==void 0?(t._$Co??=[])[s]=i:t._$Cl=i),i!==void 0&&(e=O(r,i._$AS(r,e.values),i,s)),e}var Ee=class{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){let{el:{content:t},parts:s}=this._$AD,i=(e?.creationScope??F).importNode(t,!0);L.currentNode=i;let n=L.nextNode(),l=0,u=0,h=s[0];for(;h!==void 0;){if(l===h.index){let p;h.type===2?p=new X(n,n.nextSibling,this,e):h.type===1?p=new h.ctor(n,h.name,h.strings,this,e):h.type===6&&(p=new De(n,this,e)),this._$AV.push(p),h=s[++u]}l!==h?.index&&(n=L.nextNode(),l++)}return L.currentNode=F,i}p(e){let t=0;for(let s of this._$AV)s!==void 0&&(s.strings!==void 0?(s._$AI(e,s,t),t+=s.strings.length-2):s._$AI(e[t])),t++}},X=class r{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,s,i){this.type=2,this._$AH=d,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=s,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode,t=this._$AM;return t!==void 0&&e?.nodeType===11&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=O(this,e,t),J(e)?e===d||e==null||e===""?(this._$AH!==d&&this._$AR(),this._$AH=d):e!==this._$AH&&e!==N&&this._(e):e._$litType$!==void 0?this.$(e):e.nodeType!==void 0?this.T(e):hs(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==d&&J(this._$AH)?this._$AA.nextSibling.data=e:this.T(F.createTextNode(e)),this._$AH=e}$(e){let{values:t,_$litType$:s}=e,i=typeof s=="number"?this._$AC(e):(s.el===void 0&&(s.el=Q.createElement(wt(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===i)this._$AH.p(t);else{let n=new Ee(i,this),l=n.u(this.options);n.p(t),this.T(l),this._$AH=n}}_$AC(e){let t=bt.get(e.strings);return t===void 0&&bt.set(e.strings,t=new Q(e)),t}k(e){Ie(this._$AH)||(this._$AH=[],this._$AR());let t=this._$AH,s,i=0;for(let n of e)i===t.length?t.push(s=new r(this.O(Z()),this.O(Z()),this,this.options)):s=t[i],s._$AI(n),i++;i<t.length&&(this._$AR(s&&s._$AB.nextSibling,i),t.length=i)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){let s=ht(e).nextSibling;ht(e).remove(),e=s}}setConnected(e){this._$AM===void 0&&(this._$Cv=e,this._$AP?.(e))}},R=class{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,s,i,n){this.type=1,this._$AH=d,this._$AN=void 0,this.element=e,this.name=t,this._$AM=i,this.options=n,s.length>2||s[0]!==""||s[1]!==""?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=d}_$AI(e,t=this,s,i){let n=this.strings,l=!1;if(n===void 0)e=O(this,e,t,0),l=!J(e)||e!==this._$AH&&e!==N,l&&(this._$AH=e);else{let u=e,h,p;for(e=n[0],h=0;h<n.length-1;h++)p=O(this,u[s+h],t,h),p===N&&(p=this._$AH[h]),l||=!J(p)||p!==this._$AH[h],p===d?e=d:e!==d&&(e+=(p??"")+n[h+1]),this._$AH[h]=p}l&&!i&&this.j(e)}j(e){e===d?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}},Ae=class extends R{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===d?void 0:e}},Se=class extends R{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==d)}},Ce=class extends R{constructor(e,t,s,i,n){super(e,t,s,i,n),this.type=5}_$AI(e,t=this){if((e=O(this,e,t,0)??d)===N)return;let s=this._$AH,i=e===d&&s!==d||e.capture!==s.capture||e.once!==s.once||e.passive!==s.passive,n=e!==d&&(s===d||i);i&&this.element.removeEventListener(this.name,this,s),n&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){typeof this._$AH=="function"?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}},De=class{constructor(e,t,s){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=s}get _$AU(){return this._$AM._$AU}_$AI(e){O(this,e)}};var ps=Pe.litHtmlPolyfillSupport;ps?.(Q,X),(Pe.litHtmlVersions??=[]).push("3.3.3");var xt=(r,e,t)=>{let s=t?.renderBefore??e,i=s._$litPart$;if(i===void 0){let n=t?.renderBefore??null;s._$litPart$=i=new X(e.insertBefore(Z(),n),n,void 0,t??{})}return i._$AI(r),i};var Fe=globalThis,C=class extends A{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){let e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){let t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=xt(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return N}};C._$litElement$=!0,C.finalized=!0,Fe.litElementHydrateSupport?.({LitElement:C});var ms=Fe.litElementPolyfillSupport;ms?.({LitElement:C});(Fe.litElementVersions??=[]).push("4.2.2");var Et=Symbol.for(""),gs=r=>{if(r?.r===Et)return r?._$litStatic$},k=r=>({_$litStatic$:r,r:Et});var Tt=new Map,Ne=r=>(e,...t)=>{let s=t.length,i,n,l=[],u=[],h,p=0,c=!1;for(;p<s;){for(h=e[p];p<s&&(n=t[p],(i=gs(n))!==void 0);)h+=i+e[++p],c=!0;p!==s&&u.push(n),l.push(h),p++}if(p===s&&l.push(e[s]),c){let m=l.join("$$lit$$");(e=Tt.get(m))===void 0&&(l.raw=l,Tt.set(m,e=l)),t=u}return r(e,...t)},g=Ne(o),Ws=Ne(kt),Ks=Ne(_t);var At=(r,e)=>r.connection.subscribeMessage(e,{type:"tasks/subscribe"}),St=r=>{if(r.type==="sensor")return{type:r.type,entity_id:r.problemSensor.trim()};let e={type:r.type,unit:r.unit,interval:r.interval};return r.type==="fixed"&&(e.time=r.time,r.unit==="weekly"?e.weekdays=r.weekdays:r.unit==="monthly"?e.day=r.day:r.unit==="yearly"&&(e.day=r.day,e.month=r.month)),e},fs=async(r,e)=>{let t=new FormData;t.append("file",e);let s=await r.fetchWithAuth("/api/tasks/upload",{method:"POST",body:t});if(!s.ok)throw new Error(`File upload failed (${s.status})`);return(await s.json()).file_id};var Ct=async(r,e,t)=>{let s=await Promise.all((t.files?.staged||[]).map(i=>fs(r,i)));return r.connection.sendMessagePromise({type:"tasks/task/save",...e?{task_id:e.id}:{},name:t.name.trim(),description:t.description.trim()||null,icon:t.icon.trim()||null,active:t.active,...t.schedule?{schedule:St(t.schedule)}:e?{schedule:e.schedule}:{},...t.assignment?{assignee_id:t.assignment.assigneeId||null,label_ids:t.assignment.labelIds,nfc_tag_id:t.assignment.nfcTagId||null}:{},...t.notification?{notification:{device_ids:t.notification.deviceIds,persistent:t.notification.persistent,critical:t.notification.critical,route:t.notification.route.trim()||null}}:{},file_ids:s,deleted_attachment_ids:t.files?.deletedAttachmentIds||[],deleted_history_entry_ids:t.files?.deletedHistoryEntryIds||[]})},U=async r=>{let[e,t,s]=await Promise.all([r.connection.sendMessagePromise({type:"tasks/list"}),r.connection.sendMessagePromise({type:"tag/list"}).catch(()=>[]),r.connection.sendMessagePromise({type:"config/label_registry/list"}).catch(()=>[])]);return{users:e.users||[],tags:Array.isArray(t)?t:[],labels:Array.isArray(s)?s:[]}},ne=async r=>{let e=await r.connection.sendMessagePromise({type:"config/device_registry/list"});return(Array.isArray(e)?e:[]).filter(t=>t.identifiers?.some(s=>s?.[0]==="mobile_app"))},Dt=(r,e)=>r.connection.sendMessagePromise({type:"tasks/task/bulk",operations:e}),oe=(r,e)=>r.connection.sendMessagePromise({type:"tasks/history/list",task_id:e}),Pt=(r,e)=>r.connection.sendMessagePromise({type:"tasks/attachment/urls",task_id:e}),It=(r,e,t)=>r.connection.sendMessagePromise({type:"tasks/task/complete",task_id:e,notes:t.trim()||null}),Lt=(r,e)=>r.connection.sendMessagePromise({type:"tasks/task/delete",task_id:e}),Ft=(r,e,t)=>r.connection.sendMessagePromise({type:"tasks/task/update",task_id:e,active:t}),Nt=(r,e,t)=>r.connection.sendMessagePromise({type:"tasks/task/preview_next_due",schedule:St(e),...t?{due:t}:{}});var Mt=new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1],bs=Mt?`?v=${encodeURIComponent(decodeURIComponent(Mt))}`:"",Ut={},Ht="",Ot="",Me=new Map,He=new Set,vs=r=>{let e=String(r||"en").toLowerCase().split(/[-_]/)[0];return/^[a-z]{2,3}$/.test(e)?e:"en"},ys=r=>Object.fromEntries(Object.entries(r.common||{}).filter(([e])=>e.startsWith("ui_")).map(([e,t])=>{let s=e.indexOf("_",3);return[`${e.slice(3,s)}.${e.slice(s+1)}`,t]})),Rt=r=>{if(!Me.has(r)){let e=r==="en"?"/tasks_strings.json":`/tasks_translations/${r}.json`;Me.set(r,fetch(`${e}${bs}`).then(async t=>t.ok?t.json():{}).then(ys).catch(()=>({})))}return Me.get(r)},a=(r,e={})=>String(Ut[r]??r).replace(/\{(\w+)\}/g,(t,s)=>String(e[s]??`{${s}}`)),Y=(r,e)=>a("schedule.with_time",{description:r,time:a("app.at_time",{time:e})}),le=r=>{if(typeof r!="string"||!r)return;let e=`error.${r}`,t=a(e);return t===e?void 0:t},D=r=>{if(r&&typeof r=="object"){let e=r,t=le(e.code);if(t)return t;let s=le(e.message);if(s)return s;if(typeof e.message=="string"&&e.message)return e.message}return r instanceof Error?le(r.message)||r.message:typeof r=="string"&&r?le(r)||r:a("error.unknown")};async function Oe(r){let e=vs(r);Ot=e;let t=await Rt("en"),s=e==="en"?t:await Rt(e);if(Ot===e&&Ht!==e){Ht=e,Ut={...t,...s};for(let i of He)i()}}var zt=r=>(He.add(r),()=>He.delete(r)),Bt=Oe(globalThis.navigator?.language);var f=class extends C{unsubscribeLanguage;connectedCallback(){this.unsubscribeLanguage?.(),this.unsubscribeLanguage=zt(()=>this.requestUpdate()),super.connectedCallback()}disconnectedCallback(){this.unsubscribeLanguage?.(),this.unsubscribeLanguage=void 0,super.disconnectedCallback()}};var ee=(r,e)=>{let t=e.toLowerCase(),s=r.split(".").pop()?.toLowerCase();return t.startsWith("image/")?"mdi:file-image-outline":t==="application/pdf"||s==="pdf"?"mdi:file-pdf-box":t.startsWith("text/")||["txt","md","log"].includes(s||"")?"mdi:file-document-outline":t.startsWith("audio/")?"mdi:file-music-outline":t.startsWith("video/")?"mdi:file-video-outline":t.includes("zip")||t.includes("compressed")||["zip","rar","7z","gz"].includes(s||"")?"mdi:folder-zip-outline":t.includes("spreadsheet")||t.includes("excel")||["csv","xls","xlsx","ods"].includes(s||"")?"mdi:file-table-outline":t.includes("word")||["doc","docx","odt","rtf"].includes(s||"")?"mdi:file-word-outline":"mdi:file-outline"},te=r=>r<1024?`${r} B`:r<1048576?`${Math.round(r/1024)} KB`:`${(r/1048576).toFixed(1)} MB`;var Vt={daily:"day",weekly:"week",monthly:"month",yearly:"year"},ce=(r,e)=>{if(r.type==="sensor"){let u=a("schedule.problem_sensor_description");return r.sensorName?`${u} (${r.sensorName})`:u}let t=r.unit||"daily",s=Math.max(1,Number(r.interval)||1),i=a(`schedule.period_${Vt[t]}`),n=a(`schedule.period_${Vt[t]}s`);if(r.type==="sliding")return a(s===1?"schedule.after_completion_one":"schedule.after_completion_many",{schedule_interval:s,period:s===1?i:n});let l=r.time||"09:00";if(t==="weekly"){let u=Array.from({length:7},(c,m)=>new Intl.DateTimeFormat(e,{weekday:"long",timeZone:"UTC"}).format(new Date(Date.UTC(2024,0,m+1)))),h=(r.weekdays||[]).map(c=>u[c]).filter(Boolean),p=h.length>1?`${h.slice(0,-1).join(", ")} ${a("schedule.and")} ${h.at(-1)}`:h[0]||"";return Y(a(s===1?"schedule.weekly_one":"schedule.weekly_many",{schedule_interval:s,days:p?` ${a("schedule.on_days",{days:p})}`:""}),l)}if(t==="monthly"){let u=r.day==="last"?a("schedule.on_last_day"):a("schedule.on_day_number",{day:Number(r.day||1)});return Y(a(s===1?"schedule.monthly_one":"schedule.monthly_many",{schedule_interval:s,day:u}),l)}if(t==="yearly"){let u=new Intl.DateTimeFormat(e,{month:"long"}).format(new Date(2024,(r.month||1)-1,1)),h=r.day==="last"?a("schedule.on_last_day_of_month",{month:u}):a("schedule.on_day_of_month",{day:Number(r.day||1),month:u});return Y(a(s===1?"schedule.yearly_one":"schedule.yearly_many",{schedule_interval:s,day:h}),l)}return Y(a(s===1?"schedule.fixed_one":"schedule.fixed_many",{schedule_interval:s,period:s===1?i:n}),l)};var M=(r,e)=>{let t=r?.states?.[e.entity_id];return t?t.state==="unavailable"||t.state==="unknown"?t.state:"available":"missing"};var v=r=>`ha-tasks-${r}`,ai=decodeURIComponent(new URL(import.meta.url).pathname.match(/\/tasks_frontend\/([^/]+)\//)?.[1]||"");var Re=class extends f{static properties={heading:{},content:{attribute:!1},actions:{attribute:!1},width:{},open:{type:Boolean}};running=!1;closeValue="";constructor(){super(),this.heading="",this.content=o``,this.actions=[],this.width="medium",this.open=!1}close(e=""){this.closeValue=e,this.open=!1}async run(e){if(!this.running){this.running=!0;try{await e.run?.()!==!1&&this.close(e.value)}finally{this.running=!1}}}render(){let e=this.actions.at(-1),t=this.actions.slice(0,-1);return o`
       <ha-adaptive-dialog
         width=${this.width}
         flexcontent
@@ -34,7 +34,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
               </ha-dialog-footer>
             `:""}
       </ha-adaptive-dialog>
-    `}},He=v("dialog");customElements.get(He)||customElements.define(He,Oe);var T=({heading:a,content:e,actions:t=[],width:s="medium"})=>{let i=document.createElement(He);return i.heading=a,i.content=e,i.actions=t,i.width=s,(document.querySelector("home-assistant")?.shadowRoot||document.body).append(i),i.open=!0,new Promise(l=>{i.addEventListener("tasks-dialog-closed",u=>{i.remove(),l(u.detail)},{once:!0})})};var Re=class extends f{static properties={heading:{},warning:{type:Boolean},open:{type:Boolean}};static styles=b`
+    `}},Ue=v("dialog");customElements.get(Ue)||customElements.define(Ue,Re);var x=({heading:r,content:e,actions:t=[],width:s="medium"})=>{let i=document.createElement(Ue);return i.heading=r,i.content=e,i.actions=t,i.width=s,(document.querySelector("home-assistant")?.shadowRoot||document.body).append(i),i.open=!0,new Promise(l=>{i.addEventListener("tasks-dialog-closed",u=>{i.remove(),l(u.detail)},{once:!0})})};var ze=class extends f{static properties={heading:{},warning:{type:Boolean},open:{type:Boolean}};static styles=b`
     .expandable {
       overflow: hidden;
       border: 1px solid var(--divider-color);
@@ -121,8 +121,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                 <ha-icon
                   class="warning"
                   icon="mdi:alert-circle-outline"
-                  aria-label=${r("app.section_needs_attention")}
-                  title=${r("app.section_needs_attention")}
+                  aria-label=${a("app.section_needs_attention")}
+                  title=${a("app.section_needs_attention")}
                 ></ha-icon>
               `:null}
           <ha-icon
@@ -136,7 +136,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           </div>
         </div>
       </div>
-    `}},B=v("expandable");customElements.get(B)||customElements.define(B,Re);var bs=b`
+    `}},z=v("expandable");customElements.get(z)||customElements.define(z,ze);var $s=b`
   :host {
     display: block;
   }
@@ -210,7 +210,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     color: var(--error-color);
   }
 
-`,j=class extends f{static properties={label:{},value:{},required:{type:Boolean},disabled:{type:Boolean},error:{}};static styles=bs;constructor(){super(),this.label="",this.value="",this.required=!1,this.disabled=!1,this.error=""}change(e){this.value=e,this.error="",this.dispatchEvent(new CustomEvent("value-changed",{bubbles:!0,composed:!0,detail:e}))}errorMessage(){return this.error?o`<span class="error" role="alert">${this.error}</span>`:null}},Ue=class extends j{static properties={...j.properties,multiline:{type:Boolean},inputType:{attribute:"input-type"},min:{type:Number}};constructor(){super(),this.multiline=!1,this.inputType="text",this.min=void 0}render(){return o`
+`,B=class extends f{static properties={label:{},value:{},required:{type:Boolean},disabled:{type:Boolean},error:{}};static styles=$s;constructor(){super(),this.label="",this.value="",this.required=!1,this.disabled=!1,this.error=""}change(e){this.value=e,this.error="",this.dispatchEvent(new CustomEvent("value-changed",{bubbles:!0,composed:!0,detail:e}))}errorMessage(){return this.error?o`<span class="error" role="alert">${this.error}</span>`:null}},Be=class extends B{static properties={...B.properties,multiline:{type:Boolean},inputType:{attribute:"input-type"},min:{type:Number}};constructor(){super(),this.multiline=!1,this.inputType="text",this.min=void 0}render(){return o`
       <label>
         <span>${this.label}</span>
         ${this.multiline?o`
@@ -234,7 +234,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
             `}
         ${this.errorMessage()}
       </label>
-    `}},ze=class extends j{static properties={...j.properties,options:{attribute:!1}};constructor(){super(),this.options=[]}render(){return o`
+    `}},Ve=class extends B{static properties={...B.properties,options:{attribute:!1}};constructor(){super(),this.options=[]}render(){return o`
       <label>
         <span>${this.label}</span>
         <select
@@ -255,7 +255,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         </select>
         ${this.errorMessage()}
       </label>
-    `}},V=v("text-field"),ce=v("select-field");customElements.get(V)||customElements.define(V,Ue);customElements.get(ce)||customElements.define(ce,ze);var I=_(V),y=_(ce),E=_(B),$=_("ha-form"),zt=()=>[{label:r("task.sliding"),value:"sliding"},{label:r("task.fixed"),value:"fixed"},{label:r("task.problem_sensor"),value:"sensor"}],vs=()=>[{label:r("task.daily"),value:"daily"},{label:r("task.weekly"),value:"weekly"},{label:r("task.monthly"),value:"monthly"},{label:r("task.yearly"),value:"yearly"}],Bt=()=>[...Array.from({length:31},(a,e)=>({label:String(e+1),value:String(e+1)})),{label:r("task.last_day"),value:"last"}],ys=(a,e)=>{let t=e?new Date(e):new Date;return Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:a.config?.time_zone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(t).filter(s=>s.type!=="literal").map(s=>[s.type,s.value]))},Be=class extends f{static properties={name:{state:!0},description:{state:!0},status:{state:!0},icon:{state:!0},assigneeId:{state:!0},labelIds:{state:!0},nfcTagId:{state:!0},users:{state:!0},labels:{state:!0},tags:{state:!0},assignmentLoading:{state:!0},assignmentError:{state:!0},notificationDeviceIds:{state:!0},notificationPersistent:{state:!0},notificationCritical:{state:!0},notificationRoute:{state:!0},devices:{state:!0},notificationLoading:{state:!0},notificationError:{state:!0},notificationRouteError:{state:!0},attachments:{state:!0},stagedFiles:{state:!0},deletedAttachmentIds:{state:!0},history:{state:!0},deletedHistoryEntryIds:{state:!0},historyLoading:{state:!0},historyError:{state:!0},scheduleType:{state:!0},scheduleUnit:{state:!0},scheduleInterval:{state:!0},scheduleWeekdays:{state:!0},scheduleDay:{state:!0},scheduleMonth:{state:!0},scheduleTime:{state:!0},problemSensor:{state:!0},preview:{state:!0},previewLoading:{state:!0},previewError:{state:!0},previewExpanded:{state:!0},nameError:{state:!0},scheduleError:{state:!0},saveError:{state:!0},saving:{state:!0},fileDropActive:{state:!0}};static styles=b`
+    `}},V=v("text-field"),de=v("select-field");customElements.get(V)||customElements.define(V,Be);customElements.get(de)||customElements.define(de,Ve);var P=k(V),y=k(de),T=k(z),$=k("ha-form"),jt=()=>[{label:a("task.sliding"),value:"sliding"},{label:a("task.fixed"),value:"fixed"},{label:a("task.problem_sensor"),value:"sensor"}],ks=()=>[{label:a("task.daily"),value:"daily"},{label:a("task.weekly"),value:"weekly"},{label:a("task.monthly"),value:"monthly"},{label:a("task.yearly"),value:"yearly"}],Wt=()=>[...Array.from({length:31},(r,e)=>({label:String(e+1),value:String(e+1)})),{label:a("task.last_day"),value:"last"}],_s=(r,e)=>{let t=e?new Date(e):new Date;return Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:r.config?.time_zone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(t).filter(s=>s.type!=="literal").map(s=>[s.type,s.value]))},je=class extends f{static properties={name:{state:!0},description:{state:!0},status:{state:!0},icon:{state:!0},assigneeId:{state:!0},labelIds:{state:!0},nfcTagId:{state:!0},users:{state:!0},labels:{state:!0},tags:{state:!0},assignmentLoading:{state:!0},assignmentError:{state:!0},notificationDeviceIds:{state:!0},notificationPersistent:{state:!0},notificationCritical:{state:!0},notificationRoute:{state:!0},devices:{state:!0},notificationLoading:{state:!0},notificationError:{state:!0},notificationRouteError:{state:!0},attachments:{state:!0},stagedFiles:{state:!0},deletedAttachmentIds:{state:!0},history:{state:!0},deletedHistoryEntryIds:{state:!0},historyLoading:{state:!0},historyError:{state:!0},scheduleType:{state:!0},scheduleUnit:{state:!0},scheduleInterval:{state:!0},scheduleWeekdays:{state:!0},scheduleDay:{state:!0},scheduleMonth:{state:!0},scheduleTime:{state:!0},problemSensor:{state:!0},preview:{state:!0},previewLoading:{state:!0},previewError:{state:!0},previewExpanded:{state:!0},nameError:{state:!0},scheduleError:{state:!0},saveError:{state:!0},saving:{state:!0},fileDropActive:{state:!0}};static styles=b`
     :host,
     form,
     .planning {
@@ -483,8 +483,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         grid-template-columns: 1fr;
       }
     }
-  `;hass;task;scheduleDirty=!1;assignmentDirty=!1;notificationDirty=!1;previewRequest=0;constructor(){super(),this.name="",this.description="",this.status="active",this.icon="",this.assigneeId="",this.labelIds=[],this.nfcTagId="",this.users=[],this.labels=[],this.tags=[],this.assignmentLoading=!1,this.assignmentError="",this.notificationDeviceIds=[],this.notificationPersistent=!1,this.notificationCritical=!1,this.notificationRoute="",this.devices=[],this.notificationLoading=!1,this.notificationError="",this.notificationRouteError="",this.attachments=[],this.stagedFiles=[],this.deletedAttachmentIds=[],this.history=[],this.deletedHistoryEntryIds=[],this.historyLoading=!1,this.historyError="",this.scheduleType="sliding",this.scheduleUnit="monthly",this.scheduleInterval=1,this.scheduleWeekdays=[],this.scheduleDay=1,this.scheduleMonth=1,this.scheduleTime="09:00",this.problemSensor="",this.preview=[],this.previewLoading=!1,this.previewError="",this.previewExpanded=!1,this.nameError="",this.scheduleError="",this.saveError="",this.saving=!1,this.fileDropActive=!1}configure(e,t,s=[]){let i=ys(e,t.due),n=Number(i.year),l=Number(i.month),u=Number(i.day),h=(new Date(Date.UTC(n,l-1,u)).getUTCDay()+6)%7;this.hass=e,this.task=t,this.name=t.name,this.description=t.description||"",this.status=t.active===!1?"inactive":"active",this.icon=t.icon||"",this.assigneeId=t.assignee_id||"",this.labelIds=[...t.label_ids||[]],this.nfcTagId=t.nfc_tag_id||"",this.notificationDeviceIds=[...new Set((t.notification.device_ids||[]).filter(c=>typeof c=="string"))],this.notificationPersistent=!!t.notification.persistent,this.notificationCritical=!!t.notification.critical,this.notificationRoute=t.notification.route||"",this.attachments=[...t.attachments],this.stagedFiles=[],this.deletedAttachmentIds=[],this.history=[],this.deletedHistoryEntryIds=[],this.scheduleType=t.schedule.type,t.schedule.type==="sensor"?(this.scheduleUnit="monthly",this.scheduleInterval=1,this.scheduleWeekdays=[h],this.scheduleDay=u,this.scheduleMonth=l,this.scheduleTime=`${i.hour||"09"}:${i.minute||"00"}`,this.problemSensor=t.schedule.entity_id):(this.scheduleUnit=t.schedule.unit,this.scheduleInterval=t.schedule.interval,this.scheduleWeekdays=t.schedule.type==="fixed"&&t.schedule.weekdays?.length?[...t.schedule.weekdays]:[h],this.scheduleDay=t.schedule.type==="fixed"&&t.schedule.day?t.schedule.day:u,this.scheduleMonth=t.schedule.type==="fixed"&&t.schedule.month?t.schedule.month:l,this.scheduleTime=t.schedule.type==="fixed"&&t.schedule.time||`${i.hour||"09"}:${i.minute||"00"}`,this.problemSensor="");let p=!t.id;this.scheduleDirty=p,this.assignmentDirty=p,this.notificationDirty=p,this.loadAssignments(),this.loadNotifications(),this.loadHistory(),this.updateComplete.then(()=>this.loadPreview())}async loadAssignments(){let e=this.hass;if(e){this.assignmentLoading=!0,this.assignmentError="";try{let t=await z(e);this.users=[...t.users].sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language)),this.labels=[...t.labels].sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language)),this.tags=[...t.tags].sort((s,i)=>(s.name||s.id).localeCompare(i.name||i.id,this.hass?.locale?.language)),this.assigneeId=this.users.some(s=>s.id===this.assigneeId)?this.assigneeId:"",this.labelIds=this.labelIds.filter(s=>this.labels.some(i=>i.label_id===s)),this.nfcTagId=this.tags.some(s=>s.id===this.nfcTagId)?this.nfcTagId:""}catch{this.assignmentError=r("app.assignment_load_error")}finally{this.assignmentLoading=!1}}}deviceName(e){return e.name_by_user||e.name||[e.manufacturer,e.model].filter(Boolean).join(" ")||e.id}async loadNotifications(){let e=this.hass;if(e){this.notificationLoading=!0,this.notificationError="";try{this.devices=(await ne(e)).sort((t,s)=>this.deviceName(t).localeCompare(this.deviceName(s),this.hass?.locale?.language)),this.notificationDeviceIds=this.notificationDeviceIds.filter(t=>this.devices.some(s=>s.id===t))}catch{this.notificationError=r("app.notification_load_error")}finally{this.notificationLoading=!1}}}async loadHistory(){let e=this.hass,t=this.task;if(!(!e||!t?.id)){this.historyLoading=!0,this.historyError="";try{let s=await oe(e,t.id);this.history=Array.isArray(s.history)?s.history:[]}catch{this.historyError=r("app.history_load_error")}finally{this.historyLoading=!1}}}monthOptions(){return Array.from({length:12},(e,t)=>({label:new Intl.DateTimeFormat(this.hass?.locale?.language,{month:"long"}).format(new Date(2024,t,1)),value:String(t+1)}))}weekdayLabels(){return Array.from({length:7},(e,t)=>new Intl.DateTimeFormat(this.hass?.locale?.language,{weekday:"short",timeZone:"UTC"}).format(new Date(Date.UTC(2024,0,t+1))))}scheduleDetails(e){let t="";if(this.scheduleType==="sensor"){let s=this.problemSensor.trim();return s.startsWith("binary_sensor.")||(t=r("app.select_binary_sensor")),e&&(this.scheduleError=t),t?void 0:{type:"sensor",problemSensor:s}}return!Number.isInteger(this.scheduleInterval)||this.scheduleInterval<1?t=r("app.interval_min"):this.scheduleType==="fixed"&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.scheduleTime)?t=r("app.select_valid_time"):this.scheduleType==="fixed"&&this.scheduleUnit==="weekly"&&!this.scheduleWeekdays.length&&(t=r("error.select_at_least_one_weekday")),e&&(this.scheduleError=t),t?void 0:{type:this.scheduleType,unit:this.scheduleUnit,interval:this.scheduleInterval,weekdays:[...this.scheduleWeekdays].sort(),day:this.scheduleDay,month:this.scheduleMonth,time:this.scheduleTime}}scheduleChanged(e){this.scheduleDirty=!0,this.scheduleError="",this.previewExpanded=!1,e(),this.loadPreview()}assignmentChanged(e){this.assignmentDirty=!0,e()}notificationChanged(e){this.notificationDirty=!0,this.notificationRouteError="",e()}async loadPreview(){let e=this.hass,t=this.task,s=this.scheduleDetails(!1),i=++this.previewRequest;if(!e||!t||!s||s.type==="sensor"){this.preview=[],this.previewLoading=!1,this.previewError="";return}this.previewLoading=!0,this.previewError="";try{let n=await Lt(e,s,this.scheduleDirty?void 0:t.due||void 0);i===this.previewRequest&&(this.preview=n.dues)}catch{i===this.previewRequest&&(this.preview=[],this.previewError=r("app.preview_load_error"))}finally{i===this.previewRequest&&(this.previewLoading=!1)}}formatDue(e){return new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(new Date(e))}scheduleText(){if(this.scheduleType==="sensor"){let n=this.hass?.states?.[this.problemSensor]?.attributes?.friendly_name||this.problemSensor;return n?`${r("schedule.problem_sensor_description")} (${n})`:r("schedule.problem_sensor_description")}let e=Math.max(1,Number(this.scheduleInterval)||1),t={daily:"day",weekly:"week",monthly:"month",yearly:"year"},s=r(`schedule.period_${t[this.scheduleUnit]}`),i=r(`schedule.period_${t[this.scheduleUnit]}s`);if(this.scheduleType==="sliding")return r(e===1?"schedule.after_completion_one":"schedule.after_completion_many",{schedule_interval:e,period:e===1?s:i});if(this.scheduleUnit==="weekly"){let n=Array.from({length:7},(p,c)=>new Intl.DateTimeFormat(this.hass?.locale?.language,{weekday:"long",timeZone:"UTC"}).format(new Date(Date.UTC(2024,0,c+1)))),l=this.scheduleWeekdays.map(p=>n[p]).filter(Boolean),u=l.length>1?`${l.slice(0,-1).join(", ")} ${r("schedule.and")} ${l.at(-1)}`:l[0]||"",h=r(e===1?"schedule.weekly_one":"schedule.weekly_many",{schedule_interval:e,days:u?` ${r("schedule.on_days",{days:u})}`:""});return x(h,this.scheduleTime)}if(this.scheduleUnit==="monthly"){let n=this.scheduleDay==="last"?r("schedule.on_last_day"):r("schedule.on_day_number",{day:Number(this.scheduleDay||1)}),l=r(e===1?"schedule.monthly_one":"schedule.monthly_many",{schedule_interval:e,day:n});return x(l,this.scheduleTime)}if(this.scheduleUnit==="yearly"){let n=new Intl.DateTimeFormat(this.hass?.locale?.language,{month:"long"}).format(new Date(2024,this.scheduleMonth-1,1)),l=this.scheduleDay==="last"?r("schedule.on_last_day_of_month",{month:n}):r("schedule.on_day_of_month",{day:Number(this.scheduleDay||1),month:n}),u=r(e===1?"schedule.yearly_one":"schedule.yearly_many",{schedule_interval:e,day:l});return x(u,this.scheduleTime)}return x(r(e===1?"schedule.fixed_one":"schedule.fixed_many",{schedule_interval:e,period:e===1?s:i}),this.scheduleTime)}async save(){let e=this.name.trim(),t=this.scheduleDetails(!0),s=this.notificationRoute.trim();if(e||(this.nameError=r("app.name_required")),s&&(!s.startsWith("/")||s.startsWith("//"))&&(this.notificationRouteError=r("app.route_invalid")),!e||!t||this.notificationRouteError||!this.hass||!this.task||this.saving)return!1;this.nameError="",this.saveError="",this.saving=!0;try{return await At(this.hass,this.task.id?this.task:void 0,{name:e,description:this.description,active:this.status==="active",icon:this.icon,schedule:this.scheduleDirty?t:void 0,assignment:this.assignmentDirty?{assigneeId:this.assigneeId,labelIds:this.labelIds,nfcTagId:this.nfcTagId}:void 0,notification:this.notificationDirty?{deviceIds:this.notificationDeviceIds,persistent:this.notificationPersistent,critical:this.notificationCritical,route:s}:void 0,files:{staged:this.stagedFiles,deletedAttachmentIds:this.deletedAttachmentIds,deletedHistoryEntryIds:this.deletedHistoryEntryIds}}),!0}catch(i){return this.saveError=P(i),!1}finally{this.saving=!1}}renderFixedOptions(){if(this.scheduleType!=="fixed")return d;let e=d;return this.scheduleUnit==="weekly"?e=o`
-        <p class="selector-label">${r("task.schedule_weekdays")}</p>
+  `;hass;task;scheduleDirty=!1;assignmentDirty=!1;notificationDirty=!1;previewRequest=0;constructor(){super(),this.name="",this.description="",this.status="active",this.icon="",this.assigneeId="",this.labelIds=[],this.nfcTagId="",this.users=[],this.labels=[],this.tags=[],this.assignmentLoading=!1,this.assignmentError="",this.notificationDeviceIds=[],this.notificationPersistent=!1,this.notificationCritical=!1,this.notificationRoute="",this.devices=[],this.notificationLoading=!1,this.notificationError="",this.notificationRouteError="",this.attachments=[],this.stagedFiles=[],this.deletedAttachmentIds=[],this.history=[],this.deletedHistoryEntryIds=[],this.historyLoading=!1,this.historyError="",this.scheduleType="sliding",this.scheduleUnit="monthly",this.scheduleInterval=1,this.scheduleWeekdays=[],this.scheduleDay=1,this.scheduleMonth=1,this.scheduleTime="09:00",this.problemSensor="",this.preview=[],this.previewLoading=!1,this.previewError="",this.previewExpanded=!1,this.nameError="",this.scheduleError="",this.saveError="",this.saving=!1,this.fileDropActive=!1}configure(e,t,s=[]){let i=_s(e,t.due),n=Number(i.year),l=Number(i.month),u=Number(i.day),h=(new Date(Date.UTC(n,l-1,u)).getUTCDay()+6)%7;this.hass=e,this.task=t,this.name=t.name,this.description=t.description||"",this.status=t.active===!1?"inactive":"active",this.icon=t.icon||"",this.assigneeId=t.assignee_id||"",this.labelIds=[...t.label_ids||[]],this.nfcTagId=t.nfc_tag_id||"",this.notificationDeviceIds=[...new Set((t.notification.device_ids||[]).filter(c=>typeof c=="string"))],this.notificationPersistent=!!t.notification.persistent,this.notificationCritical=!!t.notification.critical,this.notificationRoute=t.notification.route||"",this.attachments=[...t.attachments],this.stagedFiles=[],this.deletedAttachmentIds=[],this.history=[],this.deletedHistoryEntryIds=[],this.scheduleType=t.schedule.type,t.schedule.type==="sensor"?(this.scheduleUnit="monthly",this.scheduleInterval=1,this.scheduleWeekdays=[h],this.scheduleDay=u,this.scheduleMonth=l,this.scheduleTime=`${i.hour||"09"}:${i.minute||"00"}`,this.problemSensor=t.schedule.entity_id):(this.scheduleUnit=t.schedule.unit,this.scheduleInterval=t.schedule.interval,this.scheduleWeekdays=t.schedule.type==="fixed"&&t.schedule.weekdays?.length?[...t.schedule.weekdays]:[h],this.scheduleDay=t.schedule.type==="fixed"&&t.schedule.day?t.schedule.day:u,this.scheduleMonth=t.schedule.type==="fixed"&&t.schedule.month?t.schedule.month:l,this.scheduleTime=t.schedule.type==="fixed"&&t.schedule.time||`${i.hour||"09"}:${i.minute||"00"}`,this.problemSensor="");let p=!t.id;this.scheduleDirty=p,this.assignmentDirty=p,this.notificationDirty=p,this.loadAssignments(),this.loadNotifications(),this.loadHistory(),this.updateComplete.then(()=>this.loadPreview())}async loadAssignments(){let e=this.hass;if(e){this.assignmentLoading=!0,this.assignmentError="";try{let t=await U(e);this.users=[...t.users].sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language)),this.labels=[...t.labels].sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language)),this.tags=[...t.tags].sort((s,i)=>(s.name||s.id).localeCompare(i.name||i.id,this.hass?.locale?.language)),this.assigneeId=this.users.some(s=>s.id===this.assigneeId)?this.assigneeId:"",this.labelIds=this.labelIds.filter(s=>this.labels.some(i=>i.label_id===s)),this.nfcTagId=this.tags.some(s=>s.id===this.nfcTagId)?this.nfcTagId:""}catch{this.assignmentError=a("app.assignment_load_error")}finally{this.assignmentLoading=!1}}}deviceName(e){return e.name_by_user||e.name||[e.manufacturer,e.model].filter(Boolean).join(" ")||e.id}async loadNotifications(){let e=this.hass;if(e){this.notificationLoading=!0,this.notificationError="";try{this.devices=(await ne(e)).sort((t,s)=>this.deviceName(t).localeCompare(this.deviceName(s),this.hass?.locale?.language)),this.notificationDeviceIds=this.notificationDeviceIds.filter(t=>this.devices.some(s=>s.id===t))}catch{this.notificationError=a("app.notification_load_error")}finally{this.notificationLoading=!1}}}async loadHistory(){let e=this.hass,t=this.task;if(!(!e||!t?.id)){this.historyLoading=!0,this.historyError="";try{let s=await oe(e,t.id);this.history=Array.isArray(s.history)?s.history:[]}catch{this.historyError=a("app.history_load_error")}finally{this.historyLoading=!1}}}monthOptions(){return Array.from({length:12},(e,t)=>({label:new Intl.DateTimeFormat(this.hass?.locale?.language,{month:"long"}).format(new Date(2024,t,1)),value:String(t+1)}))}weekdayLabels(){return Array.from({length:7},(e,t)=>new Intl.DateTimeFormat(this.hass?.locale?.language,{weekday:"short",timeZone:"UTC"}).format(new Date(Date.UTC(2024,0,t+1))))}scheduleDetails(e){let t="";if(this.scheduleType==="sensor"){let s=this.problemSensor.trim();return s.startsWith("binary_sensor.")||(t=a("app.select_binary_sensor")),e&&(this.scheduleError=t),t?void 0:{type:"sensor",problemSensor:s}}return!Number.isInteger(this.scheduleInterval)||this.scheduleInterval<1?t=a("app.interval_min"):this.scheduleType==="fixed"&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.scheduleTime)?t=a("app.select_valid_time"):this.scheduleType==="fixed"&&this.scheduleUnit==="weekly"&&!this.scheduleWeekdays.length&&(t=a("error.select_at_least_one_weekday")),e&&(this.scheduleError=t),t?void 0:{type:this.scheduleType,unit:this.scheduleUnit,interval:this.scheduleInterval,weekdays:[...this.scheduleWeekdays].sort(),day:this.scheduleDay,month:this.scheduleMonth,time:this.scheduleTime}}scheduleChanged(e){this.scheduleDirty=!0,this.scheduleError="",this.previewExpanded=!1,e(),this.loadPreview()}assignmentChanged(e){this.assignmentDirty=!0,e()}notificationChanged(e){this.notificationDirty=!0,this.notificationRouteError="",e()}async loadPreview(){let e=this.hass,t=this.task,s=this.scheduleDetails(!1),i=++this.previewRequest;if(!e||!t||!s||s.type==="sensor"){this.preview=[],this.previewLoading=!1,this.previewError="";return}this.previewLoading=!0,this.previewError="";try{let n=await Nt(e,s,this.scheduleDirty?void 0:t.due||void 0);i===this.previewRequest&&(this.preview=n.dues)}catch{i===this.previewRequest&&(this.preview=[],this.previewError=a("app.preview_load_error"))}finally{i===this.previewRequest&&(this.previewLoading=!1)}}formatDue(e){return new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(new Date(e))}scheduleText(){let e=this.hass?.states?.[this.problemSensor]?.attributes?.friendly_name||this.problemSensor;return ce({type:this.scheduleType,unit:this.scheduleUnit,interval:this.scheduleInterval,weekdays:this.scheduleWeekdays,day:this.scheduleDay,month:this.scheduleMonth,time:this.scheduleTime,sensorName:e},this.hass?.locale?.language)}async save(){let e=this.name.trim(),t=this.scheduleDetails(!0),s=this.notificationRoute.trim();if(e||(this.nameError=a("app.name_required")),s&&(!s.startsWith("/")||s.startsWith("//"))&&(this.notificationRouteError=a("app.route_invalid")),!e||!t||this.notificationRouteError||!this.hass||!this.task||this.saving)return!1;this.nameError="",this.saveError="",this.saving=!0;try{return await Ct(this.hass,this.task.id?this.task:void 0,{name:e,description:this.description,active:this.status==="active",icon:this.icon,schedule:this.scheduleDirty?t:void 0,assignment:this.assignmentDirty?{assigneeId:this.assigneeId,labelIds:this.labelIds,nfcTagId:this.nfcTagId}:void 0,notification:this.notificationDirty?{deviceIds:this.notificationDeviceIds,persistent:this.notificationPersistent,critical:this.notificationCritical,route:s}:void 0,files:{staged:this.stagedFiles,deletedAttachmentIds:this.deletedAttachmentIds,deletedHistoryEntryIds:this.deletedHistoryEntryIds}}),!0}catch(i){return this.saveError=D(i),!1}finally{this.saving=!1}}renderFixedOptions(){if(this.scheduleType!=="fixed")return d;let e=d;return this.scheduleUnit==="weekly"?e=o`
+        <p class="selector-label">${a("task.schedule_weekdays")}</p>
         <div class="weekdays">
           ${this.weekdayLabels().map((t,s)=>o`
               <button
@@ -501,23 +501,23 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         </div>
       `:this.scheduleUnit==="monthly"?e=g`
         <${y}
-          label=${r("task.day")}
+          label=${a("task.day")}
           .value=${String(this.scheduleDay)}
-          .options=${Bt()}
+          .options=${Wt()}
           ?disabled=${this.saving}
           @value-changed=${t=>this.scheduleChanged(()=>{this.scheduleDay=t.detail==="last"?"last":Number(t.detail)})}
         ></${y}>
       `:this.scheduleUnit==="yearly"&&(e=g`
         <div class="row">
           <${y}
-            label=${r("task.day")}
+            label=${a("task.day")}
             .value=${String(this.scheduleDay)}
-            .options=${Bt()}
+            .options=${Wt()}
             ?disabled=${this.saving}
             @value-changed=${t=>this.scheduleChanged(()=>{this.scheduleDay=t.detail==="last"?"last":Number(t.detail)})}
           ></${y}>
           <${y}
-            label=${r("task.month")}
+            label=${a("task.month")}
             .value=${String(this.scheduleMonth)}
             .options=${this.monthOptions()}
             ?disabled=${this.saving}
@@ -525,24 +525,24 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           ></${y}>
         </div>
       `),g`
-      <${I}
-        label=${r("task.time")}
+      <${P}
+        label=${a("task.time")}
         required
         .inputType=${"time"}
         .value=${this.scheduleTime}
         ?disabled=${this.saving}
         @value-changed=${t=>this.scheduleChanged(()=>{this.scheduleTime=t.detail})}
-      ></${I}>
+      ></${P}>
       ${e}
     `}renderPreview(){if(this.scheduleType==="sensor")return d;if(this.previewLoading&&!this.preview.length)return o`<p class="hint" aria-live="polite">
-        ${r("app.loading_preview")}
+        ${a("app.loading_preview")}
       </p>`;if(this.previewError)return o`<p class="error" role="alert">${this.previewError}</p>`;if(this.scheduleType==="sliding")return o`
-        <p class="selector-label">${r("task.first_due")}</p>
+        <p class="selector-label">${a("task.first_due")}</p>
         <p class="hint">
           ${this.preview[0]?this.formatDue(this.preview[0]):"\u2014"}
         </p>
       `;let e=this.previewExpanded?this.preview:this.preview.slice(0,4);return o`
-      <p class="selector-label">${r("task.preview_task_dues")}</p>
+      <p class="selector-label">${a("task.preview_task_dues")}</p>
       <ol class="preview">
         ${e.map(t=>o`<li>${this.formatDue(t)}</li>`)}
       </ol>
@@ -552,24 +552,24 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
               type="button"
               @click=${()=>{this.previewExpanded=!this.previewExpanded}}
             >
-              ${this.previewExpanded?r("app.show_less"):r("app.show_all")}
+              ${this.previewExpanded?a("app.show_less"):a("app.show_all")}
             </button>
           `:d}
     `}renderPlanning(){return this.scheduleType==="sensor"?g`
         <div class="planning">
           <${y}
-            label=${r("task.recurrence_calculation")}
+            label=${a("task.recurrence_calculation")}
             .value=${this.scheduleType}
-            .options=${zt()}
+            .options=${jt()}
             ?disabled=${this.saving}
             @value-changed=${e=>this.scheduleChanged(()=>{this.scheduleType=e.detail})}
           ></${y}>
           <div
             class="selector-field"
             role="group"
-            aria-label=${r("task.problem_sensor")}
+            aria-label=${a("task.problem_sensor")}
           >
-            <span class="selector-label">${r("task.problem_sensor")}</span>
+            <span class="selector-label">${a("task.problem_sensor")}</span>
             <${$}
               .hass=${this.hass}
               .data=${{problemSensor:this.problemSensor}}
@@ -581,32 +581,32 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           </div>
           ${this.scheduleError?o`<p class="error" role="alert">${this.scheduleError}</p>`:d}
           <p class="hint">
-            ${r("schedule.problem_sensor_description")}
+            ${a("schedule.problem_sensor_description")}
           </p>
         </div>
       `:g`
       <div class="planning">
         <${y}
-          label=${r("task.recurrence_calculation")}
+          label=${a("task.recurrence_calculation")}
           .value=${this.scheduleType}
-          .options=${zt()}
+          .options=${jt()}
           ?disabled=${this.saving}
           @value-changed=${e=>this.scheduleChanged(()=>{this.scheduleType=e.detail})}
         ></${y}>
         <div class="row">
-          <${I}
-            label=${r("app.every")}
+          <${P}
+            label=${a("app.every")}
             required
             .inputType=${"number"}
             .min=${1}
             .value=${String(this.scheduleInterval)}
             ?disabled=${this.saving}
             @value-changed=${e=>this.scheduleChanged(()=>{this.scheduleInterval=Number(e.detail)})}
-          ></${I}>
+          ></${P}>
           <${y}
-            label=${r("app.unit")}
+            label=${a("app.unit")}
             .value=${this.scheduleUnit}
-            .options=${vs()}
+            .options=${ks()}
             ?disabled=${this.saving}
             @value-changed=${e=>this.scheduleChanged(()=>{this.scheduleUnit=e.detail})}
           ></${y}>
@@ -617,18 +617,18 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         ${this.renderPreview()}
       </div>
     `}renderAssignment(){if(this.assignmentLoading)return o`<p class="hint" aria-live="polite">
-        ${r("app.loading_assignments")}
-      </p>`;if(this.assignmentError)return o`<p class="error" role="alert">${this.assignmentError}</p>`;let e=[{label:r("task.unassigned"),value:""},...this.users.map(s=>({label:s.name,value:s.id}))],t=[{label:r("task.no_nfc_tag"),value:""},...this.tags.map(s=>({label:s.name||s.id,value:s.id}))];return g`
+        ${a("app.loading_assignments")}
+      </p>`;if(this.assignmentError)return o`<p class="error" role="alert">${this.assignmentError}</p>`;let e=[{label:a("task.unassigned"),value:""},...this.users.map(s=>({label:s.name,value:s.id}))],t=[{label:a("task.no_nfc_tag"),value:""},...this.tags.map(s=>({label:s.name||s.id,value:s.id}))];return g`
       <div class="planning">
         <${y}
-          label=${r("task.user")}
+          label=${a("task.user")}
           .value=${this.assigneeId}
           .options=${e}
           ?disabled=${this.saving}
           @value-changed=${s=>this.assignmentChanged(()=>{this.assigneeId=s.detail})}
         ></${y}>
         <${y}
-          label=${r("task.nfc_tag_id")}
+          label=${a("task.nfc_tag_id")}
           .value=${this.nfcTagId}
           .options=${t}
           ?disabled=${this.saving}
@@ -637,9 +637,9 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         <div
           class="selector-field"
           role="group"
-          aria-label=${r("task.icon")}
+          aria-label=${a("task.icon")}
         >
-          <span class="selector-label">${r("task.icon")}</span>
+          <span class="selector-label">${a("task.icon")}</span>
           <${$}
             .hass=${this.hass}
             .data=${{icon:this.icon}}
@@ -652,9 +652,9 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         <div
           class="selector-field"
           role="group"
-          aria-label=${r("task.labels")}
+          aria-label=${a("task.labels")}
         >
-          <span class="selector-label">${r("task.labels")}</span>
+          <span class="selector-label">${a("task.labels")}</span>
           <${$}
             .hass=${this.hass}
             .data=${{labels:this.labelIds}}
@@ -666,11 +666,11 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         </div>
       </div>
     `}renderNotification(){return this.notificationLoading?o`<p class="hint" aria-live="polite">
-        ${r("app.loading_notifications")}
+        ${a("app.loading_notifications")}
       </p>`:this.notificationError?o`<p class="error" role="alert">${this.notificationError}</p>`:g`
       <div class="planning">
         <div class="selector-field" data-native-picker-spacing>
-          <span class="selector-label">${r("app.mobile_devices")}</span>
+          <span class="selector-label">${a("app.mobile_devices")}</span>
           <${$}
             .hass=${this.hass}
             .data=${{devices:this.notificationDeviceIds}}
@@ -681,12 +681,12 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           ></${$}>
         </div>
         <div class="selector-field">
-          <span class="selector-label">${r("app.navigation_target")}</span>
+          <span class="selector-label">${a("app.navigation_target")}</span>
           <${$}
             .hass=${this.hass}
             .data=${{route:this.notificationRoute}}
             .schema=${[{name:"route",selector:{navigation:null}}]}
-            .computeLabel=${()=>r("app.navigation_target")}
+            .computeLabel=${()=>a("app.navigation_target")}
             .disabled=${this.saving}
             @value-changed=${e=>this.notificationChanged(()=>{this.notificationRoute=e.detail.value.route||""})}
           ></${$}>
@@ -694,13 +694,13 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         ${this.notificationRouteError?o`<p class="error" role="alert">
               ${this.notificationRouteError}
             </p>`:d}
-        <p class="hint">${r("app.navigation_hint")}</p>
+        <p class="hint">${a("app.navigation_hint")}</p>
         <${$}
           .hass=${this.hass}
           .data=${{critical:this.notificationCritical}}
           .schema=${[{name:"critical",selector:{boolean:{}}}]}
-          .computeLabel=${()=>r("task.notification_critical")}
-          .computeHelper=${()=>r("task.notification_critical_description")}
+          .computeLabel=${()=>a("task.notification_critical")}
+          .computeHelper=${()=>a("task.notification_critical_description")}
           .disabled=${this.saving}
           @value-changed=${e=>this.notificationChanged(()=>{this.notificationCritical=e.detail.value.critical??!1})}
         ></${$}>
@@ -709,13 +709,13 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           .hass=${this.hass}
           .data=${{persistent:this.notificationPersistent}}
           .schema=${[{name:"persistent",selector:{boolean:{}}}]}
-          .computeLabel=${()=>r("task.notification_persistent")}
-          .computeHelper=${()=>r("task.notification_persistent_description")}
+          .computeLabel=${()=>a("task.notification_persistent")}
+          .computeHelper=${()=>a("task.notification_persistent_description")}
           .disabled=${this.saving}
           @value-changed=${e=>this.notificationChanged(()=>{this.notificationPersistent=e.detail.value.persistent??!1})}
         ></${$}>
       </div>
-    `}formatSize(e){return e<1024?`${e} B`:e<1024*1024?`${Math.round(e/1024)} KB`:`${(e/(1024*1024)).toFixed(1)} MB`}toggleId(e,t){return t.includes(e)?t.filter(s=>s!==e):[...t,e]}stageFiles(e){this.saving||(this.stagedFiles=[...this.stagedFiles,...Array.from(e)])}renderAttachments(){return o`
+    `}toggleId(e,t){return t.includes(e)?t.filter(s=>s!==e):[...t,e]}stageFiles(e){this.saving||(this.stagedFiles=[...this.stagedFiles,...Array.from(e)])}renderAttachments(){return o`
       <div class="planning">
         ${this.attachments.length||this.stagedFiles.length?o`
               <ul class="records">
@@ -730,13 +730,13 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                           >${e.filename}</span
                         >
                         <span class="record-detail"
-                          >${this.formatSize(e.size)}</span
+                          >${te(e.size)}</span
                         >
                       </span>
                       <button
                         class="record-action"
                         type="button"
-                        aria-label=${r(t?"app.undo_remove_named":"app.remove_named",{name:e.filename})}
+                        aria-label=${a(t?"app.undo_remove_named":"app.remove_named",{name:e.filename})}
                         ?disabled=${this.saving}
                         @click=${()=>{this.deletedAttachmentIds=this.toggleId(e.id,this.deletedAttachmentIds)}}
                       >
@@ -755,14 +755,14 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                       <span class="record-copy">
                         <span class="record-title file-name">${e.name}</span>
                         <span class="record-detail"
-                          >${this.formatSize(e.size)} ·
-                          ${r("app.new_file")}</span
+                          >${te(e.size)} ·
+                          ${a("app.new_file")}</span
                         >
                       </span>
                       <button
                         class="record-action"
                         type="button"
-                        aria-label=${r("app.remove_new_file",{name:e.name})}
+                        aria-label=${a("app.remove_new_file",{name:e.name})}
                         ?disabled=${this.saving}
                         @click=${()=>{this.stagedFiles=this.stagedFiles.filter((s,i)=>i!==t)}}
                       >
@@ -771,7 +771,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                     </li>
                   `)}
               </ul>
-            `:o`<p class="hint">${r("task.no_files")}.</p>`}
+            `:o`<p class="hint">${a("task.no_files")}.</p>`}
         <label
           class=${`file-picker ${this.fileDropActive?"drag-active":""}`}
           @dragenter=${e=>{e.preventDefault(),this.saving||(this.fileDropActive=!0)}}
@@ -779,8 +779,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           @dragleave=${e=>{(!e.relatedTarget||!e.currentTarget||!e.currentTarget.contains(e.relatedTarget))&&(this.fileDropActive=!1)}}
           @drop=${e=>{e.preventDefault(),this.fileDropActive=!1,e.dataTransfer?.files.length&&this.stageFiles(e.dataTransfer.files)}}
         >
-          <span>${r("app.drop_files")}</span>
-          <span class="file-picker-secondary">${r("app.click_to_upload")}</span>
+          <span>${a("app.drop_files")}</span>
+          <span class="file-picker-secondary">${a("app.click_to_upload")}</span>
           <input
             type="file"
             multiple
@@ -790,10 +790,10 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         </label>
       </div>
     `}renderHistory(){return this.historyLoading?o`<p class="hint" aria-live="polite">
-        ${r("app.loading_history")}
+        ${a("app.loading_history")}
       </p>`:this.historyError?o`<p class="error" role="alert">${this.historyError}</p>`:this.history.length?o`
       <ul class="records">
-        ${this.history.map(e=>{let t=this.deletedHistoryEntryIds.includes(e.id),s=e.notes==="tasks.history.completed_via_nfc"?r("history.completed_via_nfc"):e.notes||r("app.no_notes");return o`
+        ${this.history.map(e=>{let t=this.deletedHistoryEntryIds.includes(e.id),s=e.notes==="tasks.history.completed_via_nfc"?a("history.completed_via_nfc"):e.notes||a("app.no_notes");return o`
             <li class="record ${t?"pending":""}">
               <ha-icon
                 class="record-icon"
@@ -802,14 +802,14 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
               <span class="record-copy">
                 <span class="record-title"
                   >${this.formatDue(e.completed_at)} ·
-                  ${e.user_name||r("common.system")}</span
+                  ${e.user_name||a("common.system")}</span
                 >
                 <span class="record-detail">${s}</span>
               </span>
               <button
                 class="record-action"
                 type="button"
-                aria-label=${t?r("history.undo_remove"):r("history.remove")}
+                aria-label=${t?a("history.undo_remove"):a("history.remove")}
                 ?disabled=${this.saving}
                 @click=${()=>{this.deletedHistoryEntryIds=this.toggleId(e.id,this.deletedHistoryEntryIds)}}
               >
@@ -820,46 +820,46 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
             </li>
           `})}
       </ul>
-    `:o`<p class="hint">${r("task.no_history")}.</p>`}planningWarning(){return this.scheduleError?!0:this.scheduleType!=="sensor"||!this.problemSensor.startsWith("binary_sensor.")?!1:O(this.hass,{type:"sensor",entity_id:this.problemSensor})!=="available"}render(){return g`
+    `:o`<p class="hint">${a("task.no_history")}.</p>`}planningWarning(){return this.scheduleError?!0:this.scheduleType!=="sensor"||!this.problemSensor.startsWith("binary_sensor.")?!1:M(this.hass,{type:"sensor",entity_id:this.problemSensor})!=="available"}render(){return g`
       <form @submit=${e=>e.preventDefault()}>
-        <${I}
-          label=${r("task.name")}
+        <${P}
+          label=${a("task.name")}
           required
           .value=${this.name}
           .error=${this.nameError}
           ?disabled=${this.saving}
           @value-changed=${e=>{this.name=e.detail,this.nameError=""}}
-        ></${I}>
-        <${I}
-          label=${r("task.optional_description")}
+        ></${P}>
+        <${P}
+          label=${a("task.optional_description")}
           multiline
           .value=${this.description}
           ?disabled=${this.saving}
           @value-changed=${e=>{this.description=e.detail}}
-        ></${I}>
-        <${E}
-          heading=${r("task.planning")}
+        ></${P}>
+        <${T}
+          heading=${a("task.planning")}
           .warning=${this.planningWarning()}
         >
           ${this.renderPlanning()}
-        </${E}>
-        <${E} heading=${r("task.assignment")}>
+        </${T}>
+        <${T} heading=${a("task.assignment")}>
           ${this.renderAssignment()}
-        </${E}>
-        <${E} heading=${r("task.notification")}>
+        </${T}>
+        <${T} heading=${a("task.notification")}>
           ${this.renderNotification()}
-        </${E}>
-        <${E} heading=${r("task.files")}>
+        </${T}>
+        <${T} heading=${a("task.files")}>
           ${this.renderAttachments()}
-        </${E}>
+        </${T}>
         ${this.task?.id?g`
-              <${E} heading=${r("task.history")}>
+              <${T} heading=${a("task.history")}>
                 ${this.renderHistory()}
-              </${E}>
+              </${T}>
             `:d}
         ${this.saveError?o`<p class="error" role="alert">${this.saveError}</p>`:d}
       </form>
-    `}},je=v("task-form");customElements.get(je)||customElements.define(je,Be);var Ve=async(a,e,t=[])=>{let s=e||{id:"",name:"",active:!0,schedule:{type:"sliding",unit:"monthly",interval:1},notification:{device_ids:[],persistent:!1,critical:!1,route:null},due:null,completions:[],attachments:[]},i=document.createElement(je);return i.configure(a,s,t),await T({heading:e?r("task.edit"):r("task.new"),content:i,actions:[{label:r("common.save"),value:"save",run:()=>i.save()}]})==="save"};var Ke=class extends f{static properties={items:{attribute:!1},label:{},open:{state:!0}};static styles=b`
+    `}},We=v("task-form");customElements.get(We)||customElements.define(We,je);var Ke=async(r,e,t=[])=>{let s=e||{id:"",name:"",active:!0,schedule:{type:"sliding",unit:"monthly",interval:1},notification:{device_ids:[],persistent:!1,critical:!1,route:null},due:null,completions:[],attachments:[]},i=document.createElement(We);return i.configure(r,s,t),await x({heading:e?a("task.edit"):a("task.new"),content:i,actions:[{label:a("common.save"),value:"save",run:()=>i.save()}]})==="save"};var qe=class extends f{static properties={items:{attribute:!1},label:{},open:{state:!0}};static styles=b`
     :host {
       display: inline-flex;
     }
@@ -947,7 +947,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     .destructive ha-icon {
       color: var(--error-color);
     }
-  `;reposition=()=>this.positionMenu();constructor(){super(),this.items=[],this.label="Actions",this.open=!1}disconnectedCallback(){this.stopTrackingPosition(),super.disconnectedCallback()}get trigger(){return this.renderRoot.querySelector(".trigger")}get menu(){return this.renderRoot.querySelector(".menu")}toggleMenu(e){e.stopPropagation();let t=this.menu;t&&(this.open?t.hidePopover():(t.showPopover(),this.positionMenu(),this.menuItems()[0]?.focus()))}positionMenu(){let e=this.trigger,t=this.menu;if(!e||!t)return;let s=e.getBoundingClientRect(),i=t.getBoundingClientRect(),n=window.visualViewport,l=n?.offsetLeft||0,u=n?.offsetTop||0,h=l+(n?.width||window.innerWidth),p=u+(n?.height||window.innerHeight),c=8,m=4,k=Math.min(Math.max(l+c,s.right-i.width),h-i.width-c),w=s.bottom+m,H=w+i.height<=p-c?w:Math.max(u+c,s.top-i.height-m);t.style.left=`${k}px`,t.style.top=`${H}px`}menuItems(){return[...this.renderRoot.querySelectorAll(".item:not(:disabled)")]}moveFocus(e){let t=this.menuItems();if(!t.length)return;let s=t.indexOf(this.renderRoot.activeElement),i;e.key==="ArrowDown"?i=(s+1)%t.length:e.key==="ArrowUp"?i=(s-1+t.length)%t.length:e.key==="Home"?i=0:e.key==="End"&&(i=t.length-1),i!==void 0&&(e.preventDefault(),t[i].focus())}choose(e,t){e.stopPropagation(),this.menu?.hidePopover(),this.trigger?.focus(),this.dispatchEvent(new CustomEvent("tasks-action",{bubbles:!0,composed:!0,detail:t.value}))}trackPosition(){window.addEventListener("resize",this.reposition),window.addEventListener("scroll",this.reposition,!0),window.visualViewport?.addEventListener("resize",this.reposition),window.visualViewport?.addEventListener("scroll",this.reposition)}stopTrackingPosition(){window.removeEventListener("resize",this.reposition),window.removeEventListener("scroll",this.reposition,!0),window.visualViewport?.removeEventListener("resize",this.reposition),window.visualViewport?.removeEventListener("scroll",this.reposition)}render(){return o`
+  `;reposition=()=>this.positionMenu();constructor(){super(),this.items=[],this.label="Actions",this.open=!1}disconnectedCallback(){this.stopTrackingPosition(),super.disconnectedCallback()}get trigger(){return this.renderRoot.querySelector(".trigger")}get menu(){return this.renderRoot.querySelector(".menu")}toggleMenu(e){e.stopPropagation();let t=this.menu;t&&(this.open?t.hidePopover():(t.showPopover(),this.positionMenu(),this.menuItems()[0]?.focus()))}positionMenu(){let e=this.trigger,t=this.menu;if(!e||!t)return;let s=e.getBoundingClientRect(),i=t.getBoundingClientRect(),n=window.visualViewport,l=n?.offsetLeft||0,u=n?.offsetTop||0,h=l+(n?.width||window.innerWidth),p=u+(n?.height||window.innerHeight),c=8,m=4,_=Math.min(Math.max(l+c,s.right-i.width),h-i.width-c),w=s.bottom+m,H=w+i.height<=p-c?w:Math.max(u+c,s.top-i.height-m);t.style.left=`${_}px`,t.style.top=`${H}px`}menuItems(){return[...this.renderRoot.querySelectorAll(".item:not(:disabled)")]}moveFocus(e){let t=this.menuItems();if(!t.length)return;let s=t.indexOf(this.renderRoot.activeElement),i;e.key==="ArrowDown"?i=(s+1)%t.length:e.key==="ArrowUp"?i=(s-1+t.length)%t.length:e.key==="Home"?i=0:e.key==="End"&&(i=t.length-1),i!==void 0&&(e.preventDefault(),t[i].focus())}choose(e,t){e.stopPropagation(),this.menu?.hidePopover(),this.trigger?.focus(),this.dispatchEvent(new CustomEvent("tasks-action",{bubbles:!0,composed:!0,detail:t.value}))}trackPosition(){window.addEventListener("resize",this.reposition),window.addEventListener("scroll",this.reposition,!0),window.visualViewport?.addEventListener("resize",this.reposition),window.visualViewport?.addEventListener("scroll",this.reposition)}stopTrackingPosition(){window.removeEventListener("resize",this.reposition),window.removeEventListener("scroll",this.reposition,!0),window.visualViewport?.removeEventListener("resize",this.reposition),window.visualViewport?.removeEventListener("scroll",this.reposition)}render(){return o`
       <button
         class="trigger"
         type="button"
@@ -979,7 +979,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
             </button>
           `)}
       </div>
-    `}},de=v("action-menu");customElements.get(de)||customElements.define(de,Ke);var jt="tasks-table-state-v2",Vt="tasks-table-session-v1",pe=[{value:"due",label:"task.due"},{value:"assignee",label:"table.assignee"},{value:"nfc",label:"task.nfc_tag_id"},{value:"files",label:"task.files"},{value:"labels",label:"task.labels"},{value:"notifications",label:"table.notifications"},{value:"trigger",label:"table.recurrence"},{value:"status",label:"app.status"}],te=Object.fromEntries(pe.map(a=>[a.value,a.label])),$s={assignee:"task.assignment",labels:"task.labels",notifications:"table.notifications",trigger:"table.recurrence",status:"app.status",due:"task.due"},We={due:!0,assignee:!0,nfc:!0,files:!0,labels:!1,notifications:!1,trigger:!1,status:!1},he=()=>({assignee:[],labels:[],notifications:[],trigger:[],status:[],due:[]}),qe=Object.keys(he()),me=[{value:"fixed",label:"task.fixed"},{value:"sliding",label:"task.sliding"},{value:"sensor",label:"task.problem_sensor"}],ge=[{value:"active",label:"app.active"},{value:"paused",label:"app.paused"}],fe=[{value:"overdue",label:"table.due_overdue"},{value:"today",label:"table.due_today"},{value:"tomorrow",label:"table.due_tomorrow"},{value:"next_7_days",label:"table.due_next_7_days"},{value:"next_30_days",label:"table.due_next_30_days"}],Ge=(a,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(a)),s=i=>t.find(n=>n.type===i)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},Kt=(a,e)=>{let[t,s,i]=Ge(a,e).split("-").map(Number);return Math.floor(Date.UTC(t,s-1,i)/864e5)},Wt=(a,e)=>{try{let t=globalThis[a],s=JSON.parse(t?.getItem(e)||"{}");return s&&typeof s=="object"&&!Array.isArray(s)?s:{}}catch{return{}}},qt=_(de),ks=a=>[{label:r("menu.edit"),value:"edit",icon:"mdi:pencil-outline"},{label:a.active===!1?r("app.resume"):r("app.pause"),value:"active",icon:a.active===!1?"mdi:play-circle-outline":"mdi:pause-circle-outline"},{label:r("common.delete"),value:"delete",icon:"mdi:delete-outline",destructive:!0}],_s=a=>[{label:r("bulk.complete"),value:"complete",icon:"mdi:check-circle-outline"},{label:r("app.pause"),value:"pause",icon:"mdi:pause-circle-outline"},{label:r("app.resume"),value:"resume",icon:"mdi:play-circle-outline"},{label:r("bulk.assign_person"),value:"assign",icon:"mdi:account-outline"},...a.some(e=>e.assignee_id)?[{label:r("bulk.remove_assignment"),value:"unassign",icon:"mdi:account-off-outline"}]:[],{label:r("app.add_label"),value:"add-label",icon:"mdi:tag-plus-outline"},{label:r("app.remove_label"),value:"remove-label",icon:"mdi:tag-minus-outline"},{label:r("app.add_notification"),value:"add-notification",icon:"mdi:bell-plus-outline"},{label:r("app.remove_notification"),value:"remove-notification",icon:"mdi:bell-minus-outline"},{label:r("bulk.delete"),value:"delete",icon:"mdi:delete-outline",destructive:!0}],Ze=class extends f{static properties={hass:{attribute:!1},tasks:{attribute:!1},compact:{type:Boolean,reflect:!0},showBulkSelection:{attribute:!1},showIcon:{attribute:!1},showAddTask:{attribute:!1},showHeader:{attribute:!1},showFilters:{attribute:!1},configuredFilters:{attribute:!1},showColumns:{attribute:!1},configuredColumns:{attribute:!1},now:{attribute:!1},showSearch:{attribute:!1},showActionMenu:{attribute:!1},search:{state:!0},filters:{state:!0},openFilterGroups:{state:!0},users:{state:!0},labels:{state:!0},devices:{state:!0},registryError:{state:!0},columns:{state:!0},selectedIds:{state:!0},bulkAction:{state:!0},bulkTarget:{state:!0},openBulkPicker:{state:!0},openToolbarPanel:{state:!0},bulkBusy:{state:!0},bulkError:{state:!0}};static styles=b`
+    `}},he=v("action-menu");customElements.get(he)||customElements.define(he,qe);var Kt="tasks-table-state-v2",qt="tasks-table-session-v1",ge=[{value:"due",label:"task.due"},{value:"assignee",label:"table.assignee"},{value:"nfc",label:"task.nfc_tag_id"},{value:"files",label:"task.files"},{value:"labels",label:"task.labels"},{value:"notifications",label:"table.notifications"},{value:"trigger",label:"table.recurrence"},{value:"status",label:"app.status"}],ue=Object.fromEntries(ge.map(r=>[r.value,r.label])),ws={assignee:"task.assignment",labels:"task.labels",notifications:"table.notifications",trigger:"table.recurrence",status:"app.status",due:"task.due"},Ge={due:!0,assignee:!0,nfc:!0,files:!0,labels:!1,notifications:!1,trigger:!1,status:!1},pe=()=>({assignee:[],labels:[],notifications:[],trigger:[],status:[],due:[]}),Ze=Object.keys(pe()),fe=[{value:"fixed",label:"task.fixed"},{value:"sliding",label:"task.sliding"},{value:"sensor",label:"task.problem_sensor"}],be=[{value:"active",label:"app.active"},{value:"paused",label:"app.paused"}],ve=[{value:"overdue",label:"table.due_overdue"},{value:"today",label:"table.due_today"},{value:"tomorrow",label:"table.due_tomorrow"},{value:"next_7_days",label:"table.due_next_7_days"},{value:"next_30_days",label:"table.due_next_30_days"}],Je=(r,e)=>{let t=new Intl.DateTimeFormat("en-US",{year:"numeric",month:"2-digit",day:"2-digit",timeZone:e}).formatToParts(new Date(r)),s=i=>t.find(n=>n.type===i)?.value||"";return`${s("year")}-${s("month")}-${s("day")}`},Gt=(r,e)=>{let[t,s,i]=Je(r,e).split("-").map(Number);return Math.floor(Date.UTC(t,s-1,i)/864e5)},Zt=(r,e)=>{try{let t=globalThis[r],s=JSON.parse(t?.getItem(e)||"{}");return s&&typeof s=="object"&&!Array.isArray(s)?s:{}}catch{return{}}},Jt=k(he),xs=r=>[{label:a("menu.edit"),value:"edit",icon:"mdi:pencil-outline"},{label:r.active===!1?a("app.resume"):a("app.pause"),value:"active",icon:r.active===!1?"mdi:play-circle-outline":"mdi:pause-circle-outline"},{label:a("common.delete"),value:"delete",icon:"mdi:delete-outline",destructive:!0}],Ts=r=>[{label:a("bulk.complete"),value:"complete",icon:"mdi:check-circle-outline"},{label:a("app.pause"),value:"pause",icon:"mdi:pause-circle-outline"},{label:a("app.resume"),value:"resume",icon:"mdi:play-circle-outline"},{label:a("bulk.assign_person"),value:"assign",icon:"mdi:account-outline"},...r.some(e=>e.assignee_id)?[{label:a("bulk.remove_assignment"),value:"unassign",icon:"mdi:account-off-outline"}]:[],{label:a("app.add_label"),value:"add-label",icon:"mdi:tag-plus-outline"},{label:a("app.remove_label"),value:"remove-label",icon:"mdi:tag-minus-outline"},{label:a("app.add_notification"),value:"add-notification",icon:"mdi:bell-plus-outline"},{label:a("app.remove_notification"),value:"remove-notification",icon:"mdi:bell-minus-outline"},{label:a("bulk.delete"),value:"delete",icon:"mdi:delete-outline",destructive:!0}],Qe=class extends f{static properties={hass:{attribute:!1},tasks:{attribute:!1},compact:{type:Boolean,reflect:!0},showBulkSelection:{attribute:!1},showIcon:{attribute:!1},showAddTask:{attribute:!1},showHeader:{attribute:!1},showFilters:{attribute:!1},configuredFilters:{attribute:!1},showColumns:{attribute:!1},configuredColumns:{attribute:!1},now:{attribute:!1},showSearch:{attribute:!1},showActionMenu:{attribute:!1},search:{state:!0},filters:{state:!0},openFilterGroups:{state:!0},users:{state:!0},labels:{state:!0},devices:{state:!0},registryError:{state:!0},columns:{state:!0},selectedIds:{state:!0},bulkAction:{state:!0},bulkTarget:{state:!0},openBulkPicker:{state:!0},openToolbarPanel:{state:!0},bulkBusy:{state:!0},bulkError:{state:!0}};static styles=b`
     :host {
       display: block;
       margin-top: 20px;
@@ -1652,11 +1652,11 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     :host([compact]) .mobile-details {
       display: block;
     }
-  `;registryConnection;closePanels=e=>{let t=e.composedPath();for(let s of this.renderRoot.querySelectorAll("details[open]"))t.includes(s)||s.removeAttribute("open");t.some(s=>s instanceof HTMLElement&&s.classList.contains("toolbar-popover"))||(this.openToolbarPanel="")};constructor(){super();let e=Wt("localStorage",jt),t=Wt("sessionStorage",Vt);this.tasks=[],this.compact=!1,this.showBulkSelection=!0,this.showIcon=!0,this.showAddTask=!1,this.showHeader=!0,this.showFilters=!0,this.configuredFilters=void 0,this.showColumns=!0,this.configuredColumns=void 0,this.now=void 0,this.showSearch=!0,this.showActionMenu=!0,this.search=typeof t.search=="string"?t.search:"";let s=t.filters&&typeof t.filters=="object"&&!Array.isArray(t.filters)?t.filters:{};this.filters=Object.fromEntries(Object.keys(he()).map(n=>[n,Array.isArray(s[n])?s[n].filter(l=>typeof l=="string"):[]])),this.openFilterGroups=[];let i=e.columns&&typeof e.columns=="object"&&!Array.isArray(e.columns)?e.columns:{};this.columns=Object.fromEntries(Object.keys(We).map(n=>[n,typeof i[n]=="boolean"?i[n]:We[n]])),this.users=[],this.labels=[],this.tags=[],this.devices=[],this.registryError="",this.selectedIds=[],this.bulkAction="",this.bulkTarget="",this.openBulkPicker="",this.openToolbarPanel="",this.bulkBusy=!1,this.bulkError=""}connectedCallback(){super.connectedCallback(),document.addEventListener("click",this.closePanels)}disconnectedCallback(){document.removeEventListener("click",this.closePanels),super.disconnectedCallback()}willUpdate(e){if(e.has("configuredColumns")&&this.configuredColumns){let t=new Set(this.configuredColumns);this.columns=Object.fromEntries(Object.keys(te).map(s=>[s,t.has(s)]))}}updated(){this.hass?.connection!==this.registryConnection&&this.loadRegistries()}async loadRegistries(){if(!this.hass)return;let e=this.hass,t=e.connection;this.registryConnection=t,this.registryError="";let[s,i]=await Promise.allSettled([z(e),ne(e)]);this.registryConnection===t&&(s.status==="fulfilled"&&(this.users=s.value.users,this.labels=s.value.labels,this.tags=s.value.tags),i.status==="fulfilled"&&(this.devices=i.value),(s.status==="rejected"||i.status==="rejected")&&(this.registryError=r("app.registry_load_error")))}trigger(e){return e.schedule.type==="sensor"?r("task.problem_sensor"):e.schedule.type==="fixed"?r("task.fixed"):r("task.sliding")}status(e){return e.active===!1?r("app.paused"):r("app.active")}problemSensorStatus(e){return e.schedule.type==="sensor"?O(this.hass,e.schedule):void 0}problemSensorWarning(e){let t=this.problemSensorStatus(e);if(!t||t==="available")return d;let s=r(`problem.sensor_${t}`,{entity_id:e.schedule.type==="sensor"?e.schedule.entity_id:""});return o`
+  `;registryConnection;closePanels=e=>{let t=e.composedPath();for(let s of this.renderRoot.querySelectorAll("details[open]"))t.includes(s)||s.removeAttribute("open");t.some(s=>s instanceof HTMLElement&&s.classList.contains("toolbar-popover"))||(this.openToolbarPanel="")};constructor(){super();let e=Zt("localStorage",Kt),t=Zt("sessionStorage",qt);this.tasks=[],this.compact=!1,this.showBulkSelection=!0,this.showIcon=!0,this.showAddTask=!1,this.showHeader=!0,this.showFilters=!0,this.configuredFilters=void 0,this.showColumns=!0,this.configuredColumns=void 0,this.now=void 0,this.showSearch=!0,this.showActionMenu=!0,this.search=typeof t.search=="string"?t.search:"";let s=t.filters&&typeof t.filters=="object"&&!Array.isArray(t.filters)?t.filters:{};this.filters=Object.fromEntries(Object.keys(pe()).map(n=>[n,Array.isArray(s[n])?s[n].filter(l=>typeof l=="string"):[]])),this.openFilterGroups=[];let i=e.columns&&typeof e.columns=="object"&&!Array.isArray(e.columns)?e.columns:{};this.columns=Object.fromEntries(Object.keys(Ge).map(n=>[n,typeof i[n]=="boolean"?i[n]:Ge[n]])),this.users=[],this.labels=[],this.tags=[],this.devices=[],this.registryError="",this.selectedIds=[],this.bulkAction="",this.bulkTarget="",this.openBulkPicker="",this.openToolbarPanel="",this.bulkBusy=!1,this.bulkError=""}connectedCallback(){super.connectedCallback(),document.addEventListener("click",this.closePanels)}disconnectedCallback(){document.removeEventListener("click",this.closePanels),super.disconnectedCallback()}updated(){this.hass?.connection!==this.registryConnection&&this.loadRegistries()}async loadRegistries(){if(!this.hass)return;let e=this.hass,t=e.connection;this.registryConnection=t,this.registryError="";let[s,i]=await Promise.allSettled([U(e),ne(e)]);this.registryConnection===t&&(s.status==="fulfilled"&&(this.users=s.value.users,this.labels=s.value.labels,this.tags=s.value.tags),i.status==="fulfilled"&&(this.devices=i.value),(s.status==="rejected"||i.status==="rejected")&&(this.registryError=a("app.registry_load_error")))}trigger(e){return e.schedule.type==="sensor"?a("task.problem_sensor"):e.schedule.type==="fixed"?a("task.fixed"):a("task.sliding")}status(e){return e.active===!1?a("app.paused"):a("app.active")}problemSensorStatus(e){return e.schedule.type==="sensor"?M(this.hass,e.schedule):void 0}problemSensorWarning(e){let t=this.problemSensorStatus(e);if(!t||t==="available")return d;let s=a(`problem.sensor_${t}`,{entity_id:e.schedule.type==="sensor"?e.schedule.entity_id:""});return o`
       <span class="sensor-warning" title=${s} aria-label=${s}>
         <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
       </span>
-    `}assignee(e){return this.users.find(t=>t.id===e.assignee_id)?.name||"\u2014"}nfcTag(e){return e.nfc_tag_id?this.tags.find(t=>t.id===e.nfc_tag_id)?.name||e.nfc_tag_id:"\u2014"}taskLabels(e){let t=new Set(e.label_ids||[]);return this.labels.filter(s=>t.has(s.label_id)).sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language))}deviceName(e){return e.name_by_user||e.name||[e.manufacturer,e.model].filter(Boolean).join(" ")||e.id}notificationDevices(e){let t=new Set(e.notification.device_ids||[]);return this.devices.filter(s=>t.has(s.id)).sort((s,i)=>this.deviceName(s).localeCompare(this.deviceName(i),this.hass?.locale?.language))}labelsText(e){return this.taskLabels(e).map(t=>t.name).join(", ")||"\u2014"}notificationsText(e){return[...e.notification.persistent?[r("task.notification_persistent")]:[],...this.notificationDevices(e).map(t=>this.deviceName(t))].join(", ")||"\u2014"}filterValues(e,t){if(t==="due"){if(!e.due)return[];let s=this.hass?.config?.time_zone,i=Kt(e.due,s)-Kt(this.now||new Date,s);return[...i<0?["overdue"]:[],...i===0?["today"]:[],...i===1?["tomorrow"]:[],...i>=0&&i<7?["next_7_days"]:[],...i>=0&&i<30?["next_30_days"]:[]]}if(t==="assignee")return[this.users.find(i=>i.id===e.assignee_id)?.id||"__none__"];if(t==="labels"){let s=this.taskLabels(e).map(i=>i.label_id);return s.length?s:["__none__"]}if(t==="notifications"){let s=[...e.notification.persistent?["panel"]:[],...this.notificationDevices(e).map(i=>i.id)];return s.length?s:["__none__"]}return t==="status"?[e.active===!1?"paused":"active"]:[e.schedule.type]}filterLabel(e,t){if(t==="__none__")return e==="assignee"?r("task.unassigned"):e==="labels"?r("task.no_labels"):r("app.no_notifications");if(e==="assignee")return this.users.find(i=>i.id===t)?.name||t;if(e==="labels")return this.labels.find(i=>i.label_id===t)?.name||t;if(e==="notifications")return t==="panel"?r("task.notification_persistent"):this.deviceName(this.devices.find(i=>i.id===t));if(e==="status"){let i=ge.find(n=>n.value===t);return i?r(i.label):t}let s=me.find(i=>i.value===t);return s?r(s.label):t}filterOptions(e){return e==="due"?fe.map(s=>({value:s.value,label:r(s.label)})):[...new Set(this.tasks.flatMap(s=>this.filterValues(s,e)))].map(s=>({value:s,label:this.filterLabel(e,s)})).sort((s,i)=>s.label.localeCompare(i.label,this.hass?.locale?.language))}activeFilters(){return this.configuredFilters?{...he(),...this.configuredFilters}:this.filters}matchesFilters(e,t){return qe.every(s=>{let i=t[s];return!i.length||this.filterValues(e,s).some(n=>i.includes(n))})}dueValue(e){if(e.active===!1||!e.due)return;let t=Date.parse(e.due);return Number.isNaN(t)?void 0:t}due(e){let t=this.dueValue(e);if(t===void 0){let s=this.problemSensorStatus(e);return s&&s!=="available"?r(`problem.sensor_${s}_short`):e.active!==!1&&e.schedule.type==="sensor"&&!e.due?r("table.waiting"):"\u2014"}return new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(t)}dueStatus(e){if(e.active===!1||this.dueValue(e)===void 0)return"";let t=this.hass?.config?.time_zone,s=Ge(e.due,t),i=Ge(new Date,t);return s<i?"due-overdue":s===i?"due-today":""}rowClass(e){return e.active===!1?"inactive":this.dueStatus(e)}sortGroup(e){return e.active===!1?2:e.schedule.type==="sensor"&&!e.due?1:0}compareDue(e,t){let s=this.sortGroup(e)-this.sortGroup(t);if(s)return s;let i=this.dueValue(e),n=this.dueValue(t);if(i===void 0||n===void 0){if(i!==n)return i===void 0?1:-1}else if(i!==n)return i-n;return e.name.localeCompare(t.name,this.hass?.locale?.language)}visibleTasks(){let e=this.showSearch?this.search.trim().toLocaleLowerCase(this.hass?.locale?.language):"",t=this.activeFilters();return this.tasks.filter(s=>this.matchesFilters(s,t)&&(!e||[s.name,s.description,this.assignee(s),this.nfcTag(s),this.taskLabels(s).map(i=>i.name).join(" "),this.notificationDevices(s).map(i=>this.deviceName(i)).join(" "),this.trigger(s),this.status(s)].some(i=>i?.toLocaleLowerCase(this.hass?.locale?.language).includes(e)))).sort((s,i)=>this.compareDue(s,i))}toggleFilter(e,t,s){let i=this.filters[e];this.filters={...this.filters,[e]:s?[...new Set([...i,t])]:i.filter(n=>n!==t)},this.retainVisibleSelection(),this.storeSessionView()}toggleColumn(e,t){this.columns={...this.columns,[e]:t},this.storeLocalView()}resetColumns(){this.columns=this.configuredColumns?Object.fromEntries(Object.keys(te).map(e=>[e,this.configuredColumns.includes(e)])):{...We},this.storeLocalView()}storeLocalView(){try{globalThis.localStorage?.setItem(jt,JSON.stringify({columns:this.columns}))}catch{}}storeSessionView(){try{globalThis.sessionStorage?.setItem(Vt,JSON.stringify({search:this.search,filters:this.filters}))}catch{}}columnText(e,t){return t==="due"?this.due(e):t==="assignee"?this.assignee(e):t==="files"?String(e.attachments.length):t==="nfc"?this.nfcTag(e):t==="labels"?this.labelsText(e):t==="notifications"?this.notificationsText(e):t==="trigger"?this.trigger(e):this.status(e)}columnValue(e,t){let s=this.columnText(e,t);return t==="due"&&s!=="\u2014"&&this.hass&&e.due?o`
+    `}assignee(e){return this.users.find(t=>t.id===e.assignee_id)?.name||"\u2014"}nfcTag(e){return e.nfc_tag_id?this.tags.find(t=>t.id===e.nfc_tag_id)?.name||e.nfc_tag_id:"\u2014"}taskLabels(e){let t=new Set(e.label_ids||[]);return this.labels.filter(s=>t.has(s.label_id)).sort((s,i)=>s.name.localeCompare(i.name,this.hass?.locale?.language))}deviceName(e){return e.name_by_user||e.name||[e.manufacturer,e.model].filter(Boolean).join(" ")||e.id}notificationDevices(e){let t=new Set(e.notification.device_ids||[]);return this.devices.filter(s=>t.has(s.id)).sort((s,i)=>this.deviceName(s).localeCompare(this.deviceName(i),this.hass?.locale?.language))}labelsText(e){return this.taskLabels(e).map(t=>t.name).join(", ")||"\u2014"}notificationsText(e){return[...e.notification.persistent?[a("task.notification_persistent")]:[],...this.notificationDevices(e).map(t=>this.deviceName(t))].join(", ")||"\u2014"}filterValues(e,t){if(t==="due"){if(!e.due)return[];let s=this.hass?.config?.time_zone,i=Gt(e.due,s)-Gt(this.now||new Date,s);return[...i<0?["overdue"]:[],...i===0?["today"]:[],...i===1?["tomorrow"]:[],...i>=0&&i<7?["next_7_days"]:[],...i>=0&&i<30?["next_30_days"]:[]]}if(t==="assignee")return[this.users.find(i=>i.id===e.assignee_id)?.id||"__none__"];if(t==="labels"){let s=this.taskLabels(e).map(i=>i.label_id);return s.length?s:["__none__"]}if(t==="notifications"){let s=[...e.notification.persistent?["panel"]:[],...this.notificationDevices(e).map(i=>i.id)];return s.length?s:["__none__"]}return t==="status"?[e.active===!1?"paused":"active"]:[e.schedule.type]}filterLabel(e,t){if(t==="__none__")return e==="assignee"?a("task.unassigned"):e==="labels"?a("task.no_labels"):a("app.no_notifications");if(e==="assignee")return this.users.find(i=>i.id===t)?.name||t;if(e==="labels")return this.labels.find(i=>i.label_id===t)?.name||t;if(e==="notifications")return t==="panel"?a("task.notification_persistent"):this.deviceName(this.devices.find(i=>i.id===t));if(e==="status"){let i=be.find(n=>n.value===t);return i?a(i.label):t}let s=fe.find(i=>i.value===t);return s?a(s.label):t}filterOptions(e){return e==="due"?ve.map(s=>({value:s.value,label:a(s.label)})):[...new Set(this.tasks.flatMap(s=>this.filterValues(s,e)))].map(s=>({value:s,label:this.filterLabel(e,s)})).sort((s,i)=>s.label.localeCompare(i.label,this.hass?.locale?.language))}activeFilters(){return this.configuredFilters?{...pe(),...this.configuredFilters}:this.filters}matchesFilters(e,t){return Ze.every(s=>{let i=t[s];return!i.length||this.filterValues(e,s).some(n=>i.includes(n))})}dueValue(e){if(e.active===!1||!e.due)return;let t=Date.parse(e.due);return Number.isNaN(t)?void 0:t}due(e){let t=this.dueValue(e);if(t===void 0){let s=this.problemSensorStatus(e);return s&&s!=="available"?a(`problem.sensor_${s}_short`):e.active!==!1&&e.schedule.type==="sensor"&&!e.due?a("table.waiting"):"\u2014"}return new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(t)}dueStatus(e){if(e.active===!1||this.dueValue(e)===void 0)return"";let t=this.hass?.config?.time_zone,s=Je(e.due,t),i=Je(new Date,t);return s<i?"due-overdue":s===i?"due-today":""}rowClass(e){return e.active===!1?"inactive":this.dueStatus(e)}sortGroup(e){return e.active===!1?2:e.schedule.type==="sensor"&&!e.due?1:0}compareDue(e,t){let s=this.sortGroup(e)-this.sortGroup(t);if(s)return s;let i=this.dueValue(e),n=this.dueValue(t);if(i===void 0||n===void 0){if(i!==n)return i===void 0?1:-1}else if(i!==n)return i-n;return e.name.localeCompare(t.name,this.hass?.locale?.language)}visibleTasks(){let e=this.showSearch?this.search.trim().toLocaleLowerCase(this.hass?.locale?.language):"",t=this.activeFilters();return this.tasks.filter(s=>this.matchesFilters(s,t)&&(!e||[s.name,s.description,this.assignee(s),this.nfcTag(s),this.taskLabels(s).map(i=>i.name).join(" "),this.notificationDevices(s).map(i=>this.deviceName(i)).join(" "),this.trigger(s),this.status(s)].some(i=>i?.toLocaleLowerCase(this.hass?.locale?.language).includes(e)))).sort((s,i)=>this.compareDue(s,i))}toggleFilter(e,t,s){let i=this.filters[e];this.filters={...this.filters,[e]:s?[...new Set([...i,t])]:i.filter(n=>n!==t)},this.retainVisibleSelection(),this.storeSessionView()}toggleColumn(e,t){this.columns={...this.columns,[e]:t},this.storeLocalView()}resetColumns(){this.columns=this.configuredColumns?Object.fromEntries(Object.keys(ue).map(e=>[e,this.configuredColumns.includes(e)])):{...Ge},this.storeLocalView()}storeLocalView(){try{globalThis.localStorage?.setItem(Kt,JSON.stringify({columns:this.columns}))}catch{}}storeSessionView(){try{globalThis.sessionStorage?.setItem(qt,JSON.stringify({search:this.search,filters:this.filters}))}catch{}}columnText(e,t){return t==="due"?this.due(e):t==="assignee"?this.assignee(e):t==="files"?String(e.attachments.length):t==="nfc"?this.nfcTag(e):t==="labels"?this.labelsText(e):t==="notifications"?this.notificationsText(e):t==="trigger"?this.trigger(e):this.status(e)}columnValue(e,t){let s=this.columnText(e,t);return t==="due"&&s!=="\u2014"&&this.hass&&e.due?o`
         <ha-relative-time
           .hass=${this.hass}
           .datetime=${e.due}
@@ -1666,7 +1666,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
       `:t==="status"?o`<span class="status">${s}</span>`:s}mobileDetails(e){return this.visibleColumnKeys().filter(s=>this.columnText(e,s)!=="\u2014").map((s,i)=>o`
         ${i?o`<span aria-hidden="true"> · </span>`:d}
         ${this.columnValue(e,s)}
-      `)}visibleColumnKeys(){return(this.configuredColumns??Object.keys(this.columns)).filter(e=>this.columns[e])}visibleColumnCount(){return this.visibleColumnKeys().length+1+Number(this.showIcon)+Number(this.showBulkSelection)+Number(this.showActionMenu)}selectedTasks(){let e=new Set(this.selectedIds);return this.tasks.filter(t=>e.has(t.id))}visibleSelectedTasks(){let e=new Set(this.selectedIds);return this.visibleTasks().filter(t=>e.has(t.id))}retainVisibleSelection(){let e=new Set(this.visibleTasks().map(t=>t.id));this.selectedIds=this.selectedIds.filter(t=>e.has(t))}toggleTask(e,t){this.selectedIds=t?[...new Set([...this.selectedIds,e])]:this.selectedIds.filter(s=>s!==e)}toggleVisible(e,t){let s=new Set(this.selectedIds);for(let i of e)t?s.add(i.id):s.delete(i.id);this.selectedIds=[...s]}bulkTargets(){return this.bulkAction==="assign"?this.users.map(e=>({value:e.id,label:e.name})):this.bulkAction==="add-label"||this.bulkAction==="remove-label"?this.labels.map(e=>({value:e.label_id,label:e.name})):this.bulkAction==="add-notification"||this.bulkAction==="remove-notification"?[{value:"panel",label:r("task.notification_persistent")},...this.devices.map(e=>({value:e.id,label:this.deviceName(e)}))]:[]}bulkNeedsTarget(){return["assign","add-label","remove-label","add-notification","remove-notification"].includes(this.bulkAction)}bulkActionDestructive(){return["delete","remove-label","remove-notification"].includes(this.bulkAction)}bulkActionLabel(){return this.bulkAction==="complete"?r("bulk.complete"):this.bulkAction==="pause"?r("app.pause"):this.bulkAction==="resume"?r("app.resume"):this.bulkAction==="assign"?r("app.assign"):this.bulkAction==="unassign"?r("bulk.remove_assignment"):this.bulkAction==="add-label"||this.bulkAction==="add-notification"?r("app.add"):this.bulkAction==="remove-label"||this.bulkAction==="remove-notification"?r("common.remove"):this.bulkAction==="delete"?r("common.delete"):r("app.apply")}bulkTargetLabel(){return this.bulkAction==="assign"?r("app.choose_person"):this.bulkAction==="add-label"||this.bulkAction==="remove-label"?r("app.choose_label"):r("app.choose_notification")}bulkTargetIcon(){return this.bulkAction==="assign"?"mdi:account-outline":this.bulkAction==="add-label"||this.bulkAction==="remove-label"?"mdi:tag-outline":"mdi:bell-outline"}bulkOperations(){return this.visibleSelectedTasks().map(e=>{if(this.bulkAction==="complete")return{action:"complete",id:e.id,notes:null};if(this.bulkAction==="delete")return{action:"delete",id:e.id};let t;if(this.bulkAction==="pause"||this.bulkAction==="resume")t={active:this.bulkAction==="resume"};else if(this.bulkAction==="assign")t={assignee_id:this.bulkTarget};else if(this.bulkAction==="unassign")t={assignee_id:null};else if(this.bulkAction==="add-label"||this.bulkAction==="remove-label"){let s=e.label_ids||[];t={label_ids:this.bulkAction==="remove-label"?s.filter(i=>i!==this.bulkTarget):[...new Set([...s,this.bulkTarget])]}}else{let s=e.notification.device_ids||[];this.bulkTarget==="panel"?t={notification:{...e.notification,persistent:this.bulkAction==="add-notification"}}:t={notification:{...e.notification,device_ids:this.bulkAction==="remove-notification"?s.filter(i=>i!==this.bulkTarget):[...new Set([...s,this.bulkTarget])]}}}return{action:"update",id:e.id,changes:t}})}renderBulkPicker(e,t,s,i,n,l){let u=t.find(p=>p.value===s),h=this.openBulkPicker===e;return o`
+      `)}visibleColumnKeys(){return this.configuredColumns??Object.keys(this.columns).filter(e=>this.columns[e])}visibleColumnCount(){return this.visibleColumnKeys().length+1+Number(this.showIcon)+Number(this.showBulkSelection)+Number(this.showActionMenu)}selectedTasks(){let e=new Set(this.selectedIds);return this.tasks.filter(t=>e.has(t.id))}visibleSelectedTasks(){let e=new Set(this.selectedIds);return this.visibleTasks().filter(t=>e.has(t.id))}retainVisibleSelection(){let e=new Set(this.visibleTasks().map(t=>t.id));this.selectedIds=this.selectedIds.filter(t=>e.has(t))}toggleTask(e,t){this.selectedIds=t?[...new Set([...this.selectedIds,e])]:this.selectedIds.filter(s=>s!==e)}toggleVisible(e,t){let s=new Set(this.selectedIds);for(let i of e)t?s.add(i.id):s.delete(i.id);this.selectedIds=[...s]}bulkTargets(){return this.bulkAction==="assign"?this.users.map(e=>({value:e.id,label:e.name})):this.bulkAction==="add-label"||this.bulkAction==="remove-label"?this.labels.map(e=>({value:e.label_id,label:e.name})):this.bulkAction==="add-notification"||this.bulkAction==="remove-notification"?[{value:"panel",label:a("task.notification_persistent")},...this.devices.map(e=>({value:e.id,label:this.deviceName(e)}))]:[]}bulkNeedsTarget(){return["assign","add-label","remove-label","add-notification","remove-notification"].includes(this.bulkAction)}bulkActionDestructive(){return["delete","remove-label","remove-notification"].includes(this.bulkAction)}bulkActionLabel(){return this.bulkAction==="complete"?a("bulk.complete"):this.bulkAction==="pause"?a("app.pause"):this.bulkAction==="resume"?a("app.resume"):this.bulkAction==="assign"?a("app.assign"):this.bulkAction==="unassign"?a("bulk.remove_assignment"):this.bulkAction==="add-label"||this.bulkAction==="add-notification"?a("app.add"):this.bulkAction==="remove-label"||this.bulkAction==="remove-notification"?a("common.remove"):this.bulkAction==="delete"?a("common.delete"):a("app.apply")}bulkTargetLabel(){return this.bulkAction==="assign"?a("app.choose_person"):this.bulkAction==="add-label"||this.bulkAction==="remove-label"?a("app.choose_label"):a("app.choose_notification")}bulkTargetIcon(){return this.bulkAction==="assign"?"mdi:account-outline":this.bulkAction==="add-label"||this.bulkAction==="remove-label"?"mdi:tag-outline":"mdi:bell-outline"}bulkOperations(){return this.visibleSelectedTasks().map(e=>{if(this.bulkAction==="complete")return{action:"complete",id:e.id,notes:null};if(this.bulkAction==="delete")return{action:"delete",id:e.id};let t;if(this.bulkAction==="pause"||this.bulkAction==="resume")t={active:this.bulkAction==="resume"};else if(this.bulkAction==="assign")t={assignee_id:this.bulkTarget};else if(this.bulkAction==="unassign")t={assignee_id:null};else if(this.bulkAction==="add-label"||this.bulkAction==="remove-label"){let s=e.label_ids||[];t={label_ids:this.bulkAction==="remove-label"?s.filter(i=>i!==this.bulkTarget):[...new Set([...s,this.bulkTarget])]}}else{let s=e.notification.device_ids||[];this.bulkTarget==="panel"?t={notification:{...e.notification,persistent:this.bulkAction==="add-notification"}}:t={notification:{...e.notification,device_ids:this.bulkAction==="remove-notification"?s.filter(i=>i!==this.bulkTarget):[...new Set([...s,this.bulkTarget])]}}}return{action:"update",id:e.id,changes:t}})}renderBulkPicker(e,t,s,i,n,l){let u=t.find(p=>p.value===s),h=this.openBulkPicker===e;return o`
       <div class=${h?"bulk-action-picker open":"bulk-action-picker"}>
         <button
           class="bulk-action-picker-trigger"
@@ -1696,15 +1696,15 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           </div>
         </div>
       </div>
-    `}renderBulkMenu(e){let t=this.bulkTargets(),s=_s(e),i=this.bulkTargetIcon(),n=t.map(l=>({...l,icon:i}));return o`
+    `}renderBulkMenu(e){let t=this.bulkTargets(),s=Ts(e),i=this.bulkTargetIcon(),n=t.map(l=>({...l,icon:i}));return o`
       <details
         class="bulk-menu"
         @toggle=${l=>{l.currentTarget.open||(this.openBulkPicker="")}}
       >
-        <summary>${r("bulk.actions")} (${e.length})</summary>
+        <summary>${a("bulk.actions")} (${e.length})</summary>
         <div class="popover-panel">
           <div class="bulk-bar">
-            ${this.renderBulkPicker("action",s,this.bulkAction,r("app.choose_action"),"mdi:gesture-tap-button",l=>{this.bulkAction=l,this.bulkTarget="",this.bulkError=""})}
+            ${this.renderBulkPicker("action",s,this.bulkAction,a("app.choose_action"),"mdi:gesture-tap-button",l=>{this.bulkAction=l,this.bulkTarget="",this.bulkError=""})}
             ${t.length?this.renderBulkPicker("target",n,this.bulkTarget,this.bulkTargetLabel(),i,l=>{this.bulkTarget=l}):d}
             <div class="bulk-footer">
               <ha-button
@@ -1713,7 +1713,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                 ?disabled=${this.bulkBusy||!e.length||!this.bulkAction||this.bulkNeedsTarget()&&!this.bulkTarget}
                 @click=${()=>{this.applyBulk()}}
               >
-                ${this.bulkBusy?r("app.applying"):this.bulkActionLabel()}
+                ${this.bulkBusy?a("app.applying"):this.bulkActionLabel()}
               </ha-button>
             </div>
             ${this.bulkError?o`<p class="bulk-error" role="alert">
@@ -1722,9 +1722,9 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
           </div>
         </div>
       </details>
-    `}async applyBulk(){if(!this.hass||this.bulkBusy||!this.bulkAction||this.bulkNeedsTarget()&&!this.bulkTarget)return;let e=this.bulkOperations();if(e.length){if(this.bulkAction==="complete"||this.bulkAction==="delete"){let t=this.bulkAction==="delete";if(await T({heading:t?r("bulk.delete_title"):r("bulk.complete_title"),content:o`<p>
-          ${t?r("bulk.delete_confirm",{count:e.length}):r("bulk.complete_confirm",{count:e.length})}
-        </p>`,actions:[{label:r("common.cancel"),value:"cancel"},{label:t?r("common.delete"):r("app.complete"),value:"confirm",destructive:t}]})!=="confirm")return}this.bulkBusy=!0,this.bulkError="";try{await St(this.hass,e);let t=new Set(e.map(s=>s.id));this.selectedIds=this.selectedIds.filter(s=>!t.has(s)),this.bulkAction="",this.bulkTarget=""}catch(t){this.bulkError=P(t)}finally{this.bulkBusy=!1}}}selectedFilterCount(){return this.showFilters?qe.reduce((e,t)=>e+this.filters[t].length,0):0}filterGroup(e,t){let s=this.filters[t].length,i=this.openFilterGroups.includes(t);return o`
+    `}async applyBulk(){if(!this.hass||this.bulkBusy||!this.bulkAction||this.bulkNeedsTarget()&&!this.bulkTarget)return;let e=this.bulkOperations();if(e.length){if(this.bulkAction==="complete"||this.bulkAction==="delete"){let t=this.bulkAction==="delete";if(await x({heading:t?a("bulk.delete_title"):a("bulk.complete_title"),content:o`<p>
+          ${t?a("bulk.delete_confirm",{count:e.length}):a("bulk.complete_confirm",{count:e.length})}
+        </p>`,actions:[{label:a("common.cancel"),value:"cancel"},{label:t?a("common.delete"):a("app.complete"),value:"confirm",destructive:t}]})!=="confirm")return}this.bulkBusy=!0,this.bulkError="";try{await Dt(this.hass,e);let t=new Set(e.map(s=>s.id));this.selectedIds=this.selectedIds.filter(s=>!t.has(s)),this.bulkAction="",this.bulkTarget=""}catch(t){this.bulkError=D(t)}finally{this.bulkBusy=!1}}}selectedFilterCount(){return this.showFilters?Ze.reduce((e,t)=>e+this.filters[t].length,0):0}filterGroup(e,t){let s=this.filters[t].length,i=this.openFilterGroups.includes(t);return o`
       <div class=${i?"filter-category open":"filter-category"}>
         <button
           class="filter-category-heading"
@@ -1758,7 +1758,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         </div>
       </div>
     `}open(e){this.dispatchEvent(new CustomEvent("tasks-task-open",{bubbles:!0,composed:!0,detail:e}))}action(e,t){this.dispatchEvent(new CustomEvent("tasks-task-action",{bubbles:!0,composed:!0,detail:{action:t,task:e}}))}columnHeader(e){return o`
-      <th class=${`${e}-column`}>${r(te[e])}</th>
+      <th class=${`${e}-column`}>${a(ue[e])}</th>
     `}columnCell(e,t){return o`
       <td class=${`${t}-column`}>
         ${this.columnValue(e,t)}
@@ -1772,8 +1772,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                             <input
                               class="search"
                               type="search"
-                              aria-label=${r("table.search")}
-                              placeholder=${r("table.search")}
+                              aria-label=${a("table.search")}
+                              placeholder=${a("table.search")}
                               .value=${this.search}
                               @input=${c=>{this.search=c.currentTarget.value,this.retainVisibleSelection(),this.storeSessionView()}}
                             >
@@ -1784,7 +1784,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                               type="button"
                               @click=${()=>this.dispatchEvent(new CustomEvent("tasks-task-add",{bubbles:!0,composed:!0}))}
                             >
-                              ${r("card.add_task")}
+                              ${a("card.add_task")}
                             </button>
                           `:d}
                       ${i.length?this.renderBulkMenu(i):d}
@@ -1798,12 +1798,12 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                         aria-expanded=${this.openToolbarPanel==="filters"}
                         @click=${()=>{this.openToolbarPanel=this.openToolbarPanel==="filters"?"":"filters"}}
                       >
-                        ${r("table.filters")}${t?` (${t})`:""}
+                        ${a("table.filters")}${t?` (${t})`:""}
                       </button>
                       ${this.openToolbarPanel==="filters"?o`
                             <div class="popover-panel filter-panel">
                               <div class="filter-grid">
-                                ${qe.map(c=>this.filterGroup(r($s[c]),c))}
+                                ${Ze.map(c=>this.filterGroup(a(ws[c]),c))}
                               </div>
                               <div class="filter-footer">
                                 ${this.registryError?o`<p class="registry-error">
@@ -1812,9 +1812,9 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                                 <ha-button
                                   appearance="plain"
                                   variant="neutral"
-                                  @click=${()=>{this.filters=he(),this.storeSessionView()}}
+                                  @click=${()=>{this.filters=pe(),this.storeSessionView()}}
                                 >
-                                  ${r("table.reset_filters")}
+                                  ${a("table.reset_filters")}
                                 </ha-button>
                               </div>
                             </div>
@@ -1829,19 +1829,19 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                         aria-expanded=${this.openToolbarPanel==="columns"}
                         @click=${()=>{this.openToolbarPanel=this.openToolbarPanel==="columns"?"":"columns"}}
                       >
-                        ${r("table.columns")}
+                        ${a("table.columns")}
                       </button>
                       ${this.openToolbarPanel==="columns"?o`
                             <div class="popover-panel column-panel">
                               <div class="column-options">
-                                ${Object.keys(te).map(c=>o`
+                                ${Object.keys(ue).map(c=>o`
                                     <button
                                       class=${this.columns[c]?"option-row active":"option-row"}
                                       type="button"
                                       aria-pressed=${this.columns[c]}
                                       @click=${()=>this.toggleColumn(c,!this.columns[c])}
                                     >
-                                      <span>${r(te[c])}</span>
+                                      <span>${a(ue[c])}</span>
                                       ${this.columns[c]?o`<ha-icon
                                             icon="mdi:check"
                                           ></ha-icon>`:d}
@@ -1854,7 +1854,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                                   variant="neutral"
                                   @click=${this.resetColumns}
                                 >
-                                  ${r("table.reset_columns")}
+                                  ${a("table.reset_columns")}
                                 </ha-button>
                               </div>
                             </div>
@@ -1871,7 +1871,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                     ${this.showBulkSelection?o`
                           <th class="selection">
                             <ha-checkbox
-                              aria-label=${r("app.select_visible")}
+                              aria-label=${a("app.select_visible")}
                               .checked=${l}
                               .indeterminate=${u&&!l}
                               @change=${c=>this.toggleVisible(e,c.currentTarget.checked)}
@@ -1879,11 +1879,11 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                           </th>
                         `:d}
                     ${this.showIcon?o`<th class="icon" aria-hidden="true"></th>`:d}
-                    <th>${r("table.task")}</th>
+                    <th>${a("table.task")}</th>
                     ${s.map(c=>this.columnHeader(c))}
                     ${this.showActionMenu?o`<th
                           class="actions"
-                          aria-label=${r("task.actions")}
+                          aria-label=${a("task.actions")}
                         ></th>`:d}
                   </tr>
                 </thead>
@@ -1901,7 +1901,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                               @click=${m=>m.stopPropagation()}
                             >
                               <ha-checkbox
-                                aria-label=${r("app.select_task",{name:c.name})}
+                                aria-label=${a("app.select_task",{name:c.name})}
                                 .checked=${n.has(c.id)}
                                 @change=${m=>this.toggleTask(c.id,m.currentTarget.checked)}
                               ></ha-checkbox>
@@ -1927,25 +1927,25 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                               class="actions"
                               @click=${m=>m.stopPropagation()}
                             >
-                              <${qt}
-                                label=${r("app.actions_for",{name:c.name})}
-                                .items=${ks(c)}
+                              <${Jt}
+                                label=${a("app.actions_for",{name:c.name})}
+                                .items=${xs(c)}
                                 @tasks-action=${m=>this.action(c,m.detail)}
-                              ></${qt}>
+                              ></${Jt}>
                             </td>
                           `:d}
                     </tr>
                   `):o`
                   <tr>
                     <td class="empty" colspan=${this.visibleColumnCount()}>
-                      ${this.showSearch&&this.search?r("table.empty"):r("app.no_tasks")}
+                      ${this.showSearch&&this.search?a("table.empty"):a("app.no_tasks")}
                     </td>
                   </tr>
                 `}
           </tbody>
         </table>
       </div>
-    `}},ue=v("task-table");customElements.get(ue)||customElements.define(ue,Ze);var Je=class extends f{static properties={tone:{reflect:!0}};static styles=b`
+    `}},me=v("task-table");customElements.get(me)||customElements.define(me,Qe);var Xe=class extends f{static properties={tone:{reflect:!0}};static styles=b`
     :host {
       display: inline-flex;
       margin: 0 8px 8px 0;
@@ -1973,7 +1973,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     :host([tone="muted"]) span {
       color: var(--secondary-text-color);
     }
-  `;constructor(){super(),this.tone="default"}render(){return o`<span><slot></slot></span>`}},be=v("pill");customElements.get(be)||customElements.define(be,Je);var K=_(B),A=_(be),Gt=_(V),Qe=class extends f{static properties={attachment:{attribute:!1},url:{}};static styles=b`
+  `;constructor(){super(),this.tone="default"}render(){return o`<span><slot></slot></span>`}},ye=v("pill");customElements.get(ye)||customElements.define(ye,Xe);var j=k(z),E=k(ye),Qt=k(V),Ye=class extends f{static properties={attachment:{attribute:!1},url:{}};static styles=b`
     :host {
       display: block;
     }
@@ -2003,8 +2003,8 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         src=${this.url}
         title=${this.attachment.filename}
       ></iframe>`:o`<a href=${this.url} target="_blank" rel="noopener">
-      ${r("app.open_file",{name:this.attachment.filename})}
-    </a>`}},Xe=v("attachment-preview");customElements.get(Xe)||customElements.define(Xe,Qe);var Ye=class extends f{static properties={task:{attribute:!1},attachments:{state:!0},users:{state:!0},labels:{state:!0},tags:{state:!0},history:{state:!0},signedFiles:{state:!0},loading:{state:!0},assignmentReady:{state:!0},assignmentError:{state:!0},historyError:{state:!0},attachmentError:{state:!0},completionNotes:{state:!0},completionError:{state:!0},completing:{state:!0}};static styles=b`
+      ${a("app.open_file",{name:this.attachment.filename})}
+    </a>`}},et=v("attachment-preview");customElements.get(et)||customElements.define(et,Ye);var tt=class extends f{static properties={task:{attribute:!1},attachments:{state:!0},users:{state:!0},labels:{state:!0},tags:{state:!0},history:{state:!0},signedFiles:{state:!0},loading:{state:!0},assignmentReady:{state:!0},assignmentError:{state:!0},historyError:{state:!0},attachmentError:{state:!0},completionNotes:{state:!0},completionError:{state:!0},completing:{state:!0}};static styles=b`
     :host,
     .content,
     .records {
@@ -2160,39 +2160,39 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         margin-top: 8px;
       }
     }
-  `;hass;constructor(){super(),this.attachments=[],this.users=[],this.labels=[],this.tags=[],this.history=[],this.signedFiles={},this.loading=!1,this.assignmentReady=!1,this.assignmentError="",this.historyError="",this.attachmentError="",this.completionNotes="",this.completionError="",this.completing=!1}configure(e,t,s=[]){this.hass=e,this.task=t,this.attachments=[...t.attachments],this.loadDetails()}async loadDetails(){if(!this.hass)return;this.loading=!0,this.assignmentError="",this.historyError="",this.attachmentError="";let[e,t,s]=await Promise.allSettled([z(this.hass),oe(this.hass,this.task.id),Ct(this.hass,this.task.id)]);e.status==="fulfilled"?(this.users=e.value.users,this.labels=e.value.labels,this.tags=e.value.tags,this.assignmentReady=!0):this.assignmentError=r("app.assignment_load_error"),t.status==="fulfilled"?this.history=Array.isArray(t.value.history)?t.value.history:[]:this.historyError=r("app.history_load_error"),s.status==="fulfilled"?this.signedFiles=s.value.signed_files||{}:this.attachmentError=r("app.attachment_load_error"),this.loading=!1}formatDate(e){if(!e)return r("app.not_scheduled");let t=new Date(e);return Number.isNaN(t.getTime())?e:new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(t)}formatSize(e){return e<1024?`${e} B`:e<1024*1024?`${Math.round(e/1024)} KB`:`${(e/(1024*1024)).toFixed(1)} MB`}renderInline(e){let t=[],s=/(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g,i=0;for(let n of e.matchAll(s)){let l=n.index??0;if(l>i&&t.push(e.slice(i,l)),n[2])t.push(o`<strong>${n[2]}</strong>`);else if(n[3])t.push(o`<em>${n[3]}</em>`);else if(n[4])t.push(o`<code>${n[4]}</code>`);else if(n[5]&&n[6]){let u=n[6];t.push(/^(?:https?:|mailto:|\/|#)/.test(u)?o`<a href=${u} target="_blank" rel="noopener"
+  `;hass;constructor(){super(),this.attachments=[],this.users=[],this.labels=[],this.tags=[],this.history=[],this.signedFiles={},this.loading=!1,this.assignmentReady=!1,this.assignmentError="",this.historyError="",this.attachmentError="",this.completionNotes="",this.completionError="",this.completing=!1}configure(e,t,s=[]){this.hass=e,this.task=t,this.attachments=[...t.attachments],this.loadDetails()}async loadDetails(){if(!this.hass)return;this.loading=!0,this.assignmentError="",this.historyError="",this.attachmentError="";let[e,t,s]=await Promise.allSettled([U(this.hass),oe(this.hass,this.task.id),Pt(this.hass,this.task.id)]);e.status==="fulfilled"?(this.users=e.value.users,this.labels=e.value.labels,this.tags=e.value.tags,this.assignmentReady=!0):this.assignmentError=a("app.assignment_load_error"),t.status==="fulfilled"?this.history=Array.isArray(t.value.history)?t.value.history:[]:this.historyError=a("app.history_load_error"),s.status==="fulfilled"?this.signedFiles=s.value.signed_files||{}:this.attachmentError=a("app.attachment_load_error"),this.loading=!1}formatDate(e){if(!e)return a("app.not_scheduled");let t=new Date(e);return Number.isNaN(t.getTime())?e:new Intl.DateTimeFormat(this.hass?.locale?.language,{dateStyle:"medium",timeStyle:"short",timeZone:this.hass?.config?.time_zone}).format(t)}renderInline(e){let t=[],s=/(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g,i=0;for(let n of e.matchAll(s)){let l=n.index??0;if(l>i&&t.push(e.slice(i,l)),n[2])t.push(o`<strong>${n[2]}</strong>`);else if(n[3])t.push(o`<em>${n[3]}</em>`);else if(n[4])t.push(o`<code>${n[4]}</code>`);else if(n[5]&&n[6]){let u=n[6];t.push(/^(?:https?:|mailto:|\/|#)/.test(u)?o`<a href=${u} target="_blank" rel="noopener"
                 >${n[5]}</a
-              >`:n[5])}i=l+n[0].length}return i<e.length&&t.push(e.slice(i)),t}renderDescription(){let e=(this.task.description||"").split(/\r?\n/);if(!e.some(s=>s.trim()))return o`<p class="hint">${r("task.no_description")}.</p>`;let t=[];for(let s=0;s<e.length;){let i=e[s];if(!i.trim())s+=1;else if(i.startsWith("- ")){let n=[];for(;e[s]?.startsWith("- ");)n.push(e[s].slice(2)),s+=1;t.push(o`<ul>
+              >`:n[5])}i=l+n[0].length}return i<e.length&&t.push(e.slice(i)),t}renderDescription(){let e=(this.task.description||"").split(/\r?\n/);if(!e.some(s=>s.trim()))return o`<p class="hint">${a("task.no_description")}.</p>`;let t=[];for(let s=0;s<e.length;){let i=e[s];if(!i.trim())s+=1;else if(i.startsWith("- ")){let n=[];for(;e[s]?.startsWith("- ");)n.push(e[s].slice(2)),s+=1;t.push(o`<ul>
             ${n.map(l=>o`<li>${this.renderInline(l)}</li>`)}
           </ul>`)}else if(/^\d+\. /.test(i)){let n=[];for(;/^\d+\. /.test(e[s]||"");)n.push(e[s].replace(/^\d+\. /,"")),s+=1;t.push(o`<ol>
             ${n.map(l=>o`<li>${this.renderInline(l)}</li>`)}
-          </ol>`)}else{let n=/^(#{1,2})\s+(.+)$/.exec(i);t.push(n?n[1].length===1?o`<h3>${this.renderInline(n[2])}</h3>`:o`<h4>${this.renderInline(n[2])}</h4>`:i.startsWith("> ")?o`<blockquote>${this.renderInline(i.slice(2))}</blockquote>`:o`<p>${this.renderInline(i)}</p>`),s+=1}}return t}async openAttachment(e){let t=this.signedFiles[e.id];if(!t)return;let s=document.createElement(Xe);s.attachment=e,s.url=t,await T({heading:e.filename,content:s,width:"large"})}async complete(){if(!this.hass||this.completing||await T({heading:r("task.complete_title"),content:o`<p>
-        ${r("task.complete_confirm",{name:this.task.name})}
-      </p>`,actions:[{label:r("common.cancel"),value:"cancel"},{label:r("app.complete"),value:"complete"}]})!=="complete")return!1;this.completing=!0,this.completionError="";try{return await Dt(this.hass,this.task.id,this.completionNotes),!0}catch(t){return this.completionError=P(t),!1}finally{this.completing=!1}}renderMetadata(){let e=this.users.find(i=>i.id===this.task.assignee_id)?.name,t=this.tags.find(i=>i.id===this.task.nfc_tag_id),s=(this.task.label_ids||[]).map(i=>this.labels.find(n=>n.label_id===i)).filter(i=>!!i);return g`
+          </ol>`)}else{let n=/^(#{1,2})\s+(.+)$/.exec(i);t.push(n?n[1].length===1?o`<h3>${this.renderInline(n[2])}</h3>`:o`<h4>${this.renderInline(n[2])}</h4>`:i.startsWith("> ")?o`<blockquote>${this.renderInline(i.slice(2))}</blockquote>`:o`<p>${this.renderInline(i)}</p>`),s+=1}}return t}async openAttachment(e){let t=this.signedFiles[e.id];if(!t)return;let s=document.createElement(et);s.attachment=e,s.url=t,await x({heading:e.filename,content:s,width:"large"})}async complete(){if(!this.hass||this.completing||await x({heading:a("task.complete_title"),content:o`<p>
+        ${a("task.complete_confirm",{name:this.task.name})}
+      </p>`,actions:[{label:a("common.cancel"),value:"cancel"},{label:a("app.complete"),value:"complete"}]})!=="complete")return!1;this.completing=!0,this.completionError="";try{return await It(this.hass,this.task.id,this.completionNotes),!0}catch(t){return this.completionError=D(t),!1}finally{this.completing=!1}}renderMetadata(){let e=this.users.find(i=>i.id===this.task.assignee_id)?.name,t=this.tags.find(i=>i.id===this.task.nfc_tag_id),s=(this.task.label_ids||[]).map(i=>this.labels.find(n=>n.label_id===i)).filter(i=>!!i);return g`
       <div class="pills">
-        ${this.task.due?g`<${A}>
+        ${this.task.due?g`<${E}>
               ${this.formatDate(this.task.due)}
-            </${A}>`:d}
-        ${e?g`<${A}>${e}</${A}>`:d}
-        ${this.attachments.length?g`<${A}>
-              ${r(this.attachments.length===1?"app.file_count_one":"app.file_count_many",{count:this.attachments.length})}
-            </${A}>`:d}
-        ${t?g`<${A}>NFC: ${t.name||t.id}</${A}>`:d}
+            </${E}>`:d}
+        ${e?g`<${E}>${e}</${E}>`:d}
+        ${this.attachments.length?g`<${E}>
+              ${a(this.attachments.length===1?"app.file_count_one":"app.file_count_many",{count:this.attachments.length})}
+            </${E}>`:d}
+        ${t?g`<${E}>NFC: ${t.name||t.id}</${E}>`:d}
         ${s.length?o`<span class="pill-break"></span>`:d}
-        ${s.map(i=>g`<${A}>${i.name}</${A}>`)}
+        ${s.map(i=>g`<${E}>${i.name}</${E}>`)}
       </div>
-    `}planningWarning(){return this.task.schedule.type==="sensor"&&O(this.hass,this.task.schedule)!=="available"}scheduleText(){let e=this.task.schedule;if(e.type==="sensor")return r("schedule.problem_sensor_description");let t=Math.max(1,Number(e.interval)||1),s={daily:"day",weekly:"week",monthly:"month",yearly:"year"},i=r(`schedule.period_${s[e.unit]}`),n=r(`schedule.period_${s[e.unit]}s`);if(e.type==="sliding")return r(t===1?"schedule.after_completion_one":"schedule.after_completion_many",{schedule_interval:t,period:t===1?i:n});let l=e.time||"09:00";if(e.unit==="weekly"){let u=Array.from({length:7},(m,k)=>new Intl.DateTimeFormat(this.hass?.locale?.language,{weekday:"long",timeZone:"UTC"}).format(new Date(Date.UTC(2024,0,k+1)))),h=(e.weekdays||[]).map(m=>u[m]).filter(Boolean),p=h.length>1?`${h.slice(0,-1).join(", ")} ${r("schedule.and")} ${h.at(-1)}`:h[0]||"",c=r(t===1?"schedule.weekly_one":"schedule.weekly_many",{schedule_interval:t,days:p?` ${r("schedule.on_days",{days:p})}`:""});return x(c,l)}if(e.unit==="monthly"){let u=e.day==="last"?r("schedule.on_last_day"):r("schedule.on_day_number",{day:Number(e.day||1)});return x(r(t===1?"schedule.monthly_one":"schedule.monthly_many",{schedule_interval:t,day:u}),l)}if(e.unit==="yearly"){let u=new Intl.DateTimeFormat(this.hass?.locale?.language,{month:"long"}).format(new Date(2024,(e.month||1)-1,1)),h=e.day==="last"?r("schedule.on_last_day_of_month",{month:u}):r("schedule.on_day_of_month",{day:Number(e.day||1),month:u});return x(r(t===1?"schedule.yearly_one":"schedule.yearly_many",{schedule_interval:t,day:h}),l)}return x(r(t===1?"schedule.fixed_one":"schedule.fixed_many",{schedule_interval:t,period:t===1?i:n}),l)}renderPlanning(){let e=this.task.schedule,t=e.type==="sensor"?this.hass?.states?.[e.entity_id]:void 0,s=t?.attributes?.friendly_name,i=e.type==="sensor"?O(this.hass,e):void 0;return o`
+    `}planningWarning(){return this.task.schedule.type==="sensor"&&M(this.hass,this.task.schedule)!=="available"}scheduleText(){return ce(this.task.schedule,this.hass?.locale?.language)}renderPlanning(){let e=this.task.schedule,t=e.type==="sensor"?this.hass?.states?.[e.entity_id]:void 0,s=t?.attributes?.friendly_name,i=e.type==="sensor"?M(this.hass,e):void 0;return o`
       <dl class="planning-details">
-        <dt>${r("task.recurrence_calculation")}</dt>
-        <dd>${e.type==="sensor"?r("task.problem_sensor"):e.type==="fixed"?r("task.fixed"):r("task.sliding")}</dd>
-        <dt>${r("task.planning")}</dt>
+        <dt>${a("task.recurrence_calculation")}</dt>
+        <dd>${e.type==="sensor"?a("task.problem_sensor"):e.type==="fixed"?a("task.fixed"):a("task.sliding")}</dd>
+        <dt>${a("task.planning")}</dt>
         <dd>${this.scheduleText()}</dd>
         ${e.type==="sensor"?o`
-              <dt>${r("task.problem_sensor")}</dt>
+              <dt>${a("task.problem_sensor")}</dt>
               <dd>
                 ${s?`${s} \xB7 `:""}${e.entity_id}
               </dd>
-              <dt>${r("app.status")}</dt>
+              <dt>${a("app.status")}</dt>
               <dd class=${i==="available"?"":"unavailable"}>
                 ${t?o`
                       <button
@@ -2202,7 +2202,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                       >
                         ${t.state}
                       </button>
-                    `:r("problem.sensor_missing_short")}
+                    `:a("problem.sensor_missing_short")}
               </dd>
             `:d}
       </dl>
@@ -2223,14 +2223,14 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
                 <span class="record-content">
                   <span>${e.filename}</span>
                   <span class="secondary">
-                    ${this.formatSize(e.size)}
+                    ${te(e.size)}
                   </span>
                 </span>
               </button>
             </li>
           `})}
       </ul>
-    `:o`<p class="hint">${r("task.no_files")}.</p>`}renderHistory(){return this.historyError?o`<p class="error" role="alert">${this.historyError}</p>`:this.history.length?o`
+    `:o`<p class="hint">${a("task.no_files")}.</p>`}renderHistory(){return this.historyError?o`<p class="error" role="alert">${this.historyError}</p>`:this.history.length?o`
       <ul class="records">
         ${this.history.map(e=>o`
           <li class="record">
@@ -2238,45 +2238,45 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
             <span class="record-content">
               <span>
                 ${this.formatDate(e.completed_at)} ·
-                ${e.user_name||r("common.system")}
+                ${e.user_name||a("common.system")}
               </span>
               <span class="secondary">
-                ${e.notes==="tasks.history.completed_via_nfc"?r("history.completed_via_nfc"):e.notes||r("app.no_notes")}
+                ${e.notes==="tasks.history.completed_via_nfc"?a("history.completed_via_nfc"):e.notes||a("app.no_notes")}
               </span>
             </span>
           </li>
         `)}
       </ul>
-    `:o`<p class="hint">${r("task.no_history")}.</p>`}render(){return g`
+    `:o`<p class="hint">${a("task.no_history")}.</p>`}render(){return g`
       <div class="content">
         ${this.renderMetadata()}
         <div class="description">${this.renderDescription()}</div>
         ${this.loading?o`<p class="hint" aria-live="polite">
-              ${r("app.loading_details")}
+              ${a("app.loading_details")}
             </p>`:d}
         ${this.assignmentError?o`<p class="error" role="alert">${this.assignmentError}</p>`:d}
-        <${K}
-          heading=${r("task.planning")}
+        <${j}
+          heading=${a("task.planning")}
           .warning=${this.planningWarning()}
         >
           ${this.renderPlanning()}
-        </${K}>
-        <${K} heading=${r("task.files")}>
+        </${j}>
+        <${j} heading=${a("task.files")}>
           ${this.renderAttachments()}
-        </${K}>
-        <${K} heading=${r("task.history")}>
+        </${j}>
+        <${j} heading=${a("task.history")}>
           ${this.renderHistory()}
-        </${K}>
-        <${Gt}
-          label=${r("task.completion_notes")}
+        </${j}>
+        <${Qt}
+          label=${a("task.completion_notes")}
           multiline
           .value=${this.completionNotes}
           ?disabled=${this.completing}
           @value-changed=${e=>{this.completionNotes=e.detail}}
-        ></${Gt}>
+        ></${Qt}>
         ${this.completionError?o`<p class="error" role="alert">${this.completionError}</p>`:d}
       </div>
-    `}},et=v("task-viewer");customElements.get(et)||customElements.define(et,Ye);var Zt=async(a,e,t=[])=>{let s=document.createElement(et);return s.configure(a,e,t),await T({heading:e.name,content:s,actions:[{label:r("app.complete"),value:"complete",run:()=>s.complete()}]})==="complete"};var W="tasks-card",Jt=_(ue),Qt=["due","assignee"],Xt=()=>({type:`custom:${W}`,show_bulk_selection:!1,show_search:!0,show_action_menu:!1,show_icon:!0,show_add_task:!0,show_header:!1,filter_assignees:[],filter_current_user:!1,filter_unassigned:!1,filter_labels:[],filter_no_labels:!1,filter_notifications:[],filter_persistent:!1,filter_no_notifications:!1,filter_triggers:[],filter_statuses:[],filter_due:[],columns:[...Qt]}),ws=()=>{let{type:a,...e}=Xt();return e},ve=(a,e,t)=>Array.isArray(a)?a.filter((s,i,n)=>typeof s=="string"&&e.some(l=>l.value===s)&&n.indexOf(s)===i):[...t],tt=a=>Array.isArray(a)?a.filter((e,t,s)=>typeof e=="string"&&s.indexOf(e)===t):[],xs=a=>({type:a.type||`custom:${W}`,show_bulk_selection:a.show_bulk_selection===!0,show_search:a.show_search!==!1,show_action_menu:a.show_action_menu===!0,show_icon:a.show_icon!==!1,show_add_task:a.show_add_task!==!1,show_header:a.show_header===!0,filter_assignees:tt(a.filter_assignees),filter_current_user:a.filter_current_user===!0,filter_unassigned:a.filter_unassigned===!0,filter_labels:tt(a.filter_labels),filter_no_labels:a.filter_no_labels===!0,filter_notifications:tt(a.filter_notifications),filter_persistent:a.filter_persistent===!0,filter_no_notifications:a.filter_no_notifications===!0,filter_triggers:ve(a.filter_triggers,me,[]),filter_statuses:ve(a.filter_statuses,ge,[]),filter_due:ve(a.filter_due,fe,[]),columns:ve(a.columns,pe,Qt)}),st=class extends f{static properties={hass:{attribute:!1},config:{state:!0},snapshot:{state:!0},error:{state:!0}};static styles=b`
+    `}},st=v("task-viewer");customElements.get(st)||customElements.define(st,tt);var Xt=async(r,e,t=[])=>{let s=document.createElement(st);return s.configure(r,e,t),await x({heading:e.name,content:s,actions:[{label:a("app.complete"),value:"complete",run:()=>s.complete()}]})==="complete"};var W="tasks-card",Yt=k(me),es=["due","assignee"],ts=()=>({type:`custom:${W}`,show_bulk_selection:!1,show_search:!0,show_action_menu:!1,show_icon:!0,show_add_task:!0,show_header:!1,filter_assignees:[],filter_current_user:!1,filter_unassigned:!1,filter_labels:[],filter_no_labels:!1,filter_notifications:[],filter_persistent:!1,filter_no_notifications:!1,filter_triggers:[],filter_statuses:[],filter_due:[],columns:[...es]}),Es=()=>{let{type:r,...e}=ts();return e},$e=(r,e,t)=>Array.isArray(r)?r.filter((s,i,n)=>typeof s=="string"&&e.some(l=>l.value===s)&&n.indexOf(s)===i):[...t],it=r=>Array.isArray(r)?r.filter((e,t,s)=>typeof e=="string"&&s.indexOf(e)===t):[],As=r=>({type:r.type||`custom:${W}`,show_bulk_selection:r.show_bulk_selection===!0,show_search:r.show_search!==!1,show_action_menu:r.show_action_menu===!0,show_icon:r.show_icon!==!1,show_add_task:r.show_add_task!==!1,show_header:r.show_header===!0,filter_assignees:it(r.filter_assignees),filter_current_user:r.filter_current_user===!0,filter_unassigned:r.filter_unassigned===!0,filter_labels:it(r.filter_labels),filter_no_labels:r.filter_no_labels===!0,filter_notifications:it(r.filter_notifications),filter_persistent:r.filter_persistent===!0,filter_no_notifications:r.filter_no_notifications===!0,filter_triggers:$e(r.filter_triggers,fe,[]),filter_statuses:$e(r.filter_statuses,be,[]),filter_due:$e(r.filter_due,ve,[]),columns:$e(r.columns,ge,es)}),rt=class extends f{static properties={hass:{attribute:!1},config:{state:!0},snapshot:{state:!0},error:{state:!0}};static styles=b`
     :host {
       display: block;
       color: var(--primary-text-color);
@@ -2292,10 +2292,10 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     .error {
       color: var(--error-color);
     }
-  `;connection;unsubscribe;language;static getStubConfig(){return ws()}static getConfigForm(){return{schema:[{type:"expandable",name:"",title:r("card.options"),flatten:!0,schema:[{name:"show_bulk_selection",selector:{boolean:{}}},{name:"show_search",selector:{boolean:{}}},{name:"show_action_menu",selector:{boolean:{}}},{name:"show_icon",selector:{boolean:{}}},{name:"show_add_task",selector:{boolean:{}}},{name:"show_header",selector:{boolean:{}}}]},{type:"expandable",name:"",title:r("card.filter"),flatten:!0,schema:[{type:"expandable",name:"",title:r("task.assignment"),flatten:!0,schema:[{name:"filter_assignees",selector:{entity:{multiple:!0,filter:[{domain:"person"}]}}},{name:"filter_unassigned",selector:{boolean:{}}},{name:"filter_current_user",selector:{boolean:{}}}]},{type:"expandable",name:"",title:r("task.labels"),flatten:!0,schema:[{name:"filter_labels",selector:{label:{multiple:!0}}},{name:"filter_no_labels",selector:{boolean:{}}}]},{type:"expandable",name:"",title:r("table.notifications"),flatten:!0,schema:[{name:"filter_notifications",selector:{device:{multiple:!0,filter:[{integration:"mobile_app"}]}}},{name:"filter_persistent",selector:{boolean:{}}},{name:"filter_no_notifications",selector:{boolean:{}}}]},{type:"expandable",name:"",title:r("table.recurrence"),flatten:!0,schema:[{name:"filter_triggers",selector:{select:{multiple:!0,options:me.map(e=>({value:e.value,label:r(e.label)}))}}}]},{type:"expandable",name:"",title:r("app.status"),flatten:!0,schema:[{name:"filter_statuses",selector:{select:{multiple:!0,options:ge.map(e=>({value:e.value,label:r(e.label)}))}}}]},{type:"expandable",name:"",title:r("task.due"),flatten:!0,schema:[{name:"filter_due",selector:{select:{multiple:!0,options:fe.map(e=>({value:e.value,label:r(e.label)}))}}}]}]},{type:"expandable",name:"",title:r("card.content"),flatten:!0,schema:[{name:"columns",selector:{select:{multiple:!0,reorder:!0,options:pe.map(e=>({value:e.value,label:r(e.label)}))}}}]}],computeLabel:e=>{let t={show_bulk_selection:"card.multi_selection",show_search:"card.search",show_action_menu:"card.action_menu",show_icon:"task.icon",show_add_task:"card.add_task",show_header:"card.table_header",filter_assignees:"task.user",filter_current_user:"card.current_user",filter_unassigned:"task.unassigned",filter_labels:"task.labels",filter_no_labels:"task.no_labels",filter_notifications:"table.notifications",filter_persistent:"task.notification_persistent",filter_no_notifications:"app.no_notifications",filter_triggers:"table.recurrence",filter_statuses:"app.status",filter_due:"card.due_periods",columns:"card.visible_columns"};return t[e.name]?r(t[e.name]):void 0}}}constructor(){super(),this.config=Xt(),this.error=""}setConfig(e){if(!e||typeof e!="object")throw new Error("Card configuration is required");this.config=xs(e)}getCardSize(){return Math.max(2,Math.min(8,this.snapshot?.tasks.length||2))}updated(){this.hass?.connection!==this.connection&&this.connect(),this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,Ne(this.language).then(()=>this.requestUpdate()))}disconnectedCallback(){this.disconnect(),super.disconnectedCallback()}disconnect(){this.unsubscribe?.(),this.unsubscribe=void 0,this.connection=void 0}async connect(){if(this.disconnect(),!this.hass)return;let e=this.hass,t=e.connection;this.connection=t,this.error="";try{let s=await Tt(e,i=>{this.snapshot=i});this.connection===t?this.unsubscribe=s:s()}catch(s){this.connection===t&&(this.error=P(s))}}openTask(e){this.hass&&Zt(this.hass,e)}async confirmDelete(e){this.hass&&await T({heading:r("task.delete_title"),content:o`<p>
-        ${r("task.delete_confirm",{name:e.name})}
-      </p>`,actions:[{label:r("common.cancel"),value:"cancel"},{label:r("common.delete"),value:"delete",destructive:!0,run:()=>Pt(this.hass,e.id)}]})}handleTaskAction(e,t){this.hass&&(e==="edit"?Ve(this.hass,t):e==="active"?It(this.hass,t.id,t.active===!1):e==="delete"&&this.confirmDelete(t))}configuredFilters(){let e=new Set(this.config.filter_assignees.map(t=>this.hass?.states?.[t]?.attributes?.user_id).filter(t=>!!t));return this.config.filter_current_user&&this.hass?.user?.id&&e.add(this.hass.user.id),{assignee:[...e,...this.config.filter_unassigned?["__none__"]:[]],labels:[...this.config.filter_labels,...this.config.filter_no_labels?["__none__"]:[]],notifications:[...this.config.filter_notifications,...this.config.filter_persistent?["panel"]:[],...this.config.filter_no_notifications?["__none__"]:[]],trigger:this.config.filter_triggers,status:this.config.filter_statuses,due:this.config.filter_due}}render(){return this.error?o`<p class="message error">${this.error}</p>`:this.snapshot?g`
-      <${Jt}
+  `;connection;unsubscribe;language;static getStubConfig(){return Es()}static getConfigForm(){return{schema:[{type:"expandable",name:"",title:a("card.options"),flatten:!0,schema:[{name:"show_bulk_selection",selector:{boolean:{}}},{name:"show_search",selector:{boolean:{}}},{name:"show_action_menu",selector:{boolean:{}}},{name:"show_icon",selector:{boolean:{}}},{name:"show_add_task",selector:{boolean:{}}},{name:"show_header",selector:{boolean:{}}}]},{type:"expandable",name:"",title:a("card.filter"),flatten:!0,schema:[{type:"expandable",name:"",title:a("task.assignment"),flatten:!0,schema:[{name:"filter_assignees",selector:{entity:{multiple:!0,filter:[{domain:"person"}]}}},{name:"filter_unassigned",selector:{boolean:{}}},{name:"filter_current_user",selector:{boolean:{}}}]},{type:"expandable",name:"",title:a("task.labels"),flatten:!0,schema:[{name:"filter_labels",selector:{label:{multiple:!0}}},{name:"filter_no_labels",selector:{boolean:{}}}]},{type:"expandable",name:"",title:a("table.notifications"),flatten:!0,schema:[{name:"filter_notifications",selector:{device:{multiple:!0,filter:[{integration:"mobile_app"}]}}},{name:"filter_persistent",selector:{boolean:{}}},{name:"filter_no_notifications",selector:{boolean:{}}}]},{type:"expandable",name:"",title:a("table.recurrence"),flatten:!0,schema:[{name:"filter_triggers",selector:{select:{multiple:!0,options:fe.map(e=>({value:e.value,label:a(e.label)}))}}}]},{type:"expandable",name:"",title:a("app.status"),flatten:!0,schema:[{name:"filter_statuses",selector:{select:{multiple:!0,options:be.map(e=>({value:e.value,label:a(e.label)}))}}}]},{type:"expandable",name:"",title:a("task.due"),flatten:!0,schema:[{name:"filter_due",selector:{select:{multiple:!0,options:ve.map(e=>({value:e.value,label:a(e.label)}))}}}]}]},{type:"expandable",name:"",title:a("card.content"),flatten:!0,schema:[{name:"columns",selector:{select:{multiple:!0,reorder:!0,options:ge.map(e=>({value:e.value,label:a(e.label)}))}}}]}],computeLabel:e=>{let t={show_bulk_selection:"card.multi_selection",show_search:"card.search",show_action_menu:"card.action_menu",show_icon:"task.icon",show_add_task:"card.add_task",show_header:"card.table_header",filter_assignees:"task.user",filter_current_user:"card.current_user",filter_unassigned:"task.unassigned",filter_labels:"task.labels",filter_no_labels:"task.no_labels",filter_notifications:"table.notifications",filter_persistent:"task.notification_persistent",filter_no_notifications:"app.no_notifications",filter_triggers:"table.recurrence",filter_statuses:"app.status",filter_due:"card.due_periods",columns:"card.visible_columns"};return t[e.name]?a(t[e.name]):void 0}}}constructor(){super(),this.config=ts(),this.error=""}setConfig(e){if(!e||typeof e!="object")throw new Error("Card configuration is required");this.config=As(e)}getCardSize(){return Math.max(2,Math.min(8,this.snapshot?.tasks.length||2))}updated(){this.hass?.connection!==this.connection&&this.connect(),this.hass?.locale?.language!==this.language&&(this.language=this.hass?.locale?.language,Oe(this.language))}disconnectedCallback(){this.disconnect(),super.disconnectedCallback()}disconnect(){this.unsubscribe?.(),this.unsubscribe=void 0,this.connection=void 0}async connect(){if(this.disconnect(),!this.hass)return;let e=this.hass,t=e.connection;this.connection=t,this.error="";try{let s=await At(e,i=>{this.snapshot=i});this.connection===t?this.unsubscribe=s:s()}catch(s){this.connection===t&&(this.error=D(s))}}openTask(e){this.hass&&Xt(this.hass,e)}async confirmDelete(e){this.hass&&await x({heading:a("task.delete_title"),content:o`<p>
+        ${a("task.delete_confirm",{name:e.name})}
+      </p>`,actions:[{label:a("common.cancel"),value:"cancel"},{label:a("common.delete"),value:"delete",destructive:!0,run:()=>Lt(this.hass,e.id)}]})}handleTaskAction(e,t){this.hass&&(e==="edit"?Ke(this.hass,t):e==="active"?Ft(this.hass,t.id,t.active===!1):e==="delete"&&this.confirmDelete(t))}configuredFilters(){let e=new Set(this.config.filter_assignees.map(t=>this.hass?.states?.[t]?.attributes?.user_id).filter(t=>!!t));return this.config.filter_current_user&&this.hass?.user?.id&&e.add(this.hass.user.id),{assignee:[...e,...this.config.filter_unassigned?["__none__"]:[]],labels:[...this.config.filter_labels,...this.config.filter_no_labels?["__none__"]:[]],notifications:[...this.config.filter_notifications,...this.config.filter_persistent?["panel"]:[],...this.config.filter_no_notifications?["__none__"]:[]],trigger:this.config.filter_triggers,status:this.config.filter_statuses,due:this.config.filter_due}}render(){return this.error?o`<p class="message error">${this.error}</p>`:this.snapshot?g`
+      <${Yt}
         compact
         .hass=${this.hass}
         .tasks=${this.snapshot.tasks}
@@ -2311,7 +2311,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
         .showSearch=${this.config.show_search}
         .showActionMenu=${this.config.show_action_menu}
         @tasks-task-open=${e=>this.openTask(e.detail)}
-        @tasks-task-add=${()=>this.hass&&void Ve(this.hass)}
+        @tasks-task-add=${()=>this.hass&&void Ke(this.hass)}
         @tasks-task-action=${e=>this.handleTaskAction(e.detail.action,e.detail.task)}
-      ></${Jt}>
-    `:o`<p class="message">${r("common.loading")}</p>`}};customElements.get(W)||customElements.define(W,st);window.customCards||=[];var ye=window.customCards.find(a=>a.type===W);ye||(ye={type:W,name:"Tasks"},window.customCards.push(ye));Ut.then(()=>{ye.description=r("card.description")});
+      ></${Yt}>
+    `:o`<p class="message">${a("common.loading")}</p>`}};customElements.get(W)||customElements.define(W,rt);window.customCards||=[];var ke=window.customCards.find(r=>r.type===W);ke||(ke={type:W,name:"Tasks"},window.customCards.push(ke));Bt.then(()=>{ke.description=a("card.description")});

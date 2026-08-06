@@ -46,6 +46,14 @@ const taskForm = await readFile(
   new URL("../../frontend/src/task-form.ts", import.meta.url),
   "utf8",
 );
+const scheduleText = await readFile(
+  new URL("../../frontend/src/schedule-text.ts", import.meta.url),
+  "utf8",
+);
+const fileIcon = await readFile(
+  new URL("../../frontend/src/file-icon.ts", import.meta.url),
+  "utf8",
+);
 const problemSensorStatus = await readFile(
   new URL("../../frontend/src/problem-sensor-status.ts", import.meta.url),
   "utf8",
@@ -219,10 +227,20 @@ test("frontend editor saves task details and planning in one transaction", () =>
 
 test("frontend editor describes the configured recurrence", () => {
   assert.match(taskForm, /private scheduleText\(\): string/);
-  assert.match(taskForm, /"schedule\.weekly_one"/);
-  assert.match(taskForm, /"schedule\.monthly_one"/);
-  assert.match(taskForm, /"schedule\.yearly_one"/);
+  assert.match(taskForm, /return scheduleText\(/);
+  assert.match(scheduleText, /"schedule\.weekly_one"/);
+  assert.match(scheduleText, /"schedule\.monthly_one"/);
+  assert.match(scheduleText, /"schedule\.yearly_one"/);
   assert.match(taskForm, /<p class="hint">\$\{this\.scheduleText\(\)\}<\/p>/);
+});
+
+test("frontend shares schedule and file-size formatting", () => {
+  assert.match(taskViewer, /return scheduleText\(this\.task\.schedule/);
+  assert.match(taskForm, /formatFileSize\(attachment\.size\)/);
+  assert.match(taskViewer, /formatFileSize\(attachment\.size\)/);
+  assert.match(fileIcon, /export const formatFileSize/);
+  assert.doesNotMatch(taskForm, /private formatSize/);
+  assert.doesNotMatch(taskViewer, /private formatSize/);
 });
 
 test("frontend creates tasks through the shared editor with complete defaults", () => {
@@ -352,7 +370,7 @@ test("frontend task filters combine dimensions and values without grouping", () 
 });
 
 test("frontend table owns optional column visibility without grouping", () => {
-  assert.match(taskTable, /type ColumnKey =/);
+  assert.match(taskTable, /export type TaskColumnKey =/);
   assert.match(taskTable, /labels: false/);
   assert.match(taskTable, /notifications: false/);
   assert.match(taskTable, /this\.toggleColumn/);
@@ -545,7 +563,7 @@ test("frontend dashboard card uses the official built-in config form", () => {
   assert.match(dashboardCard, /\.configuredColumns=\$\{this\.config\.columns\}/);
   assert.match(
     taskTable,
-    /private visibleColumnKeys\(\): ColumnKey\[\]/,
+    /private visibleColumnKeys\(\): TaskColumnKey\[\]/,
   );
   assert.match(taskTable, /const keys = this\.visibleColumnKeys\(\)\.filter/);
   assert.match(taskTable, /const visibleColumns = this\.visibleColumnKeys\(\)/);
