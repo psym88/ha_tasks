@@ -2042,6 +2042,10 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
     .description {
       display: grid;
       gap: 8px;
+      padding: 10px 12px;
+      background: var(--secondary-background-color);
+      border-radius: 10px;
+      line-height: 1.45;
       white-space: pre-wrap;
     }
 
@@ -2065,7 +2069,7 @@ var se=globalThis,ie=se.ShadowRoot&&(se.ShadyCSS===void 0||se.ShadyCSS.nativeSha
 
     .description code {
       padding: 1px 4px;
-      background: var(--secondary-background-color);
+      background: var(--primary-background-color);
       border-radius: 4px;
     }
 

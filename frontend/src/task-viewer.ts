@@ -150,6 +150,10 @@ class TasksTaskViewer extends LocalizedLitElement {
     .description {
       display: grid;
       gap: 8px;
+      padding: 10px 12px;
+      background: var(--secondary-background-color);
+      border-radius: 10px;
+      line-height: 1.45;
       white-space: pre-wrap;
     }
 
@@ -173,7 +177,7 @@ class TasksTaskViewer extends LocalizedLitElement {
 
     .description code {
       padding: 1px 4px;
-      background: var(--secondary-background-color);
+      background: var(--primary-background-color);
       border-radius: 4px;
     }
 
