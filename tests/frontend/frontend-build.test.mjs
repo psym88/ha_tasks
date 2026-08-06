@@ -736,6 +736,19 @@ test("frontend viewer renders responsive read-only planning details", () => {
   assert.match(taskViewer, /@media \(max-width: 520px\)/);
 });
 
+test("frontend viewer identifies metadata pills with icons", () => {
+  for (const icon of [
+    "mdi:calendar",
+    "mdi:account-outline",
+    "mdi:paperclip",
+    "mdi:nfc",
+    "mdi:tag-outline",
+  ]) {
+    assert.match(taskViewer, new RegExp(`icon=["']${icon}["']`));
+  }
+  assert.doesNotMatch(taskViewer, /NFC:/);
+});
+
 test("frontend viewer preserves safe common markdown without HA internals", () => {
   assert.match(taskViewer, /renderDescription\(\)/);
   assert.match(taskViewer, /<strong>/);

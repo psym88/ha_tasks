@@ -516,29 +516,42 @@ class TasksTaskViewer extends LocalizedLitElement {
       <div class="pills">
         ${this.task.due
           ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:calendar"></ha-icon>
               ${this.formatDate(this.task.due)}
             </${pillTag}>`
           : nothing}
         ${assignee
-          ? staticHtml`<${pillTag}>${assignee}</${pillTag}>`
+          ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:account-outline"></ha-icon>
+              ${assignee}
+            </${pillTag}>`
           : nothing}
         ${this.attachments.length
-          ? staticHtml`<${pillTag}>
-              ${t(
+          ? staticHtml`<${pillTag}
+              title=${t(
                 this.attachments.length === 1
                   ? "app.file_count_one"
                   : "app.file_count_many",
                 { count: this.attachments.length },
               )}
+            >
+              <ha-icon icon="mdi:paperclip"></ha-icon>
+              ${this.attachments.length}
             </${pillTag}>`
           : nothing}
         ${tag
-          ? staticHtml`<${pillTag}>NFC: ${tag.name || tag.id}</${pillTag}>`
+          ? staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:nfc"></ha-icon>
+              ${tag.name || tag.id}
+            </${pillTag}>`
           : nothing}
         ${labels.length ? html`<span class="pill-break"></span>` : nothing}
         ${labels.map(
           (label) =>
-            staticHtml`<${pillTag}>${label.name}</${pillTag}>`,
+            staticHtml`<${pillTag}>
+              <ha-icon icon="mdi:tag-outline"></ha-icon>
+              ${label.name}
+            </${pillTag}>`,
         )}
       </div>
     `;

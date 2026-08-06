@@ -2076,6 +2076,12 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
       line-height: 20px;
     }
 
+    ::slotted(ha-icon) {
+      --mdc-icon-size: 16px;
+
+      margin-right: 6px;
+    }
+
     :host([tone="positive"]) span {
       color: var(--success-color);
       border-color: var(--success-color);
@@ -2282,15 +2288,28 @@ var te=globalThis,se=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
       </p>`,actions:[{label:a("common.cancel"),value:"cancel"},{label:a("app.complete"),value:"complete"}]})!=="complete")return!1;this.completing=!0,this.completionError="";try{return await Pt(this.hass,this.task.id,this.completionNotes),!0}catch(t){return this.completionError=T(t),!1}finally{this.completing=!1}}renderMetadata(){let e=this.users.find(i=>i.id===this.task.assignee_id)?.name,t=this.tags.find(i=>i.id===this.task.nfc_tag_id),s=(this.task.label_ids||[]).map(i=>this.labels.find(o=>o.label_id===i)).filter(i=>!!i);return g`
       <div class="pills">
         ${this.task.due?g`<${A}>
+              <ha-icon icon="mdi:calendar"></ha-icon>
               ${this.formatDate(this.task.due)}
             </${A}>`:c}
-        ${e?g`<${A}>${e}</${A}>`:c}
-        ${this.attachments.length?g`<${A}>
-              ${a(this.attachments.length===1?"app.file_count_one":"app.file_count_many",{count:this.attachments.length})}
+        ${e?g`<${A}>
+              <ha-icon icon="mdi:account-outline"></ha-icon>
+              ${e}
             </${A}>`:c}
-        ${t?g`<${A}>NFC: ${t.name||t.id}</${A}>`:c}
+        ${this.attachments.length?g`<${A}
+              title=${a(this.attachments.length===1?"app.file_count_one":"app.file_count_many",{count:this.attachments.length})}
+            >
+              <ha-icon icon="mdi:paperclip"></ha-icon>
+              ${this.attachments.length}
+            </${A}>`:c}
+        ${t?g`<${A}>
+              <ha-icon icon="mdi:nfc"></ha-icon>
+              ${t.name||t.id}
+            </${A}>`:c}
         ${s.length?n`<span class="pill-break"></span>`:c}
-        ${s.map(i=>g`<${A}>${i.name}</${A}>`)}
+        ${s.map(i=>g`<${A}>
+              <ha-icon icon="mdi:tag-outline"></ha-icon>
+              ${i.name}
+            </${A}>`)}
       </div>
     `}planningWarning(){return this.task.schedule.type==="sensor"&&M(this.hass,this.task.schedule)!=="available"}scheduleText(){return ce(this.task.schedule,this.hass?.locale?.language)}renderPlanning(){let e=this.task.schedule,t=e.type==="sensor"?this.hass?.states?.[e.entity_id]:void 0,s=t?.attributes?.friendly_name,i=e.type==="sensor"?M(this.hass,e):void 0;return n`
       <dl class="planning-details">
