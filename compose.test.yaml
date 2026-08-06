@@ -28,7 +28,7 @@ services:
     environment:
       TZ: Europe/Zurich
     ports:
-      - "${HA_TEST_PORT:-18123}:8123"
+      - "8123:8123"
     volumes:
       - runtime-config:/config
       - ./tests/runtime/configuration.yaml:/config/configuration.yaml:ro
@@ -65,5 +65,8 @@ services:
 
 volumes:
   pytest-cache:
+    name: ha-tasks-tests-pytest-cache
   runtime-config:
+    name: ha-tasks-tests-runtime-config
   pnpm-store:
+    name: ha-tasks-tests-pnpm-store
