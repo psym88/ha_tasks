@@ -8,7 +8,6 @@ compose=(docker compose -f compose.test.yaml)
 
 cleanup() {
   "${compose[@]}" logs --no-color runtime > .artifacts/runtime/home-assistant.log 2>&1 || true
-  "${compose[@]}" down --volumes --remove-orphans || true
 }
 trap cleanup EXIT
 

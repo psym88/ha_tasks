@@ -25,12 +25,14 @@ services:
 
   runtime:
     image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-2026.8.0}
+    container_name: ha-tasks-user-test
+    restart: unless-stopped
     environment:
       TZ: Europe/Zurich
     ports:
-      - "8123:8123"
+      - "8122:8123"
     volumes:
-      - runtime-config:/config
+      - user-test-config:/config
       - ./tests/runtime/configuration.yaml:/config/configuration.yaml:ro
       - ./custom_components/tasks:/config/custom_components/tasks:ro
 
@@ -83,7 +85,7 @@ services:
 volumes:
   pytest-cache:
     name: ha-tasks-tests-pytest-cache
-  runtime-config:
-    name: ha-tasks-tests-runtime-config
+  user-test-config:
+    name: ha-tasks-user-test-config
   pnpm-store:
     name: ha-tasks-tests-pnpm-store

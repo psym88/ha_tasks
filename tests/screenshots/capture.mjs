@@ -3,12 +3,12 @@ import path from "node:path";
 
 import { chromium } from "@playwright/test";
 
-const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8123").replace(/\/$/, "");
+const baseUrl = (process.env.HA_SCREENSHOT_BASE_URL || "http://127.0.0.1:8122").replace(/\/$/, "");
 const outputDir = path.resolve(process.env.HA_SCREENSHOT_OUTPUT || ".artifacts/screenshots");
 const authOutput = process.env.HA_SCREENSHOT_AUTH_OUTPUT;
 const clientId = `${baseUrl}/`;
-const username = "documentation";
-const password = "tasks-screenshot-password";
+const username = "alex";
+const password = "alex";
 const targetTaskName = "Review emergency contacts";
 const uiWaitTimeout = Number(process.env.HA_SCREENSHOT_UI_TIMEOUT || "60000");
 const systemNow = new Date();
@@ -152,7 +152,7 @@ async function completeOnboarding() {
   const user = await requestJson("/api/onboarding/users", {
     method: "POST",
     body: {
-      name: "Marco",
+      name: "Alex",
       username,
       password,
       client_id: clientId,
@@ -181,7 +181,7 @@ async function completeOnboarding() {
 
 async function seedUsers(socket) {
   const users = await socket.call({ type: "config/auth/list" });
-  for (const name of ["Jill", "Alex"]) {
+  for (const name of ["Marco", "Jill"]) {
     if (!users.some((user) => user.name === name)) {
       await socket.call({ type: "config/auth/create", name });
     }
@@ -414,8 +414,8 @@ async function seedData(socket, token) {
     type: "lovelace/dashboards/create",
     require_admin: false,
     icon: "mdi:clipboard-check-outline",
-    title: "Tasks documentation",
-    show_in_sidebar: false,
+    title: "Tasks card",
+    show_in_sidebar: true,
     url_path: "tasks-docs",
     mode: "storage",
   });

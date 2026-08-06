@@ -64,17 +64,18 @@ HA_VERSION=stable scripts/test-runtime.sh
 
 ## Interactive user test environment
 
-The same Home Assistant version can be kept running for manual testing without
-colliding with the automated runtime tests. Start it on host port `8122`:
+The runtime and E2E tests use the same persistent Home Assistant container on
+host port `8122`. Starting it resets the test data, provisions the account
+`alex` with password `alex`, runs the complete runtime validation, and leaves
+the container running:
 
 ```bash
 scripts/user-test-environment.sh start
 ```
 
-Open `http://localhost:8122`, complete onboarding when needed, and add the Tasks
-integration. The environment uses the persistent named volume
-`ha-tasks-user-test-config`. Starting it again refreshes the integration files
-from the current checkout while preserving the Home Assistant configuration.
+Open `http://localhost:8122` and sign in with username `alex` and password
+`alex`. The Tasks integration and deterministic test data are already prepared.
+The environment uses the persistent named volume `ha-tasks-user-test-config`.
 
 Inspect or stop the environment with:
 
@@ -91,7 +92,7 @@ network, and `ha-tasks-user-test-config` volume:
 scripts/user-test-environment.sh reset
 ```
 
-Automatic runtime tests continue to use port `8123` and separate named volumes.
+Automatic runtime tests reset this same local test container before seeding it.
 
 ## Commit and push
 
