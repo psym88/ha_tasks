@@ -2151,17 +2151,18 @@ var te=globalThis,ie=te.ShadowRoot&&(te.ShadyCSS===void 0||te.ShadyCSS.nativeSha
     }
 
     .description {
-      display: grid;
-      gap: 8px;
       padding: 10px 12px;
       background: var(--secondary-background-color);
       border-radius: 10px;
       line-height: 1.45;
-      white-space: pre-wrap;
     }
 
     .description :is(p, h3, h4, ul, ol, blockquote) {
       margin: 0;
+    }
+
+    .description > :not(:last-child) {
+      margin-bottom: 8px;
     }
 
     .description :is(ul, ol) {

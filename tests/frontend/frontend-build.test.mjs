@@ -753,6 +753,8 @@ test("frontend viewer preserves safe common markdown without HA internals", () =
   assert.match(taskViewer, /renderDescription\(\)/);
   assert.match(taskViewer, /\.description \{[\s\S]*padding: 10px 12px/);
   assert.match(taskViewer, /background: var\(--secondary-background-color\)/);
+  assert.match(taskViewer, /\.description > :not\(:last-child\)/);
+  assert.doesNotMatch(taskViewer, /white-space: pre-wrap/);
   assert.match(taskViewer, /<strong>/);
   assert.match(taskViewer, /<em>/);
   assert.match(taskViewer, /<code>/);
