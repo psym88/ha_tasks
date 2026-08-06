@@ -48,8 +48,10 @@ branch coverage, and JUnit reporting in the pinned Home Assistant image.
 `test-frontend.sh` type-checks, builds, and tests the production frontend in
 a Node.js container. `test-runtime.sh` starts a clean Home Assistant instance,
 completes onboarding, loads Tasks through its config flow, exercises the
-production panel and card, restarts Home Assistant, and verifies persisted
-tasks, the due sensor, WebSocket access, frontend resources, and runtime logs.
+production panel and card, compares all documentation screenshots, restarts
+Home Assistant, and verifies persisted tasks, the due sensor, WebSocket access,
+frontend resources, and runtime logs. Visual differences fail the test and are
+written to `.artifacts/runtime/screenshot-diffs/` for review.
 
 Reports, Home Assistant logs, and generated runtime screenshots are written to
 `.artifacts/`. Set `HA_VERSION` to validate another supported Home Assistant
@@ -59,6 +61,38 @@ image, for example:
 HA_VERSION=stable scripts/test-backend.sh
 HA_VERSION=stable scripts/test-runtime.sh
 ```
+
+## Interactive user test environment
+
+The same Home Assistant version can be kept running for manual testing without
+colliding with the automated runtime tests. Start it on host port `8122`:
+
+```bash
+scripts/user-test-environment.sh start
+```
+
+Open `http://localhost:8122`, complete onboarding when needed, and add the Tasks
+integration. The environment uses the persistent named volume
+`ha-tasks-user-test-config`. Starting it again refreshes the integration files
+from the current checkout while preserving the Home Assistant configuration.
+
+Inspect or stop the environment with:
+
+```bash
+scripts/user-test-environment.sh status
+scripts/user-test-environment.sh logs
+scripts/user-test-environment.sh stop
+```
+
+Stopping retains the named volume. Reset removes only the user-test container,
+network, and `ha-tasks-user-test-config` volume:
+
+```bash
+scripts/user-test-environment.sh reset
+```
+
+Forgejo provides matching manually triggered Start, Stop, and Reset workflows.
+Automatic runtime tests continue to use port `8123` and separate named volumes.
 
 ## Commit and push
 

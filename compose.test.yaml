@@ -63,6 +63,23 @@ services:
       - runtime
     command: node tests/runtime/verify-persistence.mjs
 
+  compare-screenshots:
+    image: node:24-bookworm-slim
+    working_dir: /workspace
+    environment:
+      HA_SCREENSHOT_MAX_DIFF_RATIO: ${HA_SCREENSHOT_MAX_DIFF_RATIO:-0.0005}
+    volumes:
+      - .:/workspace
+      - pnpm-store:/pnpm/store
+    command: >-
+      bash -lc "corepack enable &&
+      pnpm install --frozen-lockfile &&
+      node tests/screenshots/compare.mjs
+      docs/images
+      .artifacts/runtime/screenshots
+      .artifacts/runtime/screenshot-diffs
+      --fail-on-change"
+
 volumes:
   pytest-cache:
     name: ha-tasks-tests-pytest-cache

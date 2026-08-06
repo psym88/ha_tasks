@@ -11,7 +11,13 @@ const username = "documentation";
 const password = "tasks-screenshot-password";
 const targetTaskName = "Review emergency contacts";
 const uiWaitTimeout = Number(process.env.HA_SCREENSHOT_UI_TIMEOUT || "60000");
-const referenceNow = "2026-07-26T10:00:00+00:00";
+const systemNow = new Date();
+const referenceNow = new Date(Date.UTC(
+  systemNow.getUTCFullYear(),
+  systemNow.getUTCMonth(),
+  systemNow.getUTCDate(),
+  10,
+)).toISOString();
 
 const desktop = { viewport: { width: 1440, height: 1000 } };
 const mobile = { viewport: { width: 390, height: 844 }, isMobile: true };

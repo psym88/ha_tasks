@@ -13,6 +13,7 @@ trap cleanup EXIT
 docker compose -f compose.test.yaml down --volumes --remove-orphans
 docker compose -f compose.test.yaml up --detach runtime
 docker compose -f compose.test.yaml run --rm e2e
+docker compose -f compose.test.yaml run --rm compare-screenshots
 docker compose -f compose.test.yaml restart runtime
 docker compose -f compose.test.yaml run --rm verify-runtime
 

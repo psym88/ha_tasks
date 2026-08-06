@@ -1,0 +1,19 @@
+name: Reset user test environment
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ha-tasks-user-test-control
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Remove user test configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@v4
+      - name: Reset user test environment and named volume
+        run: scripts/user-test-environment.sh reset

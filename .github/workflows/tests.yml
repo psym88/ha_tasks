@@ -22,46 +22,37 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-
-      - name: Run Python tests
-        run: >-
-          docker run --rm
-          --volume "${{ github.workspace }}:/workspace"
-          --workdir /workspace
-          ghcr.io/home-assistant/home-assistant:stable
-          python -m pytest -q -p no:cacheprovider
+      - name: Run backend validation
+        run: scripts/test-backend.sh
 
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Run frontend validation
+        run: scripts/test-frontend.sh
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+  runtime:
+    name: Home Assistant runtime and screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Run runtime and visual validation
+        run: scripts/test-runtime.sh
+      - name: Upload runtime logs and screenshot differences
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 24
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v5
-        with:
-          version: 11.9.0
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build and type-check frontend
-        run: |
-          pnpm typecheck:frontend
-          pnpm build:frontend
-
-      - name: Run frontend tests
-        run: pnpm test:frontend
+          name: runtime-validation
+          path: .artifacts/runtime
+          retention-days: 14
+          if-no-files-found: warn

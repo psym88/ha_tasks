@@ -48,16 +48,16 @@ jobs:
           mkdir -p .artifacts/ha-config
           cp tests/screenshots/configuration.yaml .artifacts/ha-config/configuration.yaml
 
-      - name: Start latest Home Assistant
+      - name: Start tested Home Assistant version
         run: |
-          docker pull ghcr.io/home-assistant/home-assistant:stable
+          docker pull ghcr.io/home-assistant/home-assistant:2026.8.0
           docker run --detach \
             --name ha-tasks-screenshots \
             --publish 8123:8123 \
             --env TZ=Europe/Zurich \
             --volume "${{ github.workspace }}/.artifacts/ha-config:/config" \
             --volume "${{ github.workspace }}/custom_components/tasks:/config/custom_components/tasks:ro" \
-            ghcr.io/home-assistant/home-assistant:stable
+            ghcr.io/home-assistant/home-assistant:2026.8.0
 
       - name: Capture screenshots
         run: pnpm screenshots

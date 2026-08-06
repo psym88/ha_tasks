@@ -8,6 +8,7 @@ const baselineDir = path.resolve(process.argv[2] || "docs/images");
 const candidateDir = path.resolve(process.argv[3] || ".artifacts/screenshots");
 const diffDir = path.resolve(process.argv[4] || ".artifacts/screenshot-diffs");
 const update = process.argv.includes("--update");
+const failOnChange = process.argv.includes("--fail-on-change");
 const maxDiffRatio = Number(process.env.HA_SCREENSHOT_MAX_DIFF_RATIO || "0.0005");
 
 const candidateNames = (await readdir(candidateDir))
@@ -86,3 +87,6 @@ if (process.env.GITHUB_OUTPUT) {
   await appendFile(process.env.GITHUB_OUTPUT, `changed_count=${changed.length}\n`);
 }
 
+if (failOnChange && changed.length) {
+  process.exitCode = 1;
+}
