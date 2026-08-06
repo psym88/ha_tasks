@@ -6,17 +6,16 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from . import TasksData
 from .const import TASKS_DEVICE_INFO
 from .manager import TaskChange, TaskManager
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry[TasksData],
+    entry: ConfigEntry[TaskManager],
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    manager = entry.runtime_data.manager
+    manager = entry.runtime_data
     async_add_entities([TasksDueSensor(manager)])
 
 

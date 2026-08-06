@@ -3,7 +3,7 @@
 import importlib
 from unittest.mock import AsyncMock, Mock, patch
 
-from custom_components.tasks import TasksData
+from custom_components.tasks.manager import TaskManager
 
 tasks_integration = importlib.import_module("custom_components.tasks")
 
@@ -66,7 +66,7 @@ async def test_setup_and_unload_entry_manage_runtime_resources(
     ):
         assert await tasks_integration.async_setup_entry(hass, tasks_entry)
 
-    assert isinstance(tasks_entry.runtime_data, TasksData)
+    assert isinstance(tasks_entry.runtime_data, TaskManager)
     forward_setups.assert_awaited_once()
     register_resource.assert_awaited_once_with(
         hass,

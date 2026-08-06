@@ -2,7 +2,7 @@
 
 from homeassistant.setup import async_setup_component
 
-from custom_components.tasks import TasksData, task_api
+from custom_components.tasks import task_api
 
 
 class SnapshotManager:
@@ -25,7 +25,7 @@ async def test_list_uses_real_websocket_registration(
     """Authenticated clients can call the registered Tasks command."""
     assert await async_setup_component(hass, "websocket_api", {})
     task_api.async_register(hass)
-    tasks_entry.runtime_data = TasksData(SnapshotManager())
+    tasks_entry.runtime_data = SnapshotManager()
 
     client = await hass_ws_client(hass)
     await client.send_json_auto_id({"type": "tasks/list"})

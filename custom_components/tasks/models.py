@@ -255,7 +255,7 @@ class Task:
         attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Serialize this task into the persisted aggregate."""
-        record = {
+        return {
             "id": self.id,
             "name": self.name,
             "icon": self.icon,
@@ -274,7 +274,6 @@ class Task:
             "completions": deepcopy(completions or []),
             "attachments": deepcopy(attachments or []),
         }
-        return record
 
 
 @dataclass(frozen=True, slots=True)

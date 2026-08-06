@@ -1,6 +1,5 @@
 """Tasks integration."""
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import homeassistant.helpers.config_validation as cv
@@ -29,13 +28,6 @@ from .scheduling import TaskEngine
 from .task_store import TasksStore
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-
-
-@dataclass(slots=True)
-class TasksData:
-    """Runtime data stored on the config entry."""
-
-    manager: TaskManager
 
 
 async def _frontend_urls(
@@ -115,7 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await store.async_load()
     manager = TaskManager(hass, store)
     engine = TaskEngine(hass, manager)
-    entry.runtime_data = TasksData(manager)
+    entry.runtime_data = manager
     await engine.async_start()
     entry.async_on_unload(engine.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))

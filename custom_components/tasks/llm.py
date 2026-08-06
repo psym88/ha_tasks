@@ -427,6 +427,7 @@ class CreateTaskTool(Tool):
     ) -> JsonObjectType:
         """Create a task through the editor transaction service."""
         data = self.parameters(tool_input.tool_args)
+        users = await _users(hass)
         payload = {
             "name": data["name"].strip(),
             "description": data.get("description"),
@@ -438,7 +439,7 @@ class CreateTaskTool(Tool):
         if assignee := data.get("assignee"):
             context = llm_context.context
             payload["assignee_id"] = _resolve_user(
-                await _users(hass),
+                users,
                 assignee,
                 context.user_id if context else None,
             ).id
@@ -454,7 +455,6 @@ class CreateTaskTool(Tool):
             )
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task could not be created") from err
-        users = await _users(hass)
         return {
             "task": _task_result(
                 result["task"], {user.id: user for user in users}
