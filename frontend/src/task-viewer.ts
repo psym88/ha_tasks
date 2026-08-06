@@ -150,7 +150,7 @@ class TasksTaskViewer extends LocalizedLitElement {
     .description {
       padding: 10px 12px;
       background: var(--secondary-background-color);
-      border-radius: 10px;
+      border-radius: var(--ha-border-radius-lg);
       line-height: 1.45;
     }
 
