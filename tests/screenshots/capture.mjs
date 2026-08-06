@@ -223,6 +223,22 @@ async function waitForTasks(socket) {
   throw new Error(`Tasks did not load: ${lastError}`);
 }
 
+async function waitForConfigEntriesSettled(socket) {
+  const deadline = Date.now() + 90_000;
+  let pending = [];
+  while (Date.now() < deadline) {
+    const entries = await socket.call({ type: "config_entries/get" });
+    pending = entries.filter((entry) =>
+      ["setup_in_progress", "migration_in_progress"].includes(entry.state),
+    );
+    if (!pending.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `Config entries did not finish setup: ${pending.map((entry) => entry.domain).join(", ")}`,
+  );
+}
+
 async function uploadAttachment(token) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">
   <rect width="960" height="540" fill="#03a9f4"/>
@@ -767,6 +783,7 @@ await socket.connect();
 try {
   await seedUsers(socket);
   await seedData(socket, tokens.access_token);
+  await waitForConfigEntriesSettled(socket);
 } finally {
   socket.close();
 }
