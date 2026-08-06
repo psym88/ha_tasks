@@ -148,9 +148,6 @@ class TasksTaskViewer extends LocalizedLitElement {
     }
 
     .description {
-      padding: 10px 12px;
-      border: 1px solid var(--divider-color);
-      border-radius: var(--ha-border-radius-lg);
       line-height: 1.45;
     }
 
@@ -702,7 +699,12 @@ class TasksTaskViewer extends LocalizedLitElement {
     return staticHtml`
       <div class="content">
         ${this.renderMetadata()}
-        <div class="description">${this.renderDescription()}</div>
+        <${expandableTag}
+          heading=${t("task.optional_description")}
+          .open=${true}
+        >
+          <div class="description">${this.renderDescription()}</div>
+        </${expandableTag}>
         ${this.loading
           ? html`<p class="hint" aria-live="polite">
               ${t("app.loading_details")}

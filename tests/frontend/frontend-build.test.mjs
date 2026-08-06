@@ -751,9 +751,10 @@ test("frontend viewer identifies metadata pills with icons", () => {
 
 test("frontend viewer preserves safe common markdown without HA internals", () => {
   assert.match(taskViewer, /renderDescription\(\)/);
-  assert.match(taskViewer, /\.description \{[\s\S]*padding: 10px 12px/);
-  assert.match(taskViewer, /border: 1px solid var\(--divider-color\)/);
-  assert.match(taskViewer, /border-radius: var\(--ha-border-radius-lg\)/);
+  assert.match(
+    taskViewer,
+    /heading=\$\{t\("task\.optional_description"\)\}[\s\S]*\.open=\$\{true\}/,
+  );
   assert.match(taskViewer, /\.description > :not\(:last-child\)/);
   assert.doesNotMatch(taskViewer, /white-space: pre-wrap/);
   assert.match(taskViewer, /<strong>/);
