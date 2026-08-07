@@ -46,6 +46,14 @@ The task table supports configurable columns, search, sorting, and filters for a
 Task details show the status, planning, due date and time, assignee, labels,
 attachments, completion history, and notes in one dialog.
 
+Task descriptions support the same Markdown and Home Assistant templates as the
+standard Markdown dashboard card. Templates update automatically when a
+referenced entity changes, for example:
+
+```jinja2
+Temperature: **{{ states('sensor.outdoor_temperature') }} °C**
+```
+
 | Light | Dark |
 | --- | --- |
 | ![Task list with the task viewer open in light mode](docs/images/task-viewer-desktop-light.png) | ![Task list with the task viewer open in dark mode](docs/images/task-viewer-desktop-dark.png) |
