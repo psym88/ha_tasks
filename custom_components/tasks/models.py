@@ -108,18 +108,23 @@ class AfterCompletionSchedule:
 
 @dataclass(frozen=True, slots=True)
 class ProblemTrigger:
-    """Binary-sensor problem trigger."""
+    """Template-based problem trigger."""
 
     type: ClassVar[str] = "sensor"
-    entity_id: str
+    condition_template: str
+    message_template: str | None = None
 
     def signature(self) -> tuple[Any, ...]:
         """Return values that affect this trigger."""
-        return (self.type, self.entity_id)
+        return (self.type, self.condition_template, self.message_template)
 
     def record(self) -> dict[str, Any]:
         """Serialize the trigger into the persisted aggregate."""
-        return {"type": self.type, "entity_id": self.entity_id}
+        return {
+            "type": self.type,
+            "condition_template": self.condition_template,
+            "message_template": self.message_template,
+        }
 
 TaskTrigger: TypeAlias = FixedSchedule | AfterCompletionSchedule | ProblemTrigger
 
@@ -128,10 +133,13 @@ def trigger_from_record(data: Mapping[str, Any]) -> TaskTrigger:
     """Parse and validate the current schedule representation."""
     schedule_type = data.get("type")
     if schedule_type == ProblemTrigger.type:
-        entity_id = str(data.get("entity_id") or "").strip()
-        if not entity_id.startswith("binary_sensor."):
-            raise ValueError("problem_sensor_required")
-        return ProblemTrigger(entity_id)
+        condition_template = str(
+            data.get("condition_template") or ""
+        ).strip()
+        if not condition_template:
+            raise ValueError("problem_condition_required")
+        message_template = str(data.get("message_template") or "").strip()
+        return ProblemTrigger(condition_template, message_template or None)
     try:
         unit = ScheduleUnit(data.get("unit"))
         interval = max(1, int(data.get("interval")))
@@ -251,7 +259,7 @@ class Task:
     def record(
         self,
         *,
-        completions: list[dict[str, Any]] | None = None,
+        history: list[dict[str, Any]] | None = None,
         attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Serialize this task into the persisted aggregate."""
@@ -271,7 +279,7 @@ class Task:
             ),
             "schedule": self.trigger.record(),
             "notification": self.notifications.record(),
-            "completions": deepcopy(completions or []),
+            "history": deepcopy(history or []),
             "attachments": deepcopy(attachments or []),
         }
 
@@ -281,7 +289,7 @@ class Completion:
     """One task-completion audit record."""
 
     id: str
-    completed_at: datetime
+    occurred_at: datetime
     user_id: str | None
     user_name: str
     notes: str | None = None
@@ -290,7 +298,7 @@ class Completion:
         """Parse one completion from the persisted aggregate."""
         return cls(
             id=str(data["id"]),
-            completed_at=parse_aware_datetime(data["completed_at"]),
+            occurred_at=parse_aware_datetime(data["occurred_at"]),
             user_id=data.get("user_id"),
             user_name=str(data.get("user_name") or "system"),
             notes=str(data.get("notes") or "").strip() or None,
@@ -300,7 +308,8 @@ class Completion:
         """Serialize this completion into the persisted aggregate."""
         return {
             "id": self.id,
-            "completed_at": normalize_utc_datetime(self.completed_at),
+            "type": "completed",
+            "occurred_at": normalize_utc_datetime(self.occurred_at),
             "user_id": self.user_id,
             "user_name": self.user_name,
             "notes": self.notes,

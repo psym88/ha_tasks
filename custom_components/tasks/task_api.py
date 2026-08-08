@@ -51,7 +51,8 @@ SLIDING_SCHEDULE = vol.Schema(
 SENSOR_SCHEDULE = vol.Schema(
     {
         vol.Required("type"): "sensor",
-        vol.Required("entity_id"): str,
+        vol.Required("condition_template"): str,
+        vol.Optional("message_template"): TEXT,
     },
     extra=vol.PREVENT_EXTRA,
 )

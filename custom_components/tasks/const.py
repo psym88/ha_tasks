@@ -5,7 +5,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 DOMAIN = "tasks"
 PLATFORMS = ["sensor"]
 STORAGE_KEY = DOMAIN
-STORAGE_VERSION = 6
+STORAGE_VERSION = 7
 EVENT_TASKS = f"{DOMAIN}_event"
 TASKS_DEVICE_INFO = DeviceInfo(
     identifiers={(DOMAIN, DOMAIN)},

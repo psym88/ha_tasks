@@ -104,13 +104,15 @@ class TasksStore:
                         continue
                     new_attachment_ids.add(file_id)
                     accepted.append(Attachment.from_record(attachment).record())
-                completions = [
+                history = [
                     Completion.from_record(entry).record()
-                    for entry in task["completions"]
+                    if entry.get("type") == "completed"
+                    else deepcopy(entry)
+                    for entry in task["history"]
                 ]
                 new_tasks.append(
                     Task.from_record(task).record(
-                        completions=completions,
+                        history=history,
                         attachments=accepted,
                     )
                 )
@@ -137,7 +139,7 @@ class TasksStore:
                     for task in skipped_tasks
                 ],
                 "history_entries_imported": sum(
-                    len(task["completions"]) for task in new_tasks
+                    len(task["history"]) for task in new_tasks
                 ),
                 "attachments_imported": len(new_attachment_ids),
                 "attachments_skipped": attachment_count
@@ -219,7 +221,7 @@ class TasksStore:
                 payload.get("nfc_tag_id"), data=data
             ),
             "notification": payload.get("notification") or {},
-            "completions": [],
+            "history": [],
             "attachments": [],
         }
         due = (
@@ -296,7 +298,7 @@ class TasksStore:
                     ),
                 )
         children = {
-            "completions": record["completions"],
+            "history": record["history"],
             "attachments": record["attachments"],
         }
         record.clear()
@@ -362,7 +364,7 @@ class TasksStore:
                 next(occurrences(task, completion))
             )
         )
-        task["completions"].append(
+        task["history"].append(
             Completion(
                 uuid4().hex,
                 completion,
@@ -420,8 +422,8 @@ class TasksStore:
     def history(self, task_id: str) -> list[dict[str, Any]]:
         task = self._find_task_in(self._data, task_id)
         return sorted(
-            deepcopy(task["completions"]),
-            key=lambda entry: entry["completed_at"],
+            deepcopy(task["history"]),
+            key=lambda entry: entry["occurred_at"],
             reverse=True,
         )
 
@@ -459,21 +461,23 @@ class TasksStore:
                 if attachment["id"] not in deleted_attachment_ids
             ]
             known_history_ids = {
-                entry["id"] for entry in task["completions"]
+                entry["id"] for entry in task["history"]
             }
             if not set(deleted_history_entry_ids) <= known_history_ids:
                 raise ValueError("unknown_history_entry")
-            task["completions"] = [
+            task["history"] = [
                 entry
-                for entry in task["completions"]
+                for entry in task["history"]
                 if entry["id"] not in deleted_history_entry_ids
             ]
-            if deleted_history_entry_ids and task["completions"]:
+            remaining_completions = [
+                entry for entry in task["history"]
+                if entry["type"] == "completed"
+            ]
+            if deleted_history_entry_ids and remaining_completions:
                 latest_completion = max(
-                    (
-                        parse_aware_datetime(entry["completed_at"])
-                        for entry in task["completions"]
-                    ),
+                    parse_aware_datetime(entry["occurred_at"])
+                    for entry in remaining_completions
                 )
                 replayed_due = next_due_after_completion(
                     task, latest_completion
@@ -536,19 +540,41 @@ class TasksStore:
             and parse_aware_datetime(task["due"]) <= now
         )
 
-    async def async_trigger_problem_task(
-        self, task_id: str, triggered_at: str
-    ) -> dict[str, Any] | None:
-        """Make one waiting sensor task due exactly once."""
+    async def async_record_problem_update(
+        self,
+        task_id: str,
+        occurred_at: str,
+        *,
+        trigger: bool,
+        message: str | None,
+    ) -> tuple[dict[str, Any] | None, bool]:
+        """Atomically apply one template update and its problem message."""
         async with self._lock:
             data = deepcopy(self._data)
             task = self._find_task_in(data, task_id)
             if (
                 not task.get("active", True)
                 or task["schedule"]["type"] != "sensor"
-                or task.get("due")
             ):
-                return None
-            task["due"] = normalize_utc_datetime(triggered_at)
+                return None, False
+            became_due = trigger and not task.get("due")
+            if became_due:
+                task["due"] = normalize_utc_datetime(occurred_at)
+            clean_message = str(message or "").strip()
+            message_added = False
+            if clean_message and not (
+                task["history"]
+                and task["history"][-1].get("type") == "problem"
+                and task["history"][-1].get("message") == clean_message
+            ):
+                task["history"].append({
+                    "type": "problem",
+                    "id": uuid4().hex,
+                    "occurred_at": normalize_utc_datetime(occurred_at),
+                    "message": clean_message,
+                })
+                message_added = True
+            if not became_due and not message_added:
+                return None, False
             await self._commit(data)
-            return deepcopy(task)
+            return deepcopy(task), became_due

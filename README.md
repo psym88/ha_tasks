@@ -7,7 +7,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 ## Features
 
 - Daily, weekly, monthly, and yearly recurring tasks
-- Fixed schedules with a local time, intervals after completion, and binary problem-sensor triggers
+- Fixed schedules with a local time, intervals after completion, and Home Assistant template problem triggers
 - Preview of the actual upcoming due dates and times calculated from each schedule
 - Task pausing from individual and bulk action menus
 - Home Assistant user and label assignments, notes, history, and attachments
@@ -46,22 +46,48 @@ The task table supports configurable columns, search, sorting, and filters for a
 Task details show the status, planning, due date and time, assignee, labels,
 attachments, completion history, and notes in one dialog.
 
-Task descriptions support the same Markdown and Home Assistant templates as the
-standard Markdown dashboard card. Templates update automatically when a
-referenced entity changes, for example:
-
-```jinja2
-Temperature: **{{ states('sensor.outdoor_temperature') }} °C**
-```
-
 | Light | Dark |
 | --- | --- |
 | ![Task list with the task viewer open in light mode](docs/images/task-viewer-desktop-light.png) | ![Task list with the task viewer open in dark mode](docs/images/task-viewer-desktop-dark.png) |
 
+### Task description templates
+
+Task descriptions support the same Home Assistant templates as the standard
+Markdown dashboard card. Template output is rendered as Markdown and updates
+automatically when a referenced entity changes.
+
+For example, a task description can display a separate status based on a sensor
+value:
+
+```jinja2
+{% if states('sensor.errormessage_thermostat') == 'OK' %}
+No errors
+{% else %}
+Error message: **{{ states('sensor.errormessage_thermostat') }}**
+{% endif %}
+```
+
 Tasks can be triggered by a fixed calendar schedule, from the last completion,
-or when a binary problem sensor turns on. Tasks warns you when a configured
-problem sensor is missing or unavailable. Files are managed in the task editor,
-and supported formats open in an in-panel preview dialog.
+or by a Home Assistant Jinja condition template. A separate optional message
+template accepts either static text or Jinja and can translate integration-specific
+error codes into a useful message:
+
+```jinja2
+{% set code = states('sensor.wr01_error_code') | int(-1) %}
+{{ code != 0 }}
+```
+
+```jinja2
+{% set code = states('sensor.wr01_error_code') | int(-1) %}
+{{ {1001: 'Overheating', 2001: 'Excessive current'}.get(code, 'Unknown error ' ~ code) }}
+```
+
+The task becomes due whenever the condition initially evaluates to true or
+changes to true. Message changes are stored as problem entries in the task
+history; completion entries remain in the same chronological history. The
+viewer shows the latest problem message while the condition is currently true.
+Files are managed in the task editor, and supported formats open in an in-panel
+preview dialog.
 
 Select **+ Add task** to open an empty editor:
 

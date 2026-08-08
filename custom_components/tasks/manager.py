@@ -49,6 +49,17 @@ class TaskManager:
         self._store = store
         self._listeners: set[Callable[[TaskChange], None]] = set()
         self._revision = 0
+        self._problem_runtime: dict[str, tuple[bool, str, str | None]] = {}
+
+    def _with_runtime_state(self, task: dict[str, Any]) -> dict[str, Any]:
+        if task["schedule"]["type"] == "sensor":
+            active, status, entity_id = self._problem_runtime.get(
+                task["id"], (False, "valid", None)
+            )
+            task["problem_active"] = active
+            task["problem_condition_status"] = status
+            task["problem_condition_entity_id"] = entity_id
+        return task
 
     @property
     def revision(self) -> int:
@@ -70,13 +81,39 @@ class TaskManager:
 
     @property
     def tasks(self) -> list[dict[str, Any]]:
-        return self._store.tasks
+        return [self._with_runtime_state(task) for task in self._store.tasks]
 
     def snapshot(self) -> dict[str, Any]:
-        return self._store.snapshot()
+        snapshot = self._store.snapshot()
+        snapshot["tasks"] = [
+            self._with_runtime_state(task) for task in snapshot["tasks"]
+        ]
+        return snapshot
 
     def task(self, task_id: str) -> dict[str, Any]:
-        return self._store.task(task_id)
+        return self._with_runtime_state(self._store.task(task_id))
+
+    @callback
+    def set_problem_runtime(
+        self,
+        task_id: str,
+        active: bool,
+        status: str,
+        entity_id: str | None = None,
+    ) -> None:
+        """Publish the ephemeral problem condition state when it changes."""
+        value = (active, status, entity_id)
+        if self._problem_runtime.get(task_id) == value:
+            return
+        self._problem_runtime[task_id] = value
+        self._changed(
+            "problem_runtime",
+            "task",
+            task_id,
+            active=active,
+            status=status,
+            entity_id=entity_id,
+        )
 
     def history(self, task_id: str) -> list[dict[str, Any]]:
         return self._store.history(task_id)
@@ -251,14 +288,26 @@ class TaskManager:
         )
         return result
 
-    async def async_trigger_problem_task(
-        self, task_id: str, triggered_at: str
+    async def async_record_problem_update(
+        self,
+        task_id: str,
+        occurred_at: str,
+        *,
+        trigger: bool,
+        message: str | None,
     ) -> dict[str, Any] | None:
-        task = await self._store.async_trigger_problem_task(
-            task_id, triggered_at
+        task, became_due = await self._store.async_record_problem_update(
+            task_id, occurred_at, trigger=trigger, message=message
         )
-        if task is not None:
+        if task is not None and became_due:
             self.task_became_due(task)
+        elif task is not None:
+            self._changed(
+                "problem_message",
+                "task",
+                task_id,
+                resource_name=task["name"],
+            )
         return task
 
     @callback

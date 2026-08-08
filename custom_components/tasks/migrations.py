@@ -248,12 +248,46 @@ def _upgrade_store_5_to_6(data: dict[str, Any]) -> dict[str, Any]:
     return upgraded
 
 
+def _upgrade_store_6_to_7(data: dict[str, Any]) -> dict[str, Any]:
+    """Replace binary sensors with templates and unify task history."""
+    upgraded = deepcopy(data)
+    for task in upgraded.get("tasks", []):
+        if not isinstance(task, dict):
+            continue
+        schedule = task.get("schedule") or {}
+        if schedule.get("type") == "sensor":
+            entity_id = str(schedule.get("entity_id") or "").strip()
+            task["schedule"] = {
+                "type": "sensor",
+                "condition_template": (
+                    "{{ is_state('" + entity_id + "', 'on') }}"
+                ),
+                "message_template": None,
+            }
+        if "completions" in task:
+            task["history"] = [
+                {
+                    "type": "completed",
+                    "id": entry.get("id"),
+                    "occurred_at": entry.get("completed_at"),
+                    "user_id": entry.get("user_id"),
+                    "user_name": entry.get("user_name") or "system",
+                    "notes": entry.get("notes"),
+                }
+                for entry in task.get("completions", [])
+                if isinstance(entry, dict)
+            ]
+        task.pop("completions", None)
+    return upgraded
+
+
 STORE_UPGRADES: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _upgrade_store_1_to_2,
     2: _upgrade_store_2_to_3,
     3: _upgrade_store_3_to_4,
     4: _upgrade_store_4_to_5,
     5: _upgrade_store_5_to_6,
+    6: _upgrade_store_6_to_7,
 }
 
 
