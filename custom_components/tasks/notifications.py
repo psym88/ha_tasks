@@ -2,42 +2,19 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from functools import cache
-from pathlib import Path
 from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import TemplateError
+from homeassistant.helpers.template import Template
 
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_APP_DOMAIN = "mobile_app"
-TRANSLATIONS = Path(__file__).parent / "translations"
-
-
-def _frontend_key(key: str) -> str:
-    """Convert a Home Assistant common key to a frontend key."""
-    namespace, name = key.removeprefix("ui_").split("_", 1)
-    return f"{namespace}.{name}"
-
-
-@cache
-def _load_translations(language: str) -> dict[str, str]:
-    """Load UI translations from the Home Assistant catalog."""
-    language = language.lower().replace("_", "-").split("-", 1)[0]
-    path = TRANSLATIONS / f"{language}.json"
-    if not path.is_file():
-        path = TRANSLATIONS / "en.json"
-    common = json.loads(path.read_text(encoding="utf-8"))["common"]
-    return {
-        _frontend_key(key): value
-        for key, value in common.items()
-        if key.startswith("ui_")
-    }
 
 
 def notification_id(task_id: str) -> str:
@@ -48,22 +25,34 @@ def notification_id(task_id: str) -> str:
 def has_due_notification(task: dict[str, Any]) -> bool:
     """Return whether a task has any due notification enabled."""
     notification = task["notification"]
-    return bool(
-        notification["device_ids"] or notification["persistent"]
-    )
+    return bool(notification["device_ids"] or notification["persistent"])
 
 
 async def _notification_content(
     hass: HomeAssistant,
     task: dict[str, Any],
 ) -> tuple[str, str]:
-    language = getattr(getattr(hass, "config", None), "language", "en")
-    translations = await hass.async_add_executor_job(_load_translations, language)
-    task_name = task["name"]
-    kind = "problem" if task["schedule"]["type"] == "sensor" else "due"
-    return (
-        translations[f"notification.{kind}_title"],
-        translations[f"notification.{kind}_message"].format(task_name=task_name),
+    """Build notification content from the task itself."""
+    due = task.get("due")
+    problem_message = next(
+        (
+            str(entry.get("message") or "").strip()
+            for entry in reversed(task.get("history", []))
+            if entry.get("type") == "problem" and entry.get("occurred_at") == due
+        ),
+        "",
+    )
+    description = ""
+    if source := str(task.get("description") or "").strip():
+        try:
+            description = str(Template(source, hass).async_render(strict=True)).strip()
+        except TemplateError:
+            _LOGGER.warning(
+                "Failed to render notification description for task %s",
+                task["id"],
+            )
+    return task["name"], "\n\n".join(
+        part for part in (problem_message, description) if part
     )
 
 

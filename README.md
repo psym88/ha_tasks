@@ -50,7 +50,18 @@ attachments, completion history, and notes in one dialog.
 | --- | --- |
 | ![Task list with the task viewer open in light mode](docs/images/task-viewer-desktop-light.png) | ![Task list with the task viewer open in dark mode](docs/images/task-viewer-desktop-dark.png) |
 
-### Task description templates
+### Creating and editing tasks
+
+Select **+ Add task** to open an empty editor:
+
+| Light | Dark |
+| --- | --- |
+| ![Empty new-task editor in light mode](docs/images/task-editor-new-desktop-light.png) | ![Empty new-task editor in dark mode](docs/images/task-editor-new-desktop-dark.png) |
+
+The editor groups the settings for an existing task into separate expandable
+sections.
+
+#### Description templates
 
 Task descriptions support the same Home Assistant templates as the standard
 Markdown dashboard card. Template output is rendered as Markdown and updates
@@ -67,71 +78,115 @@ Error message: **{{ states('sensor.errormessage_thermostat') }}**
 {% endif %}
 ```
 
-Tasks can be triggered by a fixed calendar schedule, from the last completion,
-or by a Home Assistant Jinja condition template. A separate optional message
-template accepts either static text or Jinja and can translate integration-specific
-error codes into a useful message:
+#### Schedule and triggers
 
-```jinja2
-{% set code = states('sensor.wr01_error_code') | int(-1) %}
-{{ code != 0 }}
-```
-
-```jinja2
-{% set code = states('sensor.wr01_error_code') | int(-1) %}
-{{ {1001: 'Overheating', 2001: 'Excessive current'}.get(code, 'Unknown error ' ~ code) }}
-```
-
-The task becomes due whenever the condition initially evaluates to true or
-changes from false to true. At that moment the optional message is rendered
-once and stored with the incident in the task history. Completing the task
-clears the incident and immediately checks the condition again. If it is still
-true, a new incident opens with a freshly rendered message; otherwise the task
-waits for a later false-to-true change. After Home Assistant starts, one health
-check marks active problem tasks whose condition is invalid or depends on a
-missing, unknown, or unavailable entity. This warning does not change the
-trigger result and is not refreshed periodically. It is checked again when a
-Tasks client subscribes or reconnects, while saving checks only the edited task.
-Files are managed in the task editor, and supported formats open in an in-panel
-preview dialog.
-
-Select **+ Add task** to open an empty editor:
-
-| Light | Dark |
-| --- | --- |
-| ![Empty new-task editor in light mode](docs/images/task-editor-new-desktop-light.png) | ![Empty new-task editor in dark mode](docs/images/task-editor-new-desktop-dark.png) |
-
-The editor groups the settings for an existing task into separate expandable sections.
-
-**Schedule**
+A task can follow a fixed calendar schedule, repeat from its last completion,
+or become due when a Home Assistant template detects a problem.
 
 | Light | Dark |
 | --- | --- |
 | ![Expanded task schedule with example data in light mode](docs/images/task-editor-planning-desktop-light.png) | ![Expanded task schedule with example data in dark mode](docs/images/task-editor-planning-desktop-dark.png) |
 
-**Assignment**
+##### Problem sensor tasks
+
+Home Assistant integrations expose device faults in different ways: as a binary
+sensor, readable text, a numeric error code, or separate entities for the code
+and its description. Problem sensor tasks handle all of these variants with two
+templates:
+
+- **Condition** decides whether a problem is active.
+- **Error message** turns the current states into a readable incident message.
+
+For a binary sensor, **Generate from entity** creates the condition
+automatically. Custom templates can evaluate text or numeric sensors and combine
+multiple entities.
+
+| Light | Dark |
+| --- | --- |
+| ![Problem sensor editor with an error-code condition in light mode](docs/images/problem-sensor-editor-desktop-light.png) | ![Problem sensor editor with an error-code condition in dark mode](docs/images/problem-sensor-editor-desktop-dark.png) |
+
+For example, assume `sensor.heat_pump_error_code` reports `0` while the heat
+pump is healthy and an integration-specific code when a fault occurs:
+
+| Sensor state | Meaning |
+| --- | --- |
+| `0` | No error |
+| `1001` | Overheating |
+| `2001` | Excessive current |
+| `3001` | Communication fault |
+
+First, the condition identifies every usable non-zero code as a problem:
+
+```jinja2
+{% set code = states('sensor.heat_pump_error_code') %}
+{{ code not in ['0', 'unknown', 'unavailable'] }}
+```
+
+Then the error message template translates the current code and provides a
+fallback for codes that have not been documented yet:
+
+```jinja2
+{% set errors = {
+  '1001': 'Overheating',
+  '2001': 'Excessive current',
+  '3001': 'Communication fault'
+} %}
+{% set code = states('sensor.heat_pump_error_code') %}
+{{ errors.get(code, 'Unknown heat pump error (code ' ~ code ~ ')') }}
+```
+
+If the sensor reports `1001`, the condition becomes true, the task becomes due,
+and `Overheating` is stored with the incident:
+
+| Light | Dark |
+| --- | --- |
+| ![Active heat-pump problem with its translated message in light mode](docs/images/problem-sensor-active-desktop-light.png) | ![Active heat-pump problem with its translated message in dark mode](docs/images/problem-sensor-active-desktop-dark.png) |
+
+The error message is rendered and stored when the task is triggered. It remains
+the message that caused this incident even if the sensor changes later. To also
+show the current device message, add a separate Home Assistant template to the
+task description.
+
+A problem task becomes due when its condition initially evaluates to true or
+changes from false to true. Completing it immediately checks the condition
+again: a remaining problem opens a new incident with a freshly rendered
+message; otherwise the task waits for the next false-to-true change. A warning
+icon identifies invalid conditions and missing, unknown, or unavailable
+entities. This health warning is refreshed when Home Assistant starts, when a
+Tasks client reconnects, and when the task is saved.
+
+#### Assignment
 
 | Light | Dark |
 | --- | --- |
 | ![Expanded task assignment with example data in light mode](docs/images/task-editor-assignment-desktop-light.png) | ![Expanded task assignment with example data in dark mode](docs/images/task-editor-assignment-desktop-dark.png) |
 
-**Notification**
+#### Notification
+
+The task name is used as the notification title. The body combines the problem
+message captured when the task was triggered with the task description rendered
+at notification time; empty parts are omitted.
 
 | Light | Dark |
 | --- | --- |
 | ![Expanded task notification settings with example data in light mode](docs/images/task-editor-notification-desktop-light.png) | ![Expanded task notification settings with example data in dark mode](docs/images/task-editor-notification-desktop-dark.png) |
 
-**Files**
+#### Files
+
+Files are managed in the task editor, and supported formats open in an in-panel
+preview dialog.
 
 | Light | Dark |
 | --- | --- |
 | ![Expanded task files with example data in light mode](docs/images/task-editor-files-desktop-light.png) | ![Expanded task files with example data in dark mode](docs/images/task-editor-files-desktop-dark.png) |
 
-**History**
+#### History
 
 | Light | Dark |
 | --- | --- |
 | ![Expanded task history with example data in light mode](docs/images/task-editor-history-desktop-light.png) | ![Expanded task history with example data in dark mode](docs/images/task-editor-history-desktop-dark.png) |
+
+### NFC completion
 
 To complete a task with NFC, create a tag under **Settings → Tags** and assign it in the task editor. One tag can be assigned to only one task.
 
