@@ -49,16 +49,12 @@ class TaskManager:
         self._store = store
         self._listeners: set[Callable[[TaskChange], None]] = set()
         self._revision = 0
-        self._problem_runtime: dict[str, tuple[bool, str, str | None]] = {}
+        self._problem_warnings: set[str] = set()
+        self._problem_health_auditor: Callable[[], None] | None = None
 
     def _with_runtime_state(self, task: dict[str, Any]) -> dict[str, Any]:
         if task["schedule"]["type"] == "sensor":
-            active, status, entity_id = self._problem_runtime.get(
-                task["id"], (False, "valid", None)
-            )
-            task["problem_active"] = active
-            task["problem_condition_status"] = status
-            task["problem_condition_entity_id"] = entity_id
+            task["problem_warning"] = task["id"] in self._problem_warnings
         return task
 
     @property
@@ -79,6 +75,36 @@ class TaskManager:
 
         return unsubscribe
 
+    @callback
+    def set_problem_warnings(self, task_ids: set[str]) -> None:
+        """Replace all problem health warnings."""
+        warnings = set(task_ids)
+        if warnings == self._problem_warnings:
+            return
+        self._problem_warnings = warnings
+        self._changed("problem_warnings", "runtime")
+
+    @callback
+    def set_problem_warning(self, task_id: str, warning: bool) -> None:
+        """Update the health warning for one saved task."""
+        warnings = self._problem_warnings | {task_id} if warning else (
+            self._problem_warnings - {task_id}
+        )
+        self.set_problem_warnings(warnings)
+
+    @callback
+    def set_problem_health_auditor(
+        self, auditor: Callable[[], None] | None
+    ) -> None:
+        """Register the trigger-neutral problem health audit."""
+        self._problem_health_auditor = auditor
+
+    @callback
+    def audit_problem_health(self) -> None:
+        """Refresh warning flags without touching trigger trackers."""
+        if self._problem_health_auditor:
+            self._problem_health_auditor()
+
     @property
     def tasks(self) -> list[dict[str, Any]]:
         return [self._with_runtime_state(task) for task in self._store.tasks]
@@ -92,28 +118,6 @@ class TaskManager:
 
     def task(self, task_id: str) -> dict[str, Any]:
         return self._with_runtime_state(self._store.task(task_id))
-
-    @callback
-    def set_problem_runtime(
-        self,
-        task_id: str,
-        active: bool,
-        status: str,
-        entity_id: str | None = None,
-    ) -> None:
-        """Publish the ephemeral problem condition state when it changes."""
-        value = (active, status, entity_id)
-        if self._problem_runtime.get(task_id) == value:
-            return
-        self._problem_runtime[task_id] = value
-        self._changed(
-            "problem_runtime",
-            "task",
-            task_id,
-            active=active,
-            status=status,
-            entity_id=entity_id,
-        )
 
     def history(self, task_id: str) -> list[dict[str, Any]]:
         return self._store.history(task_id)
@@ -151,7 +155,6 @@ class TaskManager:
         *,
         context: Context | None = None,
     ) -> dict[str, Any]:
-        previous = self._store.task(task_id)
         task = await self._store.async_update_task(task_id, payload, now)
         self._changed(
             "updated",
@@ -159,10 +162,6 @@ class TaskManager:
             task_id,
             context=context,
             resource_name=task["name"],
-            problem_trigger_changed=(
-                previous["schedule"] != task["schedule"]
-                or previous.get("active", True) != task.get("active", True)
-            ),
         )
         return task
 
@@ -213,28 +212,13 @@ class TaskManager:
         context: Context | None = None,
     ) -> list[dict[str, Any]]:
         """Apply task mutations as one persisted and published change."""
-        previous = {
-            operation["id"]: self._store.task(operation["id"])
-            for operation in operations
-            if operation["action"] == "update"
-        }
         results = await self._store.async_bulk_mutate(
             operations, user_id, user_name, now
         )
-        problem_task_ids = []
         for result in results:
             task_id = result["id"]
             if result["action"] in {"complete", "delete"}:
                 dismiss_task_notification(self._hass, task_id)
-            if result["action"] != "update":
-                continue
-            before = previous[task_id]
-            task = result["task"]
-            if (
-                before["schedule"] != task["schedule"]
-                or before.get("active", True) != task.get("active", True)
-            ):
-                problem_task_ids.append(task_id)
         self._changed(
             "bulk_mutated",
             "task",
@@ -246,8 +230,6 @@ class TaskManager:
                 }
                 for result in results
             ],
-            problem_trigger_changed=bool(problem_task_ids),
-            problem_task_ids=problem_task_ids,
         )
         return results
 
@@ -273,10 +255,6 @@ class TaskManager:
             now,
         )
         task = result["task"]
-        problem_trigger_changed = previous is None or any(
-            previous.get(key) != task.get(key)
-            for key in ("schedule", "active")
-        )
         self._changed(
             "saved",
             "task",
@@ -284,30 +262,21 @@ class TaskManager:
             context=context,
             resource_name=task["name"],
             created=previous is None,
-            problem_trigger_changed=problem_trigger_changed,
         )
         return result
 
-    async def async_record_problem_update(
+    async def async_trigger_problem_task(
         self,
         task_id: str,
         occurred_at: str,
-        *,
-        trigger: bool,
         message: str | None,
     ) -> dict[str, Any] | None:
-        task, became_due = await self._store.async_record_problem_update(
-            task_id, occurred_at, trigger=trigger, message=message
+        """Open one problem incident and publish it becoming due."""
+        task = await self._store.async_trigger_problem_task(
+            task_id, occurred_at, message
         )
-        if task is not None and became_due:
+        if task is not None:
             self.task_became_due(task)
-        elif task is not None:
-            self._changed(
-                "problem_message",
-                "task",
-                task_id,
-                resource_name=task["name"],
-            )
         return task
 
     @callback

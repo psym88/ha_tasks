@@ -7,7 +7,7 @@ from itertools import islice
 import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.components.http.auth import async_sign_path
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
@@ -168,6 +168,8 @@ def ws_subscribe(hass, connection, msg):
             msg["id"], "not_loaded", "Integration not loaded"
         )
         return
+    if hass.state is CoreState.running:
+        manager.audit_problem_health()
     snapshot = _subscription_snapshot(manager)
     connection.subscriptions[msg["id"]] = manager.subscribe(
         lambda change: connection.send_event(

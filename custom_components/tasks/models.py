@@ -116,7 +116,7 @@ class ProblemTrigger:
 
     def signature(self) -> tuple[Any, ...]:
         """Return values that affect this trigger."""
-        return (self.type, self.condition_template, self.message_template)
+        return (self.type, self.condition_template)
 
     def record(self) -> dict[str, Any]:
         """Serialize the trigger into the persisted aggregate."""

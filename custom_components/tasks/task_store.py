@@ -540,41 +540,30 @@ class TasksStore:
             and parse_aware_datetime(task["due"]) <= now
         )
 
-    async def async_record_problem_update(
+    async def async_trigger_problem_task(
         self,
         task_id: str,
         occurred_at: str,
-        *,
-        trigger: bool,
         message: str | None,
-    ) -> tuple[dict[str, Any] | None, bool]:
-        """Atomically apply one template update and its problem message."""
+    ) -> dict[str, Any] | None:
+        """Atomically open one problem incident and snapshot its message."""
         async with self._lock:
             data = deepcopy(self._data)
             task = self._find_task_in(data, task_id)
             if (
                 not task.get("active", True)
                 or task["schedule"]["type"] != "sensor"
+                or task.get("due")
             ):
-                return None, False
-            became_due = trigger and not task.get("due")
-            if became_due:
-                task["due"] = normalize_utc_datetime(occurred_at)
+                return None
+            task["due"] = normalize_utc_datetime(occurred_at)
             clean_message = str(message or "").strip()
-            message_added = False
-            if clean_message and not (
-                task["history"]
-                and task["history"][-1].get("type") == "problem"
-                and task["history"][-1].get("message") == clean_message
-            ):
+            if clean_message:
                 task["history"].append({
                     "type": "problem",
                     "id": uuid4().hex,
                     "occurred_at": normalize_utc_datetime(occurred_at),
                     "message": clean_message,
                 })
-                message_added = True
-            if not became_due and not message_added:
-                return None, False
             await self._commit(data)
-            return deepcopy(task), became_due
+            return deepcopy(task)

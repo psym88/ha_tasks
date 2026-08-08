@@ -2,62 +2,116 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
-import re
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import TemplateError
 from homeassistant.helpers.event import (
+    TrackTemplate,
     async_track_point_in_time,
     async_track_template_result,
 )
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.template import Template
-from homeassistant.helpers.event import TrackTemplate
 from homeassistant.util import dt as dt_util
 
 from .datetime_utils import parse_aware_datetime
 from .manager import TaskChange, TaskManager
 
 
+def _condition_has_warning(
+    hass: HomeAssistant, condition_template: str
+) -> bool:
+    """Return whether a condition cannot currently prove it can trigger."""
+    try:
+        info = Template(condition_template, hass).async_render_to_info(
+            strict=True
+        )
+        result = info.result()
+    except TemplateError:
+        return True
+    if not isinstance(result, bool):
+        return True
+    if result:
+        return False
+    if info.is_static:
+        return True
+    return any(
+        (state := hass.states.get(entity_id)) is None
+        or state.state in {"unknown", "unavailable"}
+        for entity_id in info.entities
+    )
+
+
 class TaskEngine:
-    """Run calendar due timers and binary-sensor task triggers."""
+    """Run calendar due timers and problem-template task triggers."""
 
     def __init__(self, hass: HomeAssistant, manager: TaskManager) -> None:
         self._hass = hass
         self._manager = manager
-        self._cancel_timer = None
-        self._cancel_listener = None
-        self._cancel_template_listeners: list[Any] = []
-        self._message_results: dict[str, str | None] = {}
+        self._cancel_timer: Callable[[], None] | None = None
+        self._cancel_listener: Callable[[], None] | None = None
+        self._cancel_startup_audit: Callable[[], None] | None = None
+        self._problem_trackers: dict[
+            str, tuple[str, Callable[[], None]]
+        ] = {}
 
     async def async_start(self) -> None:
         """Start listeners and reconcile the current task state."""
+        self._manager.set_problem_health_auditor(
+            self._audit_problem_health
+        )
         self._cancel_listener = self._manager.subscribe(self._handle_change)
         self.reschedule()
-        self._subscribe_templates()
+        self._sync_problem_trackers()
+        self._cancel_startup_audit = async_at_started(
+            self._hass, self._audit_problem_health
+        )
 
     @callback
     def stop(self) -> None:
-        """Stop time, task-change, and state listeners."""
+        """Stop time, task-change, startup, and template listeners."""
+        self._manager.set_problem_health_auditor(None)
         for listener in (
             self._cancel_timer,
             self._cancel_listener,
-            *self._cancel_template_listeners,
+            self._cancel_startup_audit,
+            *(cancel for _, cancel in self._problem_trackers.values()),
         ):
             if listener:
                 listener()
         self._cancel_timer = None
         self._cancel_listener = None
-        self._cancel_template_listeners = []
+        self._cancel_startup_audit = None
+        self._problem_trackers.clear()
 
     @callback
     def _handle_change(self, change: TaskChange) -> None:
-        if change.affects_tasks and change.action not in {
-            "due", "problem_runtime"
-        }:
+        if not change.affects_tasks:
+            return
+        if change.action != "due":
             self.reschedule()
-        self._handle_problem_change(change)
+        completed_ids = (
+            [change.resource_id]
+            if change.action == "completed" and change.resource_id
+            else [
+                operation["id"]
+                for operation in change.data.get("operations", [])
+                if operation["action"] == "complete"
+            ]
+            if change.action == "bulk_mutated"
+            else []
+        )
+        for task_id in completed_ids:
+            if tracked := self._problem_trackers.pop(task_id, None):
+                tracked[1]()
+        self._sync_problem_trackers()
+        if change.action == "saved" and change.resource_id:
+            self._hass.async_create_task(
+                self._refresh_problem_warning(change.resource_id)
+            )
 
     @callback
     def reschedule(self) -> None:
@@ -98,133 +152,106 @@ class TaskEngine:
                 self._manager.task_became_due(task)
         self.reschedule()
 
-
     @staticmethod
-    def _is_problem_task(task: dict[str, Any]) -> bool:
-        """Return whether a task uses problem templates."""
+    def _is_active_problem_task(task: dict[str, Any]) -> bool:
+        """Return whether a task needs a live problem-condition tracker."""
         return (
-            task["schedule"]["type"] == "sensor"
+            task.get("active", True)
+            and task["schedule"]["type"] == "sensor"
             and bool(task["schedule"].get("condition_template"))
         )
 
     @callback
-    def _subscribe_templates(self) -> None:
-        """Create one HA template subscription group per problem task."""
-        for cancel in self._cancel_template_listeners:
-            cancel()
-        self._cancel_template_listeners = []
-        self._message_results = {}
-        for task in self._manager.tasks:
-            if not self._is_problem_task(task):
+    def _sync_problem_trackers(self) -> None:
+        """Add, retain, or remove the one tracker needed by each task."""
+        desired = {
+            task["id"]: task["schedule"]["condition_template"]
+            for task in self._manager.tasks
+            if self._is_active_problem_task(task)
+        }
+        for task_id, (template, cancel) in tuple(
+            self._problem_trackers.items()
+        ):
+            if desired.get(task_id) != template:
+                cancel()
+                del self._problem_trackers[task_id]
+        for task_id, condition_template in desired.items():
+            if task_id in self._problem_trackers:
                 continue
-            task_id = task["id"]
-            task_active = task.get("active", True)
-            condition = Template(
-                task["schedule"]["condition_template"], self._hass
-            )
-            binary_sensor = re.fullmatch(
-                r"\s*{{\s*is_state\(['\"](binary_sensor\.[^'\"]+)['\"],"
-                r"\s*['\"]on['\"]\)\s*}}\s*",
-                task["schedule"]["condition_template"],
-            )
-            binary_sensor_id = binary_sensor.group(1) if binary_sensor else None
-            tracked = [TrackTemplate(condition, None)]
-            message_value = task["schedule"].get("message_template")
-            message = (
-                Template(message_value, self._hass)
-                if task_active and message_value else None
-            )
-            if message is not None:
-                tracked.append(TrackTemplate(message, None))
+            condition = Template(condition_template, self._hass)
 
             @callback
-            def handle_updates(event, updates, *, task_id=task_id,
-                               condition=condition, message=message,
-                               binary_sensor_id=binary_sensor_id,
-                               task_active=task_active) -> None:
-                condition_update = next(
-                    (item for item in updates if item.template is condition), None
+            def handle_update(event, updates, *, task_id=task_id) -> None:
+                result = updates[0].result
+                if result is not True:
+                    return
+                occurred_at = (
+                    event.time_fired if event is not None else dt_util.utcnow()
+                ).isoformat()
+                self._hass.async_create_task(
+                    self._trigger_problem(task_id, occurred_at)
                 )
-                message_update = next(
-                    (item for item in updates if item.template is message), None
-                )
-                active = None
-                if condition_update is not None:
-                    sensor_state = (
-                        self._hass.states.get(binary_sensor_id)
-                        if binary_sensor_id else None
-                    )
-                    if binary_sensor_id and sensor_state is None:
-                        status = "missing"
-                    elif binary_sensor_id and sensor_state.state in {
-                        "unknown", "unavailable"
-                    }:
-                        status = sensor_state.state
-                    elif isinstance(condition_update.result, TemplateError) or not isinstance(
-                        condition_update.result, bool
-                    ):
-                        status = "invalid"
-                    else:
-                        status = "valid"
-                    active = (
-                        task_active
-                        and status == "valid"
-                        and condition_update.result is True
-                    )
-                    self._manager.set_problem_runtime(
-                        task_id, active, status, binary_sensor_id
-                    )
-                if message_update is not None and not isinstance(
-                    message_update.result, TemplateError
-                ):
-                    self._message_results[task_id] = str(
-                        message_update.result
-                    ).strip() or None
-                trigger = active is True
-                record_message = trigger or (
-                    message_update is not None
-                    and message_update.last_result is not None
-                )
-                if trigger or record_message:
-                    self._hass.async_create_task(
-                        self._manager.async_record_problem_update(
-                            task_id,
-                            (
-                                event.time_fired
-                                if event is not None else dt_util.utcnow()
-                            ).isoformat(),
-                            trigger=trigger,
-                            message=(
-                                self._message_results.get(task_id)
-                                if record_message else None
-                            ),
-                        )
-                    )
 
-            info = async_track_template_result(
-                self._hass, tracked, handle_updates
+            tracker = async_track_template_result(
+                self._hass,
+                [TrackTemplate(condition, None)],
+                handle_update,
+                strict=True,
             )
-            self._cancel_template_listeners.append(info.async_remove)
-            info.async_refresh()
+            self._problem_trackers[task_id] = (
+                condition_template,
+                tracker.async_remove,
+            )
+            tracker.async_refresh()
+
+    async def _trigger_problem(
+        self, task_id: str, occurred_at: str
+    ) -> None:
+        """Snapshot the current message and open one problem incident."""
+        try:
+            task = self._manager.task(task_id)
+        except ValueError:
+            return
+        message_template = task["schedule"].get("message_template")
+        message = None
+        if message_template:
+            try:
+                message = str(
+                    Template(message_template, self._hass).async_render(
+                        strict=True
+                    )
+                ).strip() or None
+            except TemplateError:
+                pass
+        await self._manager.async_trigger_problem_task(
+            task_id, occurred_at, message
+        )
 
     @callback
-    def _handle_problem_change(self, change: TaskChange) -> None:
-        if change.action == "bulk_mutated":
-            if change.data.get("problem_trigger_changed"):
-                self._subscribe_templates()
-            return
-        problem_trigger_changed = bool(
-            change.data.get("problem_trigger_changed")
-        )
-        if (
-            change.resource_type == "archive"
-            or (
-                change.resource_type == "task"
-                and (
-                    change.action == "deleted"
-                    or change.action in {"updated", "saved"}
-                    and problem_trigger_changed
-                )
+    def _audit_problem_health(
+        self, _hass: HomeAssistant | None = None
+    ) -> None:
+        """Refresh every active problem task's health warning."""
+        self._cancel_startup_audit = None
+        warnings = {
+            task["id"]
+            for task in self._manager.tasks
+            if self._is_active_problem_task(task)
+            and _condition_has_warning(
+                self._hass, task["schedule"]["condition_template"]
             )
-        ):
-            self._subscribe_templates()
+        }
+        self._manager.set_problem_warnings(warnings)
+
+    async def _refresh_problem_warning(self, task_id: str) -> None:
+        """Recheck only the problem task just saved in the editor."""
+        try:
+            task = self._manager.task(task_id)
+        except ValueError:
+            return
+        warning = self._is_active_problem_task(task) and (
+            _condition_has_warning(
+                self._hass, task["schedule"]["condition_template"]
+            )
+        )
+        self._manager.set_problem_warning(task_id, warning)

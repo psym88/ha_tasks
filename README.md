@@ -83,9 +83,15 @@ error codes into a useful message:
 ```
 
 The task becomes due whenever the condition initially evaluates to true or
-changes to true. Message changes are stored as problem entries in the task
-history; completion entries remain in the same chronological history. The
-viewer shows the latest problem message while the condition is currently true.
+changes from false to true. At that moment the optional message is rendered
+once and stored with the incident in the task history. Completing the task
+clears the incident and immediately checks the condition again. If it is still
+true, a new incident opens with a freshly rendered message; otherwise the task
+waits for a later false-to-true change. After Home Assistant starts, one health
+check marks active problem tasks whose condition is invalid or depends on a
+missing, unknown, or unavailable entity. This warning does not change the
+trigger result and is not refreshed periodically. It is checked again when a
+Tasks client subscribes or reconnects, while saving checks only the edited task.
 Files are managed in the task editor, and supported formats open in an in-panel
 preview dialog.
 
