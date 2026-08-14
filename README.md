@@ -118,9 +118,28 @@ pump is healthy and an integration-specific code when a fault occurs:
 First, the condition identifies every usable non-zero code as a problem:
 
 ```jinja2
-{% set code = states('sensor.heat_pump_error_code') %}
-{{ code not in ['0', 'unknown', 'unavailable'] }}
+{% set entity = 'sensor.heat_pump_error_code' %}
+{% set code = states(entity) %}
+{{ has_value(entity) and code != '0' }}
 ```
+
+Each part has one purpose:
+
+- `entity` stores the entity ID once so it can be reused.
+- `states(entity)` reads the current state as text and stores it in `code`.
+- `has_value(entity)` is true only when the entity exists and its state is
+  neither `unknown` nor `unavailable`.
+- `code != '0'` distinguishes an error code from the healthy state `0`.
+- `and` makes the complete condition true only when both checks are true.
+
+This produces the following results:
+
+| Sensor state | Condition result |
+| --- | --- |
+| `0` | `false` |
+| `unknown` | `false` |
+| `unavailable` | `false` |
+| Any other error code | `true` |
 
 Then the error message template translates the current code and provides a
 fallback for codes that have not been documented yet:
