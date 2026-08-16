@@ -16,7 +16,6 @@ from homeassistant.loader import async_get_integration
 from . import attachment_api, nfc_completion, task_api
 from .const import (
     DOMAIN,
-    ENGLISH_TRANSLATIONS_URL,
     FRONTEND_URL,
     PANEL_TITLE,
     PANEL_URL,
@@ -30,23 +29,16 @@ from .task_store import TasksStore
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-async def _frontend_urls(
-    hass: HomeAssistant,
-) -> tuple[str, str, str]:
-    """Return frontend URLs derived from the manifest version."""
+async def _frontend_url(hass: HomeAssistant) -> str:
+    """Return the frontend URL derived from the manifest version."""
     version = (await async_get_integration(hass, DOMAIN)).version
     if version is None:
         raise RuntimeError("Tasks manifest version is required")
-    base_url = f"{FRONTEND_URL}/{version}"
-    return (
-        base_url,
-        f"{base_url}/panel.js",
-        f"{base_url}/card.js",
-    )
+    return f"{FRONTEND_URL}/card.js?v={version}"
 
 
 async def _async_register_dashboard_resource(
-    hass: HomeAssistant, card_js_url: str
+    hass: HomeAssistant, frontend_js_url: str
 ) -> None:
     """Register the dashboard card as a Lovelace module resource."""
     lovelace = hass.data[LOVELACE_DATA]
@@ -63,14 +55,14 @@ async def _async_register_dashboard_resource(
         )
         and resource["url"].split("?", 1)[0].endswith("/card.js")
     ]
-    resource_data = {"res_type": "module", "url": card_js_url}
+    resource_data = {"res_type": "module", "url": frontend_js_url}
     if not matches:
         await resources.async_create_item(resource_data)
         return
 
     current, *duplicates = matches
     if (
-        current["url"] != card_js_url
+        current["url"] != frontend_js_url
         or current.get("type") != "module"
     ):
         await resources.async_update_item(current["id"], resource_data)
@@ -83,16 +75,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     attachment_api.async_register_views(hass)
     frontend_dir = Path(__file__).parent / "frontend"
     translations_dir = Path(__file__).parent / "translations"
-    english_translations = translations_dir / "en.json"
-    frontend_url, _, _ = await _frontend_urls(hass)
     await hass.http.async_register_static_paths(
         [
-            StaticPathConfig(frontend_url, str(frontend_dir), False),
-            StaticPathConfig(
-                ENGLISH_TRANSLATIONS_URL,
-                str(english_translations),
-                False,
-            ),
+            StaticPathConfig(FRONTEND_URL, str(frontend_dir), False),
             StaticPathConfig(
                 TRANSLATIONS_URL, str(translations_dir), False
             ),
@@ -112,13 +97,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(engine.stop)
     entry.async_on_unload(nfc_completion.async_setup_listener(hass, manager))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _, panel_js_url, card_js_url = await _frontend_urls(hass)
-    await _async_register_dashboard_resource(hass, card_js_url)
+    frontend_js_url = await _frontend_url(hass)
+    await _async_register_dashboard_resource(hass, frontend_js_url)
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="tasks-panel",
         frontend_url_path=PANEL_URL.removeprefix("/"),
-        module_url=panel_js_url,
+        module_url=frontend_js_url,
         sidebar_title=PANEL_TITLE,
         sidebar_icon="mdi:clipboard-check-outline",
         require_admin=True,
