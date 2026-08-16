@@ -52,11 +52,16 @@ class TasksStore:
         return deepcopy(self._data)
 
     async def async_export_archive(
-        self,
+        self, task_id: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, bytes]]:
         """Return a consistent current archive and its attachment content."""
         async with self._lock:
-            data = deepcopy(self._data)
+            tasks = (
+                self._data["tasks"]
+                if task_id is None
+                else [self._find_task_in(self._data, task_id)]
+            )
+            data = {"tasks": deepcopy(tasks)}
             attachments = [
                 attachment
                 for task in data["tasks"]

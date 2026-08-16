@@ -306,14 +306,21 @@ class ArchiveView(HomeAssistantView):
         manager = get_manager(request.app["hass"])
         if manager is None:
             raise web.HTTPServiceUnavailable()
-        data, files = await manager.async_export_archive()
+        task_id = request.query.get("task_id")
+        try:
+            data, files = await manager.async_export_archive(task_id)
+        except ValueError as err:
+            if str(err) == "unknown_task":
+                raise web.HTTPNotFound() from err
+            raise
         body = await request.app["hass"].async_add_executor_job(
             _build_archive, data, files
         )
+        filename = "task.zip" if task_id is not None else "tasks-backup.zip"
         return web.Response(
             body=body,
             content_type="application/zip",
-            headers={"Content-Disposition": 'attachment; filename="tasks-backup.zip"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     async def post(self, request: web.Request) -> web.Response:

@@ -166,6 +166,7 @@
     "ui_settings_progress_skipped_many": "{count} tasks skipped ({names})",
     "ui_menu_edit": "Edit",
     "ui_menu_copy": "Copy",
+    "ui_menu_export": "Export",
     "ui_card_description": "Tasks as a compact table",
     "ui_card_multi_selection": "Multiple selection",
     "ui_card_options": "Options",

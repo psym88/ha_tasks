@@ -132,9 +132,9 @@ class TaskManager:
         return self._store.is_due(task, now)
 
     async def async_export_archive(
-        self,
+        self, task_id: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, bytes]]:
-        return await self._store.async_export_archive()
+        return await self._store.async_export_archive(task_id)
 
     async def async_import_archive(
         self,
