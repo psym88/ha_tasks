@@ -329,15 +329,6 @@ async def ws_task_complete(hass, connection, msg, manager):
     connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): "tasks/history/list", vol.Required("task_id"): str})
-@websocket_api.async_response
-@require_manager
-async def ws_history_list(hass, connection, msg, manager):
-    connection.send_result(
-        msg["id"], {"history": manager.history(msg["task_id"])}
-    )
-
-
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "tasks/attachment/urls",
@@ -373,6 +364,5 @@ COMMANDS = (
     ws_task_delete,
     ws_task_preview_next_due,
     ws_task_complete,
-    ws_history_list,
     ws_attachment_urls,
 )

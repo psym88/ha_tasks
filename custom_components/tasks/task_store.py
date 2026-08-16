@@ -411,11 +411,13 @@ class TasksStore:
                         user_name,
                         operation.get("notes"),
                     )
-                else:
+                elif action == "delete":
                     deleted_files.extend(
                         self._delete_task_in(data, task_id)
                     )
                     task = None
+                else:
+                    raise ValueError("unsupported_bulk_action")
                 results.append(
                     {"action": action, "id": task_id, "task": task}
                 )

@@ -29,6 +29,7 @@
     "ui_error_unknown_attachment": "Der Anhang existiert nicht mehr.",
     "ui_error_unknown_history_entry": "Der Verlaufseintrag existiert nicht mehr.",
     "ui_error_unknown_task": "Der Task existiert nicht mehr.",
+    "ui_error_unsupported_bulk_action": "Die ausgewählte Mehrfachaktion wird nicht unterstützt.",
     "ui_error_unsupported_store_version": "Diese gespeicherte Tasks-Datenversion wird nicht unterstützt.",
     "ui_error_unknown": "Ein unerwarteter Fehler ist aufgetreten.",
     "ui_task_name": "Name",

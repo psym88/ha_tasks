@@ -29,6 +29,7 @@
     "ui_error_unknown_attachment": "The attachment no longer exists.",
     "ui_error_unknown_history_entry": "The history entry no longer exists.",
     "ui_error_unknown_task": "The task no longer exists.",
+    "ui_error_unsupported_bulk_action": "The selected bulk action is not supported.",
     "ui_error_unsupported_store_version": "This stored Tasks data version is not supported.",
     "ui_error_unknown": "An unexpected error occurred.",
     "ui_task_name": "Name",
