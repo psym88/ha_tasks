@@ -2,6 +2,6 @@
   "filename": "ha_tasks.zip",
   "name": "Tasks",
   "render_readme": true,
-  "homeassistant": "2026.8.0",
+  "homeassistant": "2026.10.0",
   "zip_release": true
 }

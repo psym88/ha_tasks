@@ -8,7 +8,14 @@ import voluptuous as vol
 from homeassistant.components.llm import LLMTools
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.llm import LLM_API_ASSIST, LLMContext, Tool, ToolInput
+from homeassistant.helpers.llm import (
+    LLM_API_ASSIST,
+    LLMContext,
+    Tool,
+    ToolAnnotations,
+    ToolInput,
+    ToolResult,
+)
 from homeassistant.util import dt as dt_util
 from homeassistant.util.json import JsonObjectType
 
@@ -117,6 +124,29 @@ SCHEDULE = vol.All(
 )
 
 
+READ_ONLY = ToolAnnotations(
+    read_only=True,
+    destructive=False,
+    idempotent=True,
+    open_world=False,
+)
+ADDITIVE = ToolAnnotations(destructive=False, open_world=False)
+IDEMPOTENT_UPDATE = ToolAnnotations(idempotent=True, open_world=False)
+MUTATING = ToolAnnotations(open_world=False)
+
+
+class TasksTool(Tool):
+    """Base for every Tasks tool.
+
+    Home Assistant requires a tool to name the integration that provides it and
+    to prefix its name with that domain plus two underscores. New tools inherit
+    both and only describe how they behave.
+    """
+
+    integration = DOMAIN
+    annotations = MUTATING
+
+
 async def _users(hass: HomeAssistant) -> list[Any]:
     """Return active assignable Home Assistant users."""
     return [
@@ -190,10 +220,12 @@ def _manager(hass: HomeAssistant):
     return manager
 
 
-class ListOpenTasksTool(Tool):
+class ListOpenTasksTool(TasksTool):
     """List active Tasks awaiting their next completion."""
 
-    name = "tasks_list_open"
+    name = "tasks__list_open"
+    title = "List open Tasks"
+    annotations = READ_ONLY
     description = (
         "List active Tasks awaiting their next completion, optionally filtered "
         "by assigned person and by due, today, or the current Monday-Sunday "
@@ -232,7 +264,7 @@ class ListOpenTasksTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Return active tasks."""
         data = self.parameters(tool_input.tool_args)
         users = await _users(hass)
@@ -281,33 +313,37 @@ class ListOpenTasksTool(Tool):
             for task in _manager(hass).tasks
             if matches(task)
         ]
-        return {
-            "current_time": now.isoformat(),
-            "timezone": str(now.tzinfo),
-            "applied_filters": {
-                "assignee": (
-                    "unassigned"
-                    if unassigned
-                    else {
-                        "id": assignee_id,
-                        "name": users_by_id[assignee_id].name or assignee_id,
-                    }
-                    if assignee_id
-                    else None
-                ),
-                "range": data["range"],
-            },
-            "tasks": tasks,
-        }
+        return ToolResult(
+            data={
+                "current_time": now.isoformat(),
+                "timezone": str(now.tzinfo),
+                "applied_filters": {
+                    "assignee": (
+                        "unassigned"
+                        if unassigned
+                        else {
+                            "id": assignee_id,
+                            "name": users_by_id[assignee_id].name or assignee_id,
+                        }
+                        if assignee_id
+                        else None
+                    ),
+                    "range": data["range"],
+                },
+                "tasks": tasks,
+            }
+        )
 
 
-class TaskDetailsTool(Tool):
+class TaskDetailsTool(TasksTool):
     """Return one task and its completion history."""
 
-    name = "tasks_get_details"
+    name = "tasks__get_details"
+    title = "Get Task details"
+    annotations = READ_ONLY
     description = (
         "Get details and completion history for one Task using an exact ID "
-        "returned by tasks_list_open."
+        "returned by tasks__list_open."
     )
     parameters = vol.Schema({vol.Required("task_id"): str})
 
@@ -317,7 +353,7 @@ class TaskDetailsTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Return targeted task details instead of exposing all history."""
         del llm_context
         data = self.parameters(tool_input.tool_args)
@@ -328,18 +364,21 @@ class TaskDetailsTool(Tool):
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task not found") from err
         users = await _users(hass)
-        return {
-            "task": _task_result(task, {user.id: user for user in users}),
-            "history": history,
-        }
+        return ToolResult(
+            data={
+                "task": _task_result(task, {user.id: user for user in users}),
+                "history": history,
+            }
+        )
 
 
-class CompleteTaskTool(Tool):
+class CompleteTaskTool(TasksTool):
     """Complete one Task by its stable ID."""
 
-    name = "tasks_complete"
+    name = "tasks__complete"
+    title = "Complete Task"
     description = (
-        "Complete one Task using the exact ID returned by tasks_list_open. "
+        "Complete one Task using the exact ID returned by tasks__list_open. "
         "Never guess an ID from a task name. Completing is not deleting; never "
         "use this tool when the user asks to delete or remove a Task."
     )
@@ -356,7 +395,7 @@ class CompleteTaskTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Complete a task through the application service."""
         data = self.parameters(tool_input.tool_args)
         manager = _manager(hass)
@@ -383,15 +422,19 @@ class CompleteTaskTool(Tool):
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task could not be completed") from err
         users = await _users(hass)
-        return {
-            "task": _task_result(task, {user.id: user for user in users})
-        }
+        return ToolResult(
+            data={
+                "task": _task_result(task, {user.id: user for user in users})
+            }
+        )
 
 
-class CreateTaskTool(Tool):
+class CreateTaskTool(TasksTool):
     """Create one recurring Task with an explicit schedule."""
 
-    name = "tasks_create"
+    name = "tasks__create"
+    title = "Create Task"
+    annotations = ADDITIVE
     description = (
         "Create a recurring Task only after the user has provided an explicit "
         "schedule. Sliding schedules recur from completion; fixed schedules "
@@ -424,7 +467,7 @@ class CreateTaskTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Create a task through the editor transaction service."""
         data = self.parameters(tool_input.tool_args)
         users = await _users(hass)
@@ -455,21 +498,25 @@ class CreateTaskTool(Tool):
             )
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task could not be created") from err
-        return {
-            "task": _task_result(
-                result["task"], {user.id: user for user in users}
-            )
-        }
+        return ToolResult(
+            data={
+                "task": _task_result(
+                    result["task"], {user.id: user for user in users}
+                )
+            }
+        )
 
 
-class AssignTaskTool(Tool):
+class AssignTaskTool(TasksTool):
     """Assign or unassign one Task."""
 
-    name = "tasks_assign"
+    name = "tasks__assign"
+    title = "Assign Task"
+    annotations = IDEMPOTENT_UPDATE
     description = (
         "Assign one Task to a Home Assistant person by exact name or ID. "
         "Use null to remove the assignment and an exact Task ID from "
-        "tasks_list_open."
+        "tasks__list_open."
     )
     parameters = vol.Schema(
         {
@@ -490,7 +537,7 @@ class AssignTaskTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Update only the assignment through the application service."""
         data = self.parameters(tool_input.tool_args)
         users = await _users(hass)
@@ -514,17 +561,20 @@ class AssignTaskTool(Tool):
             )
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task could not be assigned") from err
-        return {
-            "task": _task_result(task, {user.id: user for user in users})
-        }
+        return ToolResult(
+            data={
+                "task": _task_result(task, {user.id: user for user in users})
+            }
+        )
 
 
-class DeleteTaskTool(Tool):
+class DeleteTaskTool(TasksTool):
     """Delete one Task only after a separate confirmation turn."""
 
-    name = "tasks_delete"
+    name = "tasks__delete"
+    title = "Delete Task"
     description = (
-        "Permanently delete one Task using an exact ID from tasks_list_open. "
+        "Permanently delete one Task using an exact ID from tasks__list_open. "
         "The first call must use confirmed=false and only prepares a specific "
         "confirmation question. Stop and ask the user that question. Only "
         "after the user explicitly confirms may a later call use "
@@ -549,7 +599,7 @@ class DeleteTaskTool(Tool):
         hass: HomeAssistant,
         tool_input: ToolInput,
         llm_context: LLMContext,
-    ) -> JsonObjectType:
+    ) -> ToolResult:
         """Prepare or execute a confirmed permanent deletion."""
         data = self.parameters(tool_input.tool_args)
         context = llm_context.context
@@ -570,14 +620,16 @@ class DeleteTaskTool(Tool):
         now = dt_util.utcnow()
         if not data["confirmed"]:
             pending[key] = now
-            return {
-                "confirmation_required": True,
-                "task": {"id": task["id"], "name": task["name"]},
-                "question": (
-                    f'Do you really want to permanently delete the Task '
-                    f'"{task["name"]}"?'
-                ),
-            }
+            return ToolResult(
+                data={
+                    "confirmation_required": True,
+                    "task": {"id": task["id"], "name": task["name"]},
+                    "question": (
+                        f'Do you really want to permanently delete the Task '
+                        f'"{task["name"]}"?'
+                    ),
+                }
+            )
 
         prepared_at = pending.pop(key, None)
         if prepared_at is None or now - prepared_at > DELETE_CONFIRMATION_TTL:
@@ -588,10 +640,12 @@ class DeleteTaskTool(Tool):
             await manager.async_delete_task(task["id"], context=context)
         except (KeyError, ValueError) as err:
             raise HomeAssistantError("Task could not be deleted") from err
-        return {
-            "deleted": True,
-            "task": {"id": task["id"], "name": task["name"]},
-        }
+        return ToolResult(
+            data={
+                "deleted": True,
+                "task": {"id": task["id"], "name": task["name"]},
+            }
+        )
 
 
 @callback
@@ -612,7 +666,7 @@ def async_get_tools(
         ],
         prompt=(
             "Use the Tasks tools for the Tasks integration. Always call "
-            "tasks_list_open before tasks_complete and use the returned ID. "
+            "tasks__list_open before tasks__complete and use the returned ID. "
             "Due Tasks include overdue Tasks. Always use current_time and "
             "due_status returned by the tool instead of the model's date. "
             "When the user names a person, always pass that name as the "
@@ -623,8 +677,8 @@ def async_get_tools(
             "assignee=unassigned; an assignee value of null means no filter. "
             "Only report Tasks returned by the applied filter, and treat a "
             "Task whose assignee is null as unassigned. "
-            "Never claim that a Task was deleted after tasks_complete. For "
-            "deletion, call tasks_delete with confirmed=false, stop and ask "
+            "Never claim that a Task was deleted after tasks__complete. For "
+            "deletion, call tasks__delete with confirmed=false, stop and ask "
             "the returned question, then call it with confirmed=true only in "
             "a later turn after explicit user confirmation. "
             "After any tool error, state that the requested operation failed; "

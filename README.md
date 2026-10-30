@@ -21,7 +21,7 @@ Tasks adds recurring household tasks to Home Assistant. Tasks can be assigned, s
 
 ## Installation
 
-Tasks requires Home Assistant 2026.8.0 or newer.
+Tasks requires Home Assistant 2026.10.0 or newer.
 
 1. Use the button above, or add `https://github.com/psym88/ha_tasks` to HACS as an **Integration** repository.
 2. Install Tasks and restart Home Assistant.
