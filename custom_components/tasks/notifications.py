@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.components.device_automation import action as device_action
+from homeassistant.components.mobile_app.util import webhook_id_from_device_id
 from homeassistant.const import CONF_DEVICE_ID, CONF_DOMAIN, CONF_TYPE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import TemplateError
@@ -95,6 +96,14 @@ async def async_notify_task_due(
         )
 
     for device_id in task["notification"]["device_ids"]:
+        if webhook_id_from_device_id(hass, device_id) is None:
+            _LOGGER.warning(
+                "Skipping notification for task %s: mobile app device %s no longer"
+                " belongs to a registered app, select the device again in the task",
+                task["name"],
+                device_id,
+            )
+            continue
         try:
             await device_action.async_call_action_from_config(
                 hass,
